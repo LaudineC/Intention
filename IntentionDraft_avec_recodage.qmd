@@ -50,6 +50,7 @@ CompareSamples <-MainDB %>%
     #"The mother did not smoke" = DidNotSmoke1or0,
     #"The mother wants to breastfeed" = BreastFeedIntend1or0, 
     "Household has ever used early childcare" = EverUsedECS1or0,                  # Used: yes/no/ don't wanna answer
+   # "Household can access a computer" = ComputerYN,
     "Mother wants to use early childcare" = PlanToUseECS1or0,                 # Intend to use, block variable
     #  "Knows early childcare is subsidised" = AffordSubsidies1or0,
     #  "Knows only daycare" = KnowsCrecheOnly1or0,
@@ -377,147 +378,23 @@ print(tidy, n = 128)
 ```{r dataset}
 #| echo: false
 
-p_load(here, 
-       skimr, 
-       bonsai)
 
-data <- MainDB %>% filter(!is.na(ECSPlanToBaseline)) %>% mutate(Intention = ifelse(ECSPlanToBaseline == TRUE,"Yes", "Non_NSP")) # the idea db we would be working with in the end
-
+data <- dbMachineLearning %>% filter(!is.na(Intention)) %>% mutate(target = factor(Intention, labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
+ select(-c(Assignment,  ECSApp, ECSUseYes, Intention, KnownNbTypeECS, EntryAgeBeforeOne))
 # Create a subset with the sociodemo and the predictors
-dataset <- MainDB %>%
-  select(
-Intention,  # Dependent variable
-# Baseline characteristics
-Active,     # Active mother
-NumberChildren,
-BirthPlace3,
-AccessInformalFullTime,
-Age,
-Educ3,
-Educ3Dad,
-SingleMum,
-     CoupleCohabiting,
-     ComputerYN ,
-     HighLowECECBaseline ,
-                 Language3,
-                 SmokePreg,
-                 BreastFeedIntend,
-                 BreastFeedLength,
-                 FmlyIncomeBaseline,
-                 IncomeBaseline,
-                 ECSIdealAgeEntryBaseline,
-                 AffordSubsidiesBaseline,
-                 AffordNMCostWBBaseline,
-                 AffordOppCostBaseline,                                                                   # 
-                 AffordNMCostCareerBaseline,
-                 DiscountRate,
-              #   AccessEasyBaseline,    you have it twice
-                 AccessHoursBaseline,
-                 NormsBaseline,
-                 NormsOpposedN,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertReturnHKBaseline,
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                TrustAssMat,
-                TrustCreche,
-TrustFam, 
-TrustFriend,
-                DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing, # DEPRIVATION: do parents struggle to pay for housing?
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline, 
-                Primipare ,
-                Age ,
-                AccessEasy5, 
-                KnowsCreche,
-                KnowsAssMat, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
-
-) %>% # Recode the variables so that there are in the right format
-  mutate(
-    NormsOpposedN = as.numeric(NormsOpposedN), 
-    KnowsCreche = as.factor(KnowsCreche),
-    KnowsAssMat = as.factor(KnowsAssMat), 
-    IdealEntryAge = as.factor(ifelse(ECSIdealAgeEntryBaseline == "Jamais", "Pendant ses trois premiers mois", as.character(ECSIdealAgeEntryBaseline))), # too few observation in the Never categort # it causes prb and I am worried it is collinear with the DV. Most ppl that said no also reponded "jusqu'à la maternelle"
-    BirthPlace3 = as.factor(ifelse(BirthPlace3 == "Je ne souhaite pas répondre", "Else", as.character(BirthPlace3))) # same too few Je ne souhaite pas répondre
-         ) %>%
-  mutate(across(where(is.logical), as.factor)) %>% 
-  mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
-# Add knowledge variables
-
 # Cleaning the data
-work_df <- dataset %>% 
-  mutate(target = factor(Intention, labels = c("No", "Yes"))) %>% # specify the target
-  select(c(target, # we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
-           NormsOpposedN,
-           AffordCostBaseline, 
-           #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
-             #Educ3Dad, 
-           DiscountRate,
-     ComputerYN,
-     AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             DiscountRate,
-             AccessHoursBaseline, 
-   #  Primipare, #to check 
-    # BirthPlace3, 
-    # Active,  
-AccessInformalFullTime,
-#Age,
-#SingleMum, 
-#FmlyIncomeBaseline,
- #               IncomeBaseline,
-                LikertReturnHKBaseline,
-                TrustCreche,
-TrustAssMat,
-                KnowsCreche,
-                KnowsAssMat, 
-     ComputerYN ,
-     HighLowECECBaseline ,
-            #     BreastFeedIntend,
-            #     BreastFeedLength, 
-Language3,
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline,
-             #    AccessEasyBaseline,
-                 NormsBaseline,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                 DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
-#NumberChildren,
-                TrustFam,
-                TrustFriend,
-#   CoupleCohabiting,
-AccessEasy5, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
-))
 
 tidymodels_prefer()
 
 # Take a look at the data with skimr
-s <- skim(work_df)
+s <- skim(data)
 print(s, include_summary = FALSE)
 # We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN, AffordCostBaseline, NumberChildren we may want to impute them
 
 
 # Keep 20% of the observations for the test set.
 set.seed(1451)
-credit_split <- initial_split(work_df, prop = 0.8)
+credit_split <- initial_split(data, prop = 0.8)
 train_df <- training(credit_split)
 test_df <- testing(credit_split)
 
@@ -533,45 +410,42 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_unknown(#Primipare,
                #FmlyIncomeBaseline,
                 # IncomeBaseline, 
-               TrustCreche, 
-               DeprivHolidays,
+               TrustCreche
+               #DeprivHolidays,
                #BreastFeedIntend,
-               InformalReciprocity, 
-             TrustAssMat,
-             TrustFam,
-             TrustFriend,
+               #InformalReciprocity, 
+             #TrustAssMat,
+             #TrustFam,
+             #TrustFriend,
              #CoupleCohabiting,
-             AccessEasy5, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
+            # AccessEasy5, 
+#LevelInfoSubExPost
 ) %>% 
   # We dummify everything
   step_dummy(#Educ3, 
              #Educ3Dad,
-             DiscountRate,
-                          AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             AccessHoursBaseline, 
+            
+             AffordSubsidiesBaseline,
+             AccessHoursBaselineNo, 
+             AccessHoursBaselineYes,
              #BirthPlace3, 
              #FmlyIncomeBaseline,
               #   IncomeBaseline, 
              TrustCreche, 
              LikertReturnHKBaseline, 
-             DeprivHolidays, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
+LevelInfoSubExPost2, 
+LevelComprehensionExPostGoodExcellent
              ) %>% 
   step_impute_knn(NormsOpposedN,  # we impute missing values for the numerical variables using knn
                   AffordCostBaseline,
+                  NormsScore,
+                  Taux.de.couv.global,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline
+                  AffordCostBaseline,
+                  NormsScore
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
@@ -708,140 +582,18 @@ shap %>%
 
 ```{r}
 
-dataApp<- MainDB %>% filter(!is.na(ECSApp)) %>% mutate(Application = ifelse(ECSApp == 1,"Yes", "No")) # the idea db we would be working with in the end
-
-# Create a subset with the sociodemo and the predictors
-dataset <- dataApp %>%
-  select(
-Application,  # Dependent variable
-# Baseline characteristics
-Active,     # Active mother
-NumberChildren,
-BirthPlace3,
-AccessInformalFullTime,
-Age,
-Educ3,
-Educ3Dad,
-SingleMum,
-     CoupleCohabiting,
-     ComputerYN ,
-     HighLowECECBaseline ,
-                 Language3,
-                 SmokePreg,
-                 BreastFeedIntend,
-                 BreastFeedLength,
-                 FmlyIncomeBaseline,
-                 IncomeBaseline,
-                 ECSIdealAgeEntryBaseline,
-                 AffordSubsidiesBaseline,
-                 AffordNMCostWBBaseline,
-                 AffordOppCostBaseline,                                                                   # 
-                 AffordNMCostCareerBaseline,
-                 DiscountRate,
-              #   AccessEasyBaseline,    you have it twice
-                 AccessHoursBaseline,
-                 NormsBaseline,
-                 NormsOpposedN,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertReturnHKBaseline,
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                TrustAssMat,
-                TrustCreche,
-TrustFam, 
-TrustFriend,
-                DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing, # DEPRIVATION: do parents struggle to pay for housing?
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline, 
-                Primipare ,
-                Age ,
-                AccessEasy5, 
-                KnowsCreche,
-                KnowsAssMat, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-
-) %>% # Recode the variables so that there are in the right format
-  mutate(
-    NormsOpposedN = as.numeric(NormsOpposedN), 
-    KnowsCreche = as.factor(KnowsCreche),
-    KnowsAssMat = as.factor(KnowsAssMat), 
-    IdealEntryAge = as.factor(ifelse(ECSIdealAgeEntryBaseline == "Jamais", "Pendant ses trois premiers mois", as.character(ECSIdealAgeEntryBaseline))), # too few observation in the Never categort # it causes prb and I am worried it is collinear with the DV. Most ppl that said no also reponded "jusqu'à la maternelle"
-    BirthPlace3 = as.factor(ifelse(BirthPlace3 == "Je ne souhaite pas répondre", "Else", as.character(BirthPlace3))) # same too few Je ne souhaite pas répondre
-         ) %>%
-  mutate(across(where(is.logical), as.factor)) %>% 
-  mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
-# Add knowledge variables
-
 # Cleaning the data
-work_df <- dataset %>% 
-  mutate(target = factor(Application, labels = c("No", "Yes"))) %>% # specify the target
-  select(c(target, # we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
-           NormsOpposedN,
-           AffordCostBaseline, 
-           #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
-             #Educ3Dad, 
-           DiscountRate,
-     ComputerYN,
-     AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             DiscountRate,
-             AccessHoursBaseline, 
-   #  Primipare, #to check 
-    # BirthPlace3, 
-    # Active,  
-AccessInformalFullTime,
-#Age,
-#SingleMum, 
-#FmlyIncomeBaseline,
- #               IncomeBaseline,
-                LikertReturnHKBaseline,
-                TrustCreche,
-TrustAssMat,
-                KnowsCreche,
-                KnowsAssMat, 
-     ComputerYN ,
-     HighLowECECBaseline ,
-            #     BreastFeedIntend,
-            #     BreastFeedLength, 
-Language3,
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline,
-             #    AccessEasyBaseline,
-                 NormsBaseline,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                 DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
-#NumberChildren,
-                TrustFam,
-                TrustFriend,
-#   CoupleCohabiting,
-AccessEasy5, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-))
-
-tidymodels_prefer()
+work_df <- dbMachineLearning %>% 
+  filter(!is.na(ECSApp)) %>% mutate(Application = ifelse(ECSApp == 1,"Yes", "No")) %>% 
+  mutate(target = factor(Application, labels = c("No", "Yes")), 
+         TrustCreche = ifelse(is.na(TrustCreche == TRUE), "Assez d’accord", as.character(TrustCreche)), # the is 1 na and it crashes everything
+         TrustCreche = as.factor(TrustCreche)) %>% # specify the target
+ select(-c( ECSApp, ECSUseYes, Intention, KnownNbTypeECS, Application))
 
 # Take a look at the data with skimr
 s <- skim(work_df)
 print(s, include_summary = FALSE)
-# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN, AffordCostBaseline, NumberChildren we may want to impute them
+
 
 
 # Keep 20% of the observations for the test set.
@@ -858,46 +610,43 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_unknown(#Primipare,
                #FmlyIncomeBaseline,
                 # IncomeBaseline, 
-               TrustCreche, 
-               DeprivHolidays,
+               #DeprivHolidays,
                #BreastFeedIntend,
-               InformalReciprocity, 
-             TrustAssMat,
-             TrustFam,
-             TrustFriend,
+               #InformalReciprocity, 
+             #TrustAssMat,
+             #TrustFam,
+             #TrustFriend,
              #CoupleCohabiting,
-             AccessEasy5, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
+EntryAgeBeforeOne
 ) %>% 
   # We dummify everything
   step_dummy(#Educ3, 
              #Educ3Dad,
-             DiscountRate,
-                          AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             AccessHoursBaseline, 
+          #  AffordNMCostCareerBaseline             
+            
+             AffordSubsidiesBaseline,
+             AccessHoursBaselineNo, 
+             AccessHoursBaselineYes,
              #BirthPlace3, 
              #FmlyIncomeBaseline,
               #   IncomeBaseline, 
              TrustCreche, 
              LikertReturnHKBaseline, 
-             DeprivHolidays, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-             ) %>% 
+LevelInfoSubExPost2, 
+LevelComprehensionExPostGoodExcellent,
+EntryAgeBeforeOne, 
+NormsBaseline, 
+Assignment) %>% 
   step_impute_knn(NormsOpposedN,  # we impute missing values for the numerical variables using knn
                   AffordCostBaseline,
+                  NormsScore,
+                  Taux.de.couv.global,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline
+                  AffordCostBaseline,
+                  NormsScore
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
@@ -1030,140 +779,17 @@ shap %>%
 
 ```{r}
 
-dataUse<- MainDB %>% filter(!is.na(ECSUseYes)) %>% mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No")) # the idea db we would be working with in the end
-
-# Create a subset with the sociodemo and the predictors
-dataset <- dataUse %>%
-  select(
-Use,  # Dependent variable
-# Baseline characteristics
-Active,     # Active mother
-NumberChildren,
-BirthPlace3,
-AccessInformalFullTime,
-Age,
-Educ3,
-Educ3Dad,
-SingleMum,
-     CoupleCohabiting,
-     ComputerYN ,
-     HighLowECECBaseline ,
-                 Language3,
-                 SmokePreg,
-                 BreastFeedIntend,
-                 BreastFeedLength,
-                 FmlyIncomeBaseline,
-                 IncomeBaseline,
-                 ECSIdealAgeEntryBaseline,
-                 AffordSubsidiesBaseline,
-                 AffordNMCostWBBaseline,
-                 AffordOppCostBaseline,                                                                   # 
-                 AffordNMCostCareerBaseline,
-                 DiscountRate,
-              #   AccessEasyBaseline,    you have it twice
-                 AccessHoursBaseline,
-                 NormsBaseline,
-                 NormsOpposedN,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertReturnHKBaseline,
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                TrustAssMat,
-                TrustCreche,
-TrustFam, 
-TrustFriend,
-                DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing, # DEPRIVATION: do parents struggle to pay for housing?
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline, 
-                Primipare ,
-                Age ,
-                AccessEasy5, 
-                KnowsCreche,
-                KnowsAssMat, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-
-) %>% # Recode the variables so that there are in the right format
-  mutate(
-    NormsOpposedN = as.numeric(NormsOpposedN), 
-    KnowsCreche = as.factor(KnowsCreche),
-    KnowsAssMat = as.factor(KnowsAssMat), 
-    IdealEntryAge = as.factor(ifelse(ECSIdealAgeEntryBaseline == "Jamais", "Pendant ses trois premiers mois", as.character(ECSIdealAgeEntryBaseline))), # too few observation in the Never categort # it causes prb and I am worried it is collinear with the DV. Most ppl that said no also reponded "jusqu'à la maternelle"
-    BirthPlace3 = as.factor(ifelse(BirthPlace3 == "Je ne souhaite pas répondre", "Else", as.character(BirthPlace3))) # same too few Je ne souhaite pas répondre
-         ) %>%
-  mutate(across(where(is.logical), as.factor)) %>% 
-  mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
-# Add knowledge variables
-
-# Cleaning the data
-work_df <- dataset %>% 
-  mutate(target = factor(Use, labels = c("No", "Yes"))) %>% # specify the target
-  select(c(target, # we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
-           NormsOpposedN,
-           AffordCostBaseline, 
-           #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
-             #Educ3Dad, 
-           DiscountRate,
-     ComputerYN,
-     AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             DiscountRate,
-             AccessHoursBaseline, 
-   #  Primipare, #to check 
-    # BirthPlace3, 
-    # Active,  
-AccessInformalFullTime,
-#Age,
-#SingleMum, 
-#FmlyIncomeBaseline,
- #               IncomeBaseline,
-                LikertReturnHKBaseline,
-                TrustCreche,
-TrustAssMat,
-                KnowsCreche,
-                KnowsAssMat, 
-     ComputerYN ,
-     HighLowECECBaseline ,
-            #     BreastFeedIntend,
-            #     BreastFeedLength, 
-Language3,
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline,
-             #    AccessEasyBaseline,
-                 NormsBaseline,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                 DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
-#NumberChildren,
-                TrustFam,
-                TrustFriend,
-#   CoupleCohabiting,
-AccessEasy5, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-))
-
-tidymodels_prefer()
+work_df <- dbMachineLearning %>% filter(!is.na(ECSUseYes)) %>%
+  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No"), 
+         target = factor(Use, labels = c("No", "Yes")), 
+         TrustCreche = ifelse(is.na(TrustCreche == TRUE), "Assez d’accord", as.character(TrustCreche)), # the is 1 na and it crashes everything
+         TrustCreche = as.factor(TrustCreche)) %>% # specify the target
+ select(-c( ECSApp, ECSUseYes, Intention, KnownNbTypeECS, Use))
 
 # Take a look at the data with skimr
 s <- skim(work_df)
 print(s, include_summary = FALSE)
-# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN, AffordCostBaseline, NumberChildren we may want to impute them
+
 
 
 # Keep 20% of the observations for the test set.
@@ -1177,49 +803,43 @@ test_df <- testing(credit_split)
 
 
 rf_recipe <- recipe(target ~ ., data = train_df)  %>%
-  step_unknown(#Primipare,
+   step_unknown(#Primipare,
                #FmlyIncomeBaseline,
                 # IncomeBaseline, 
-               TrustCreche, 
-               DeprivHolidays,
+               #DeprivHolidays,
                #BreastFeedIntend,
-               InformalReciprocity, 
-             TrustAssMat,
-             TrustFam,
-             TrustFriend,
+               #InformalReciprocity, 
+             #TrustAssMat,
+             #TrustFam,
+             #TrustFriend,
              #CoupleCohabiting,
-             AccessEasy5, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
+EntryAgeBeforeOne
 ) %>% 
   # We dummify everything
   step_dummy(#Educ3, 
-             #Educ3Dad,
-             DiscountRate,
-                          AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             AccessHoursBaseline, 
+            AffordSubsidiesBaseline,
+             AccessHoursBaselineNo, 
+             AccessHoursBaselineYes,
              #BirthPlace3, 
              #FmlyIncomeBaseline,
               #   IncomeBaseline, 
              TrustCreche, 
              LikertReturnHKBaseline, 
-             DeprivHolidays, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-             ) %>% 
+LevelInfoSubExPost2, 
+LevelComprehensionExPostGoodExcellent,
+EntryAgeBeforeOne, 
+NormsBaseline, 
+Assignment) %>% 
   step_impute_knn(NormsOpposedN,  # we impute missing values for the numerical variables using knn
                   AffordCostBaseline,
+                  NormsScore,
+                  Taux.de.couv.global, 
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline
+                  AffordCostBaseline,
+                  NormsScore
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
@@ -1354,62 +974,19 @@ shap %>%
 
 library(rio)
 
-lasso_clean <- MainDB %>%
-  filter(!is.na(ECSPlanToBaseline)) %>%
-  mutate(target = as.numeric(ECSPlanToBaseline)) %>% # specify the target
-  select(c(target, # we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
-           NormsOpposedN,
-           AffordCostBaseline, 
-           #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
-             #Educ3Dad, 
-           DiscountRate,
-     ComputerYN,
-     AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             DiscountRate,
-             AccessHoursBaseline, 
-   #  Primipare, #to check 
-    # BirthPlace3, 
-    # Active,  
-AccessInformalFullTime,
-#Age,
-#SingleMum, 
-#FmlyIncomeBaseline,
- #               IncomeBaseline,
-                LikertReturnHKBaseline,
-                TrustCreche,
-TrustAssMat,
-                KnowsCreche,
-                KnowsAssMat, 
-     ComputerYN ,
-     HighLowECECBaseline ,
-            #     BreastFeedIntend,
-            #     BreastFeedLength, 
-Language3,
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline,
-             #    AccessEasyBaseline,
-                 NormsBaseline,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                 DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
-#NumberChildren,
-                TrustFam,
-                TrustFriend,
-#   CoupleCohabiting,
-AccessEasy5, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
-)) %>%      mutate(across(where(is.logical), as.numeric)) 
 
+lasso_clean <- dbMachineLearning %>% filter(!is.na(Intention)) %>% 
+  mutate(target = as.numeric(Intention) - 1) %>%
+  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Assez d’accord" |TrustCreche == "Très d’accord" , TRUE, FALSE)),
+         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Assez en désaccord" |TrustCreche == "Très en désaccord" , TRUE, FALSE))
+         ) %>%  # the idea db we would be working with in the end
+ select(-c(Assignment, IdealEntryAge, ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+# Create a subset with the sociodemo and the predictors
+# Cleaning the data
+# Take a look at the data with skimr
+s <- skim(lasso_clean)
+print(s, include_summary = FALSE)
 
 
 
@@ -1424,32 +1001,35 @@ lasso_test <- testing(lasso_split)
 
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = lasso_train) %>%
-  step_unknown(#Primipare,
-               #FmlyIncomeBaseline,
-                # IncomeBaseline, 
-               TrustCreche, 
-               DeprivHolidays,
-               #BreastFeedIntend,
-               InformalReciprocity, 
-             TrustAssMat,
-             TrustFam,
-             TrustFriend,
-             #CoupleCohabiting,
-             AccessEasy5, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
-) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+# # We dummify everything
+# step_dummy(#Educ3, 
+#            #Educ3Dad,
+#           
+#            AffordSubsidiesBaseline,
+#            #BirthPlace3, 
+#            #FmlyIncomeBaseline,
+#             #   IncomeBaseline, 
+#            TrustCreche, 
+#            LikertReturnHKBaseline, 
+#evelInfoSubExPost             ) %>%
+    step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
-   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
-   # Supprimer les variables à variance nulle
-  # Normaliser les prédicteurs numériques
+    step_impute_knn(NormsOpposedN,  # we impute missing values for the numerical variables using knn
+                  AffordCostBaseline,
+                  NormsScore,
+                  TrustCrecheYes, 
+                  TrustCrecheNo,
+             #     BreastFeedLength,
+              #    NumberChildren,
+                  neighbors = 5) %>% 
   step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline
+                  AffordCostBaseline,
+                  NormsScore
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
 
 # Model specification
 lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
@@ -1532,6 +1112,111 @@ new_fit %>%
   bind_cols(lasso_test) %>%
   metrics(truth = target, estimate = .pred)
 
+
+## POST LASSO 
+
+lasso_var <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+# Apply the recipe without normalization (simplified)
+model_recipe_post <- recipe(target ~ ., data = lasso_train) %>%
+# # We dummify everything
+# step_dummy(#Educ3, 
+#            #Educ3Dad,
+#           
+#            AffordSubsidiesBaseline,
+#            #BirthPlace3, 
+#            #FmlyIncomeBaseline,
+#             #   IncomeBaseline, 
+#            TrustCreche, 
+#            LikertReturnHKBaseline, 
+#evelInfoSubExPost             ) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+   step_impute_knn(all_numeric_predictors(), neighbors = 5)
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe_post) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+library(broom)      # Pour tidy()
+library(dplyr)      # Pour manipuler les données
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+# Générer un joli tableau pour Word
+coefficients_table %>%
+  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+        caption = "Tableau des coefficients du modèle Lasso") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(post_lasso_model,
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable')
 ```
 
 ## Application

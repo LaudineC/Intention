@@ -21,7 +21,9 @@ p_load(here,
        spData,                    # Spatial data
        flextable,                   # Rmarkdown tables pretty good with word exports (and other formats)
        fixest,
-       glmnet)
+       glmnet, 
+       skimr, 
+       bonsai)
 #
 ## Packages for importing, storing and manipulating data
 #

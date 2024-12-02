@@ -139,7 +139,18 @@ MainDB <- MainDB %>% mutate(BirthNotAsiaMENA = ifelse((as.character(BirthPlace) 
                               is.na(ECSType6Endline) == FALSE, as.character(ECSType6Endline),as.character(InformalCareType)), 
                             ChildcareTypeBaseline = ifelse(
                               is.na(ECSType7) == FALSE, as.character(ECSType7),"Maternal Care"
-                            )
+                            ), 
+                            NormsWork=factor(NormsWork,
+                                             levels=c("En désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","D’accord"), 
+                                             ordered = TRUE # how many mothers in their surroundings use childcare 
+                            ), 
+                            NormsHouse=factor(NormsHouse,
+                                             levels=c("En désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","D’accord"), 
+                                             ordered = TRUE # how many mothers in their surroundings use childcare 
+                            ), 
+                            NormsWorkNum = as.numeric(NormsWork),
+                            NormsHouseNum = as.numeric(NormsHouse),
+                            NormsScore = (NormsWorkNum + NormsHouseNum)/2,
                             )
 
 Control = MainDB %>% filter(Assignment == "Control")
@@ -349,20 +360,21 @@ rm(SocDemo, SocDemo.c, SocDemoId,
    Incomes, IncomesId, Incomes.c,
    Knows, KnowsId, Knows.c) 
 
-
+#---- MainDBMachineLearning ----
 dbMachineLearning <- MainDB %>%# we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
-  select(c(ECSPlanToBaseline, 
+  select(c(Intention, 
+           ECSApp, 
+           ECSUseYes,
            AffordCostBaseline, 
            #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
            #Educ3Dad, 
            NormsOpposedN,
            Discount501or0,
-           Discount801or0,
            ComputerYN,
            AffordSubsidiesBaseline,
            AffordNMCostWBNegativeBaseline,
            AffordOppCostNegativeBaseline,
-           AffordNMCostCareerBaseline,
+           AffordNMCostCareerNegativeBaseline,
            AccessHoursBaseline, 
            #  Primipare, #to check 
            # BirthPlace3, 
@@ -374,33 +386,80 @@ dbMachineLearning <- MainDB %>%# we select the variables that we want. Check tha
            #IncomeBaseline,
            LikertReturnHKBaseline,
            TrustCreche,
-           TrustAssMat,
-           KnowsCreche,
-           KnowsAssMat, 
+          # KnowsCreche,
            ComputerYN ,
-           HighLowECECBaseline ,
+         #  HighLowECECBaseline ,
            #     BreastFeedIntend,
            #     BreastFeedLength, 
-           Language3,
-           InformalReciprocity, # Do the parents already take care of the children of others
+           #Language3,
+          # InformalReciprocity, # Do the parents already take care of the children of others
            AffordCostDK, 
            AffordCostBaseline,
            #    AccessEasyBaseline,
            NormsBaseline,
-           LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-           LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-           DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-           DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-           DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-           DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-           DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
+          # LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
+          # LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
+          # DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
+          # DeprivFood, # DEPRIVATION: do parents struggle to buy food?
+          # DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
+          # DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
+          # DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
            #NumberChildren,
-           TrustFam,
-           TrustFriend,
+           #TrustFam,
+           #TrustFriend,
            #   CoupleCohabiting,
            AccessEasy5, 
-           NormsHouse, 
-           NormsWork, 
-           LevelInfoSubExPost
-  )) %>%      mutate(across(where(is.logical), as.numeric)) 
+          NormsScore,
+           LevelInfoSubExPost, 
+          KnownNbTypeECS, 
+          LevelComprehensionExPost, 
+          Assignment, 
+          ECSIdealAgeEntryBaseline, 
+          AccessHoursBaseline, 
+          Taux.de.couv.global
+  )) %>% # Recode the variables so that there are in the right format
+  mutate(
+    NormsOpposedN = as.numeric(NormsOpposedN), 
+  #  KnowsCreche = as.factor(KnowsCreche),
+   # KnowsAssMat = as.factor(KnowsAssMat), 
+    IdealEntryAge = as.factor(ifelse(ECSIdealAgeEntryBaseline == "Jamais", "Pendant ses trois premiers mois",
+                                     as.character(ECSIdealAgeEntryBaseline))), # too few observation in the Never categort # it causes prb and I am worried it is collinear with the DV. Most ppl that said no also reponded "jusqu'à la maternelle"
+   # BirthPlace3 = as.factor(ifelse(BirthPlace3 == "Je ne souhaite pas répondre", "Else", as.character(BirthPlace3))) # same too few Je ne souhaite pas répondre
+  AccessHoursBaselineNo = ifelse(AccessHoursBaseline == "Non", TRUE, FALSE), 
+  AccessHoursBaselineYes = ifelse((AccessHoursBaseline == "Oui" | AccessHoursBaseline == "Non, mais on prendra un autre mode de garde en plus"), 
+                                  TRUE, FALSE),
+  LevelComprehensionExPostGoodExcellent = ifelse(LevelComprehensionExPost == "pas de doutes sur la compréhension des questions",
+                                                 TRUE, FALSE ),
+  LevelInfoSubExPost2 = ifelse((LevelInfoSubExPost == "Aucun ou très bas"|LevelInfoSubExPost == "Basique") , 
+                               "Low knowledge", "High knowledge"),
+  EntryAgeBeforeOne = ifelse((IdealEntryAge == "Pendant ses trois premiers mois" | IdealEntryAge == "Pendant ses six premiers mois" | 
+                                IdealEntryAge == "Pendant ses neuf premiers mois"), "Before One", "After One"),
+  LikertReturnHKBaseline = case_when(
+    LikertReturnHKBaseline == "Très en désaccord" ~ "Disagree",
+    LikertReturnHKBaseline == "Assez en désaccord" ~ "Disagree",
+    LikertReturnHKBaseline == "Je ne sais pas" ~ "Neutral",
+    LikertReturnHKBaseline == "Assez d’accord" ~ "Agree",
+    LikertReturnHKBaseline == "Très d’accord" ~ "Agree"
+  ),
+  NormsBaseline = case_when(
+    NormsBaseline == "Ne sait pas" ~ "Unknown",
+    NormsBaseline == "Aucune" ~ "A minority to none",
+    NormsBaseline == "Une minorité" ~ "A minority to none",
+    NormsBaseline == "Moitié moitié" ~ "Half-Half",
+    NormsBaseline == "La plupart" ~ "Most to All",
+    NormsBaseline == "Toutes" ~ "Most to All"
+  ), 
+  TrustCreche = case_when(
+    TrustCreche == "Très en désaccord" ~ "Disagree",
+    TrustCreche == "Assez en désaccord" ~ "Disagree",
+    TrustCreche == "Je ne sais pas" ~ "Neutral",
+    TrustCreche == "Assez d’accord" ~ "Agree",
+    TrustCreche == "Très d’accord" ~ "Agree"
+  )
+  
+  )%>%
+  select(-c(AccessHoursBaseline, LevelComprehensionExPost, ECSIdealAgeEntryBaseline, LevelInfoSubExPost, IdealEntryAge)) %>% # remove the original variables
+  mutate(across(where(is.logical), as.factor)) %>% 
+  mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
+# Add knowledge variables
 
