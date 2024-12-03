@@ -502,7 +502,8 @@ MLDummified <- dbMachineLearning %>%
                   ComputerYN, 
                  # AffordCostBaseline, 
                 #  NormsScore, 
-                  KnownNbTypeECS 
+                  KnownNbTypeECS, 
+                AffordSubsidiesBaseline
                   )) %>% 
   mutate(across(where(is.logical), as.factor)) %>% 
   mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels

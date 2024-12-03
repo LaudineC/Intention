@@ -14,13 +14,10 @@ editor_options:
 
 library(rio)
 
-db_clean <- dbMachineLearning %>%
+db_clean <- MLDummified %>%
   filter(!is.na(Intention)) %>%
   mutate(target = as.numeric(Intention) -1) %>% 
-   mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
-         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
-         ) %>%  # the idea db we would be working with in the end
- select(-c(Assignment,  ECSApp, ECSUseYes, Intention, KnownNbTypeECS, EntryAgeBeforeOne, TrustCreche, TrustCrecheNo))
+ select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne))
 
 # Take a look at the data with skimr
 s <- skim(db_clean)
@@ -37,28 +34,14 @@ test <- testing(split)
 
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = train) %>%
-  # We dummify everything
- step_dummy(#Educ3, 
-             #Educ3Dad,
-             AffordSubsidiesBaseline,
-             AccessHoursBaselineNo, 
-             AccessHoursBaselineYes,
-             #BirthPlace3, 
-             #FmlyIncomeBaseline,
-              #   IncomeBaseline, 
-             #TrustCreche, 
-             LikertReturnHKBaseline, 
-LevelInfoSubExPost2, 
-LevelComprehensionExPostGoodExcellent
-             ) %>% 
-  step_impute_knn(NormsOpposedN,  # we impute missing values for the numerical variables using knn
+  step_impute_knn(  # we impute missing values for the numerical variables using knn
                   AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
-  step_YeoJohnson(NormsOpposedN, 
+  step_YeoJohnson( 
                   AffordCostBaseline,
                   NormsScore
                   #BreastFeedLength,
@@ -432,11 +415,6 @@ work_df <- MLDummified %>%
   mutate(target = factor(Application, labels = c("No", "Yes"))
   ) %>% 
  select(-c( ECSApp, ECSUseYes, Intention, Application))
-
-# Take a look at the data with skimr
-s <- skim(work_df)
-print(s, include_summary = FALSE)
-
 
 
 # Keep 20% of the observations for the test set.
@@ -941,13 +919,13 @@ shap %>%
 library(rio)
 
 
-lasso_clean <- dbMachineLearning %>% filter(!is.na(Intention)) %>% 
+lasso_clean <- MLDummified %>% filter(!is.na(Intention)) %>% 
   mutate(target = as.numeric(Intention) - 1) %>%
-  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
-         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
-         ) %>%  # the idea db we would be working with in the end
- select(-c(Assignment, ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche, Taux.de.couv.global,EntryAgeBeforeOne, TrustCrecheNo ))%>%      
+ select(-c(Assignment, ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne))%>%      
   mutate(across(where(is.logical), as.numeric)) 
+
+# Cleaning the data
+
 # Create a subset with the sociodemo and the predictors
 # Cleaning the data
 # Take a look at the data with skimr
@@ -969,15 +947,14 @@ lasso_test <- testing(lasso_split)
 model_recipe <- recipe(target ~ ., data = lasso_train) %>%
     step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
-    step_impute_knn(NormsOpposedN,  # we impute missing values for the numerical variables using knn
+    step_impute_knn(Taux.de.couv.global,  # we impute missing values for the numerical variables using knn
                   AffordCostBaseline,
                   NormsScore,
-                  TrustCrecheYes, 
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
   step_normalize(all_numeric_predictors()) %>%
-  step_YeoJohnson(NormsOpposedN, 
+  step_YeoJohnson( 
                   AffordCostBaseline,
                   NormsScore
                   #BreastFeedLength,
