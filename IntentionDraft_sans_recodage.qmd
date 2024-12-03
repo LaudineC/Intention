@@ -73,7 +73,7 @@ summary_baseline_variables_endline <- CompareSamples %>%
     digits = all_continuous() ~ 2,
     missing = "no"
   ) %>%
-  add_overall() %>%
+  add_overall() %>%all
   add_p(pvalue_fun = ~ style_pvalue(.x, digits = 3)) %>% 
   add_q(method = "fdr", pvalue_fun = ~ style_pvalue(.x, digits = 3)) %>% 
   add_significance_stars(thresholds = c(0.01, 0.05, 0.1)) %>%
