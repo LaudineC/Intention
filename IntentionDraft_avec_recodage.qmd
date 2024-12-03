@@ -659,7 +659,7 @@ root_counts <- roots_data %>%
 
 # Filter out roots with counts greater than 75
 filtered_root_counts <- root_counts %>% 
-  filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+  filter(n > 10) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
 
 # Arrange the data in descending order of counts
 sorted_root_counts <- filtered_root_counts %>% 
