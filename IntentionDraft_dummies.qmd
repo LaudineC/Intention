@@ -128,7 +128,149 @@ modelsummary(reg_fit,
 
 ```
 
+## Application
+
+```{r regression}
+library(rio)  
+db_clean <- MLDummified %>%   
+  filter(!is.na(ECSApp)) %>%
+  mutate(target = as.numeric(ECSApp)) %>% 
+  select(-c(Assignment,  ECSApp, ECSUseYes, Intention))  # Take a look at the data with skimr 
+
+s <- skim(db_clean) 
+print(s, include_summary = FALSE)  
+# Preparation 
+## Split the sample 
+library(tidymodels) 
+tidymodels_prefer()
+set.seed(10) 
+split <- initial_split(db_clean, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+model_recipe <- recipe(target ~ ., data = train) %>%   
+  step_zv() %>%
+  step_impute_knn(AffordCostBaseline,                   
+                  NormsScore,                   
+                  Taux.de.couv.global,            
+                  neighbors = 5) %>%   
+  step_YeoJohnson(AffordCostBaseline,                   
+                  NormsScore                   
+                  )
+
+ reg_model <-   linear_reg() %>%   
+   set_mode("regression") %>%   
+   set_engine("lm")   # no fit command, because that's part of the recipe  
+ reg_flow <-    workflow() %>% 
+   add_model(reg_model) %>% # we add the model   
+   add_recipe(model_recipe) # we add the recipe  
+ 
+ # Fitting the model to the training data 
+ reg_fit <- fit(reg_flow, train) # fits happy flow to the training data 
+ tidy(reg_fit) 
+ 
+ # Evaluating the model 
+ reg_fit %>%   predict(test) %>%   
+   bind_cols(test) %>%   
+   metrics(truth = target, estimate = .pred) # to know how well it performed 
+ # rmse: we aspired to 0  
+ # rsq: we aspired to 1
+ # mae: we aspired to 0  ## On the full sample  
+ 
+ # Fitting the model to the whole data
+ reg_fit <- fit(reg_flow, db_clean) #  
+ print(tidy, n = 128)   
+ library(broom)      # Pour tidy() library(knitr)      # Pour knitr::kable 
+ library(kableExtra) # Pour styliser les tableaux 
+ library(modelsummary)  # We want a nice table with ordered coefficents  
+ 
+ # Sort  coefficients 
+ sorted_coefficients <- tidy(reg_fit) %>%   arrange(desc(abs(estimate)))  # create a vector with sorted names  
+ sorted_names <- sorted_coefficients$term   
+ # 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary 
+ modelsummary(reg_fit,             
+              coef_map = sorted_names,              
+              statistic = "{std.error} ({p.value})",              
+              estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",            
+              #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales              
+              stars = c("***"=.01,"**"=.05,"*"=.1),               
+              output = 'flextable')  
+```
+
+## Access
+
+```{r regression}
+library(rio)  
+db_clean <- MLDummified %>%   
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes)) %>% 
+  select(-c(Assignment,  ECSApp, ECSUseYes, Intention))  # Take a look at the data with skimr 
+
+s <- skim(db_clean) 
+print(s, include_summary = FALSE)  
+# Preparation 
+## Split the sample 
+library(tidymodels) 
+tidymodels_prefer()
+set.seed(10) 
+split <- initial_split(db_clean, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+model_recipe <- recipe(target ~ ., data = train) %>%   
+  step_zv() %>%
+  step_impute_knn(AffordCostBaseline,                   
+                  NormsScore,                   
+                  Taux.de.couv.global,            
+                  neighbors = 5) %>%   
+  step_YeoJohnson(AffordCostBaseline,                   
+                  NormsScore                   
+                  )
+
+ reg_model <-   linear_reg() %>%   
+   set_mode("regression") %>%   
+   set_engine("lm")   # no fit command, because that's part of the recipe  
+ reg_flow <-    workflow() %>% 
+   add_model(reg_model) %>% # we add the model   
+   add_recipe(model_recipe) # we add the recipe  
+ 
+ # Fitting the model to the training data 
+ reg_fit <- fit(reg_flow, train) # fits happy flow to the training data 
+ tidy(reg_fit) 
+ 
+ # Evaluating the model 
+ reg_fit %>%   predict(test) %>%   
+   bind_cols(test) %>%   
+   metrics(truth = target, estimate = .pred) # to know how well it performed 
+ # rmse: we aspired to 0  
+ # rsq: we aspired to 1
+ # mae: we aspired to 0  ## On the full sample  
+ 
+ # Fitting the model to the whole data
+ reg_fit <- fit(reg_flow, db_clean) #  
+ print(tidy, n = 128)   
+ library(broom)      # Pour tidy() library(knitr)      # Pour knitr::kable 
+ library(kableExtra) # Pour styliser les tableaux 
+ library(modelsummary)  # We want a nice table with ordered coefficents  
+ 
+ # Sort  coefficients 
+ sorted_coefficients <- tidy(reg_fit) %>%   arrange(desc(abs(estimate)))  # create a vector with sorted names  
+ sorted_names <- sorted_coefficients$term   
+ # 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary 
+ modelsummary(reg_fit,             
+              coef_map = sorted_names,              
+              statistic = "{std.error} ({p.value})",              
+              estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",            
+              #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales              
+              stars = c("***"=.01,"**"=.05,"*"=.1),               
+              output = 'flextable')  
+```
+
+# 
+
 # Machine Learning
+
+## Intention
 
 ```{r dataset}
 #| echo: false
@@ -912,7 +1054,9 @@ shap %>%
   theme_bw()
 ```
 
-## The Lasso
+# The Lasso
+
+## Intention
 
 ```{r}
 
@@ -1624,6 +1768,1732 @@ modelsummary(post_lasso_model,
 
 ```
 
+
+
+---------------------
+# Dummified all with Norms and costs
+
+
+# Regression globale
+
+## Intention
+
+```{r regression}
+
+library(rio)
+
+db_clean <- MLDummifiedALL %>%
+  filter(!is.na(Intention)) %>%
+  mutate(target = as.numeric(Intention) -1) %>% 
+ select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne))
+
+# Take a look at the data with skimr
+s <- skim(db_clean)
+print(s, include_summary = FALSE)
+
+# Preparation
+## Split the sample
+library(tidymodels)
+tidymodels_prefer()
+set.seed(10)
+split <- initial_split(db_clean, prop = 0.8)
+train <- training(split)
+test <- testing(split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = train) %>%
+  step_unknown(ProgressiveNorms, 
+               ThinkCostBelow500, 
+               CoverageAboveAverage
+               )
+# %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+ #   step_zv() %>%
+ #  step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+ #  # Supprimer les variables à variance nulle
+ # # Normaliser les prédicteurs numériques
+ # step_normalize(all_numeric_predictors()) %>%
+ # step_YeoJohnson(NormsOpposedN, 
+ #                 AffordCostBaseline
+ #                 #BreastFeedLength,
+ #                 #NumberChildren
+ #                 ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+reg_model <-
+  linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+
+
+# no fit command, because that's part of the recipe
+
+reg_flow <- 
+  workflow() %>% # it's a workflow, it's a way of organizing the steps of the model. It's empty. You have to add a model then a receipe
+  add_model(reg_model) %>% # we add the model
+  add_recipe(model_recipe) # we add the recipe
+
+# Fitting the model to the training data
+reg_fit <- fit(reg_flow, train) # fits happy flow to the training data
+tidy(reg_fit) # it looks different compared to the previous model, but we imputed the NA and we standardised the coefficients so 
+# it's a different metric
+
+# we can also use the model to make predictions on the test set
+
+# Evaluating the model
+reg_fit %>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  metrics(truth = target, estimate = .pred) # to know how well it performed
+# rmse: we aspired to 0 
+# rsq: we aspired to 1
+# mae: we aspired to 0
+
+## On the full sample
+
+# Fitting the model to the whole data
+reg_fit <- fit(reg_flow, db_clean) # 
+
+print(tidy, n = 128)
+
+
+library(broom)      # Pour tidy()
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+library(modelsummary)
+
+# We want a nice table with ordered coefficents 
+# Sort  coefficients
+sorted_coefficients <- tidy(reg_fit) %>%
+  arrange(desc(abs(estimate)))
+
+# create a vector with sorted names 
+sorted_names <- sorted_coefficients$term
+
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(reg_fit,
+            coef_map = sorted_names,
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable')
+
+
+```
+
 ## Application
 
+```{r regression}
+library(rio)  
+db_clean <- MLDummifiedALL %>%   
+  filter(!is.na(ECSApp)) %>%
+  mutate(target = as.numeric(ECSApp)) %>% 
+  select(-c(Assignment,  ECSApp, ECSUseYes, Intention))  # Take a look at the data with skimr 
+
+s <- skim(db_clean) 
+print(s, include_summary = FALSE)  
+# Preparation 
+## Split the sample 
+library(tidymodels) 
+tidymodels_prefer()
+set.seed(10) 
+split <- initial_split(db_clean, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+model_recipe <- recipe(target ~ ., data = train) %>%   
+    step_unknown( 
+               ThinkCostBelow500, 
+               CoverageAboveAverage, 
+               EntryAgeBeforeOne
+               )
+
+ reg_model <-   linear_reg() %>%   
+   set_mode("regression") %>%   
+   set_engine("lm")   # no fit command, because that's part of the recipe  
+ reg_flow <-    workflow() %>% 
+   add_model(reg_model) %>% # we add the model   
+   add_recipe(model_recipe) # we add the recipe  
+ 
+ # Fitting the model to the training data 
+ reg_fit <- fit(reg_flow, train) # fits happy flow to the training data 
+ tidy(reg_fit) 
+ 
+ # Evaluating the model 
+ reg_fit %>%   predict(test) %>%   
+   bind_cols(test) %>%   
+   metrics(truth = target, estimate = .pred) # to know how well it performed 
+ # rmse: we aspired to 0  
+ # rsq: we aspired to 1
+ # mae: we aspired to 0  ## On the full sample  
+ 
+ # Fitting the model to the whole data
+ reg_fit <- fit(reg_flow, db_clean) #  
+ print(tidy, n = 128)   
+ library(broom)      # Pour tidy() library(knitr)      # Pour knitr::kable 
+ library(kableExtra) # Pour styliser les tableaux 
+ library(modelsummary)  # We want a nice table with ordered coefficents  
+ 
+ # Sort  coefficients 
+ sorted_coefficients <- tidy(reg_fit) %>%   arrange(desc(abs(estimate)))  # create a vector with sorted names  
+ sorted_names <- sorted_coefficients$term   
+ # 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary 
+ modelsummary(reg_fit,             
+              coef_map = sorted_names,              
+              statistic = "{std.error} ({p.value})",              
+              estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",            
+              #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales              
+              stars = c("***"=.01,"**"=.05,"*"=.1),               
+              output = 'flextable')  
+```
+
 ## Access
+
+```{r regression}
+library(rio)  
+db_clean <- MLDummified %>%   
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes)) %>% 
+  select(-c(Assignment,  ECSApp, ECSUseYes, Intention))  # Take a look at the data with skimr 
+
+s <- skim(db_clean) 
+print(s, include_summary = FALSE)  
+# Preparation 
+## Split the sample 
+library(tidymodels) 
+tidymodels_prefer()
+set.seed(10) 
+split <- initial_split(db_clean, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+model_recipe <- recipe(target ~ ., data = train) %>%   
+    step_unknown( 
+               ThinkCostBelow500, 
+               CoverageAboveAverage, 
+               EntryAgeBeforeOne
+               )
+
+ reg_model <-   linear_reg() %>%   
+   set_mode("regression") %>%   
+   set_engine("lm")   # no fit command, because that's part of the recipe  
+ reg_flow <-    workflow() %>% 
+   add_model(reg_model) %>% # we add the model   
+   add_recipe(model_recipe) # we add the recipe  
+ 
+ # Fitting the model to the training data 
+ reg_fit <- fit(reg_flow, train) # fits happy flow to the training data 
+ tidy(reg_fit) 
+ 
+ # Evaluating the model 
+ reg_fit %>%   predict(test) %>%   
+   bind_cols(test) %>%   
+   metrics(truth = target, estimate = .pred) # to know how well it performed 
+ # rmse: we aspired to 0  
+ # rsq: we aspired to 1
+ # mae: we aspired to 0  ## On the full sample  
+ 
+ # Fitting the model to the whole data
+ reg_fit <- fit(reg_flow, db_clean) #  
+ print(tidy, n = 128)   
+ library(broom)      # Pour tidy() library(knitr)      # Pour knitr::kable 
+ library(kableExtra) # Pour styliser les tableaux 
+ library(modelsummary)  # We want a nice table with ordered coefficents  
+ 
+ # Sort  coefficients 
+ sorted_coefficients <- tidy(reg_fit) %>%   arrange(desc(abs(estimate)))  # create a vector with sorted names  
+ sorted_names <- sorted_coefficients$term   
+ # 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary 
+ modelsummary(reg_fit,             
+              coef_map = sorted_names,              
+              statistic = "{std.error} ({p.value})",              
+              estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",            
+              #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales              
+              stars = c("***"=.01,"**"=.05,"*"=.1),               
+              output = 'flextable')  
+```
+
+
+
+# Machine Learning
+
+## Intention
+
+```{r dataset}
+#| echo: false
+
+
+data <- MLDummifiedALL %>% filter(!is.na(Intention)) %>% mutate(target = factor(Intention, labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
+ select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne))
+# Create a subset with the sociodemo and the predictors
+# Cleaning the data
+
+tidymodels_prefer()
+
+# Take a look at the data with skimr
+s <- skim(data)
+print(s, include_summary = FALSE)
+# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN, AffordCostBaseline, NumberChildren we may want to impute them
+
+
+# Keep 20% of the observations for the test set.
+set.seed(1451)
+credit_split <- initial_split(data, prop = 0.8)
+train_df <- training(credit_split)
+test_df <- testing(credit_split)
+
+```
+
+```{r ML}
+#| echo: false
+
+# Our recipe. Our task is a classification task because our taget is a categorical variable. 
+# step_unkown turns NAs into "unknown" becuse tidymodels and our algo do not like NAs
+
+rf_recipe <- recipe(target ~ ., data = train_df)  %>%
+    step_unknown( 
+               ThinkCostBelow500, 
+               CoverageAboveAverage               
+               ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+## RUN THE RANDOM FOREST
+
+# In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
+rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+                       trees = 10, # if I tune it, it takes forever to run
+                       min_n = tune()) %>%
+  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
+  set_engine("partykit")
+
+
+# Flooow: specify what transformations (recipe) will be done and what algo will be fitted in a first step
+initial_flow <- workflow() %>% # create the initial workflow
+  add_recipe(rf_recipe) %>%
+  add_model(rf_spec)
+
+
+# The argument finalize is key because tidymodels needs to look
+# at the data to figure out how many features there are.
+
+# We need to tell tidymodels which parameters need to be tuned. It can conveniently be done with this chunk of code
+
+# In this version we are not tuning the number of trees, but we could.
+# We tune mtry and min_n the number of obs in each terminal leaves (you don't want one leaf == 1 obs that's overfitting)
+# mtry is the number of features that are randomly selected at each split. It is a good idea to tune it because it can have a big impact on the performance of the model
+# Doing this is an argument if I have a lot of predictors/features. At each round, it is only a subsample of predictors that is used. 
+rf_para <- extract_parameter_set_dials(rf_spec) %>% # extract the tuning parameters
+  finalize(train_df) # here we have only 2 because we set trees to 100 not tune()
+# finalize(train): we need to know the maximum number of features we could fit because it has not looked at the data yet
+# it tells tidymodel that he can look at the data quickly to see how many features there are in the data
+
+set.seed(20) # for reproducibility
+
+# Set the tuning grid
+# The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
+rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
+                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                variogram_range = 0.75, # explore the space of the hyperparameters
+                                original = TRUE)
+set.seed(30)
+
+# Set the cross validation. 
+# Ideally, we would need to do repetitions of the cross validation to increase the robustness of the results. 
+# Do this in the final version with the repeats = 10 argument
+# it will create 9 training folds and 1 validation fold. It will do this 10 times.
+cv_folds <- vfold_cv(train_df, v = 10, strata = target) # stratified CV
+
+# Set the metrics used: accuracy or cohen's kappa or F1 for a classification task (or AUC)
+rf_metrics <- metric_set(accuracy) # classification task
+
+doParallel::registerDoParallel() # used parallel cores to run the computation
+
+# tune the model, with the cross validation method defined, the grid and the metrics you set
+rf_tune <- initial_flow %>%
+  tune_grid(cv_folds, grid = rf_grid, metrics = rf_metrics)
+
+
+# select the best parameters for the model the tuning found
+rf_best <- select_best(rf_tune)
+rf_best# Trees again with X features at each time and X obs at terminal leaves
+# 34 features, and 19 obs in terminal leaves
+
+# Update the model with the best parameters found
+rf_updated <- finalize_model(rf_spec,
+                             rf_best) 
+
+# add this to the initial workflow
+workflow_new <- initial_flow %>%
+  update_model(rf_updated)
+
+# Fit the model on the training set
+rf_fit_final <- workflow_new %>%
+  fit(data = train_df) # fit on the training set
+
+# Fit the model on the test set to evaluate performance
+# Performance on the test set
+rf_fit_final %>%
+  predict(test_df) %>%
+  bind_cols(test_df) %>%
+  metrics(truth = target, estimate = .pred_class)
+# the accuracy is great but the kappa not that much (average)
+# see if tuning the trees improve this in the future
+
+
+
+```
+
+```{r NodeImportance}
+
+# NODE IMPORTANCE
+# You need to give up on partykit to get some info on variable importance, so we have to do it again
+
+rf_recipe <- recipe(target ~ ., data = train_df)  %>%
+    step_unknown( 
+               ThinkCostBelow500, 
+               CoverageAboveAverage, 
+               EntryAgeBeforeOne
+               )
+
+mod_rf <-rand_forest() %>%
+  set_engine("ranger",
+             num.threads = parallel::detectCores(), # to do it in parallel 
+             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
+             verbose = TRUE) %>% # keeps a lot of details for us
+  set_mode("classification") %>%
+  set_args(trees = 50)#update here
+
+# Same steps again to fit the model
+# workflow
+
+# Reminder: even the prof could not explain this code 
+rf_flow <- workflow() %>% 
+  add_model(mod_rf) %>% 
+  add_recipe(rf_recipe)
+
+# With new code for using future
+library(future)
+set.seed(100)
+plan(multisession)
+
+fit_rf <- fit_resamples(
+  rf_flow,
+  cv_folds,
+  metrics = metric_set(accuracy),
+  control = control_resamples(verbose = TRUE,
+                              save_pred = TRUE,
+                              extract = function(x) x) # the function return the value of the prediction
+)
+
+library(forcats)
+library(tidyverse)
+# extract roots
+# code to extract the images
+rf_tree_roots <- function(x){
+  map_chr(1:50, # 50 trees
+          ~ranger::treeInfo(x, tree = .)[1, "splitvarName"]) # extract how we made the splits
+}
+
+rf_roots <- function(x){
+  x %>% 
+    select(.extracts) %>% 
+    unnest(cols = c(.extracts)) %>% 
+    mutate(fit = map(.extracts,
+                     ~.x$fit$fit$fit), # dig deep to find 
+           oob_rmse = map_dbl(fit,
+                              ~sqrt(.x$prediction.error)), # out of bag error: some items are left out of the training set during CV and we can see how well the model does on them 
+           roots = map(fit, 
+                       ~rf_tree_roots(.)) 
+    ) %>% 
+    select(roots) %>% 
+    unnest(cols = c(roots))
+}
+
+roots_data <- rf_roots(fit_rf)
+
+# Group the data by roots and count the occurrences of each root
+root_counts <- roots_data %>% 
+  group_by(roots) %>% 
+  count()
+
+# Filter out roots with counts greater than 75
+filtered_root_counts <- root_counts %>% 
+  filter(n > 10) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+
+# Arrange the data in descending order of counts
+sorted_root_counts <- filtered_root_counts %>% 
+  arrange(desc(n))
+
+# Create a bar plot
+plot <- ggplot(sorted_root_counts, aes(x = fct_reorder(roots, n), y = n)) +
+  geom_col() + 
+  coord_flip() + 
+  labs(x = "Root", y = "Count")
+
+# Display the plot
+print(plot)
+
+
+```
+
+```{r interpretr}
+## Contribution
+
+library(DALEXtra) # if not called already
+# DALEX want to know a couple of things in the explainer
+explainer <- explain_tidymodels( # create the  explainer
+  model = rf_fit_final, # what is the model
+  data = test_df, # what do you want to explain? The test data? The train data? Something else?
+  y = test_df$target # what is the target variable?
+)
+
+
+# SHAPLY VALUES
+library(forcats)
+
+set.seed(1995)
+shap <- predict_parts(explainer = explainer,
+                      new_observation = test_df[, !(names(test_df) %in% "target")], # remove the target
+                      type = "shap", 
+                      B = 20)
+
+average_shapley <- shap %>% 
+  group_by(variable) %>% 
+  summarise(contribution = mean(contribution)) %>% 
+  arrange(desc(abs(contribution)))
+
+
+shap %>%
+  group_by(variable) %>%
+  mutate(mean_val = mean(contribution)) %>%
+  ungroup() %>%
+  mutate(variable = fct_reorder(variable, abs(mean_val))) %>% # reorder the variables according to their contribution in term of their absolute value
+  ggplot(aes(contribution, variable, fill = mean_val > 0)) +
+  geom_col(data = ~distinct(., variable, mean_val), 
+           aes(mean_val, variable), 
+           alpha = 0.5) +
+  geom_boxplot(width = 0.5) +
+  theme(legend.position = "none") +
+  labs(y = NULL) +
+  theme_bw()
+
+
+shap %>%
+  group_by(variable) %>%
+  mutate(mean_val = mean(contribution)) %>%
+  ungroup() %>%
+  mutate(variable = fct_reorder(variable, abs(mean_val)))
+```
+
+## Same with application
+
+```{r}
+
+# Cleaning the data
+work_df <- MLDummifiedALL %>% 
+  filter(!is.na(ECSApp)) %>% mutate(Application = ifelse(ECSApp == 1,"Yes", "No")) %>% 
+  mutate(target = factor(Application, labels = c("No", "Yes"))
+  ) %>% 
+ select(-c( ECSApp, ECSUseYes, Intention, Application))
+
+
+# Keep 20% of the observations for the test set.
+set.seed(1451)
+credit_split <- initial_split(work_df, prop = 0.8)
+train_df <- training(credit_split)
+test_df <- testing(credit_split)
+
+
+## MACHINE LEARNING
+
+
+rf_recipe <- recipe(target ~ ., data = train_df)  %>%
+ step_unknown(EntryAgeBeforeOne, 
+              CoverageAboveAverage, 
+              ProgressiveNorms) %>% 
+  # We dummify everything
+  step_dummy(Assignment) 
+
+## RUN THE RANDOM FOREST
+
+# In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
+rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+                       trees = 10, # if I tune it, it takes forever to run
+                       min_n = tune()) %>%
+  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
+  set_engine("partykit")
+
+
+# Flooow: specify what transformations (recipe) will be done and what algo will be fitted in a first step
+initial_flow <- workflow() %>% # create the initial workflow
+  add_recipe(rf_recipe) %>%
+  add_model(rf_spec)
+
+
+# The argument finalize is key because tidymodels needs to look
+# at the data to figure out how many features there are.
+
+# We need to tell tidymodels which parameters need to be tuned. It can conveniently be done with this chunk of code
+
+# In this version we are not tuning the number of trees, but we could.
+# We tune mtry and min_n the number of obs in each terminal leaves (you don't want one leaf == 1 obs that's overfitting)
+# mtry is the number of features that are randomly selected at each split. It is a good idea to tune it because it can have a big impact on the performance of the model
+# Doing this is an argument if I have a lot of predictors/features. At each round, it is only a subsample of predictors that is used. 
+rf_para <- extract_parameter_set_dials(rf_spec) %>% # extract the tuning parameters
+  finalize(train_df) # here we have only 2 because we set trees to 100 not tune()
+# finalize(train): we need to know the maximum number of features we could fit because it has not looked at the data yet
+# it tells tidymodel that he can look at the data quickly to see how many features there are in the data
+
+set.seed(20) # for reproducibility
+
+# Set the tuning grid
+# The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
+rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
+                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                variogram_range = 0.75, # explore the space of the hyperparameters
+                                original = TRUE)
+set.seed(30)
+
+# Set the cross validation. 
+# Ideally, we would need to do repetitions of the cross validation to increase the robustness of the results. 
+# Do this in the final version with the repeats = 10 argument
+# it will create 9 training folds and 1 validation fold. It will do this 10 times.
+cv_folds <- vfold_cv(train_df, v = 10, strata = target) # stratified CV
+
+# Set the metrics used: accuracy or cohen's kappa or F1 for a classification task (or AUC)
+rf_metrics <- metric_set(accuracy) # classification task
+
+doParallel::registerDoParallel() # used parallel cores to run the computation
+
+# tune the model, with the cross validation method defined, the grid and the metrics you set
+rf_tune <- initial_flow %>%
+  tune_grid(cv_folds, grid = rf_grid, metrics = rf_metrics)
+
+
+# select the best parameters for the model the tuning found
+rf_best <- select_best(rf_tune)
+rf_best# Trees again with X features at each time and X obs at terminal leaves
+# 34 features, and 19 obs in terminal leaves
+
+# Update the model with the best parameters found
+rf_updated <- finalize_model(rf_spec,
+                             rf_best) 
+
+# add this to the initial workflow
+workflow_new <- initial_flow %>%
+  update_model(rf_updated)
+
+# Fit the model on the training set
+rf_fit_final <- workflow_new %>%
+  fit(data = train_df) # fit on the training set
+
+# Fit the model on the test set to evaluate performance
+# Performance on the test set
+rf_fit_final %>%
+  predict(test_df) %>%
+  bind_cols(test_df) %>%
+  metrics(truth = target, estimate = .pred_class)
+# the accuracy is great but the kappa not that much (average)
+# see if tuning the trees improve this in the future
+
+
+```
+
+```{r NodeImportance}
+
+# NODE IMPORTANCE
+# You need to give up on partykit to get some info on variable importance, so we have to do it again
+rf_recipe <- recipe(target ~ ., data = train_df)  %>%
+ step_unknown(EntryAgeBeforeOne, 
+              CoverageAboveAverage,
+              ProgressiveNorms) %>% 
+  # We dummify everything
+  step_dummy(Assignment) 
+
+mod_rf <-rand_forest() %>%
+  set_engine("ranger",
+             num.threads = parallel::detectCores(), # to do it in parallel 
+             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
+             verbose = TRUE) %>% # keeps a lot of details for us
+  set_mode("classification") %>%
+  set_args(trees = 50)#update here
+
+# Same steps again to fit the model
+# workflow
+
+# Reminder: even the prof could not explain this code 
+rf_flow <- workflow() %>% 
+  add_model(mod_rf) %>% 
+  add_recipe(rf_recipe)
+
+# With new code for using future
+library(future)
+set.seed(100)
+plan(multisession)
+
+fit_rf <- fit_resamples(
+  rf_flow,
+  cv_folds,
+  metrics = metric_set(accuracy),
+  control = control_resamples(verbose = TRUE,
+                              save_pred = TRUE,
+                              extract = function(x) x) # the function return the value of the prediction
+)
+
+library(forcats)
+library(tidyverse)
+# extract roots
+# code to extract the images
+rf_tree_roots <- function(x){
+  map_chr(1:50, # 50 trees
+          ~ranger::treeInfo(x, tree = .)[1, "splitvarName"]) # extract how we made the splits
+}
+
+rf_roots <- function(x){
+  x %>% 
+    select(.extracts) %>% 
+    unnest(cols = c(.extracts)) %>% 
+    mutate(fit = map(.extracts,
+                     ~.x$fit$fit$fit), # dig deep to find 
+           oob_rmse = map_dbl(fit,
+                              ~sqrt(.x$prediction.error)), # out of bag error: some items are left out of the training set during CV and we can see how well the model does on them 
+           roots = map(fit, 
+                       ~rf_tree_roots(.)) 
+    ) %>% 
+    select(roots) %>% 
+    unnest(cols = c(roots))
+}
+
+roots_data <- rf_roots(fit_rf)
+
+# Group the data by roots and count the occurrences of each root
+root_counts <- roots_data %>% 
+  group_by(roots) %>% 
+  count()
+
+# Filter out roots with counts greater than 75
+filtered_root_counts <- root_counts 
+# Arrange the data in descending order of counts
+sorted_root_counts <- filtered_root_counts %>% 
+  arrange(desc(n))
+
+# Create a bar plot
+plot <- ggplot(sorted_root_counts, aes(x = fct_reorder(roots, n), y = n)) +
+  geom_col() + 
+  coord_flip() + 
+  labs(x = "Root", y = "Count")
+
+# Display the plot
+print(plot)
+
+
+```
+
+```{r interpretrApp}
+
+## Contribution
+
+library(DALEXtra) # if not called already # DALEX want to know a couple of things in the explainer 
+explainer <- explain_tidymodels( # create the explainer
+  model = rf_fit_final, # what is the model 
+  data = test_df, # what do you want to explain? The test data? The train data? Something else?
+  y = test_df$target # what is the target variable? 
+  )
+
+
+set.seed(1995)
+shap <- predict_parts(explainer = explainer,
+                      new_observation = test_df[, !(names(test_df) %in% "target")], # remove the target
+                      type = "shap", 
+                      B = 20)
+
+average_shapley <- shap %>% 
+  group_by(variable) %>% 
+  summarise(contribution = mean(contribution)) %>% 
+  arrange(desc(abs(contribution)))
+
+
+shap %>%
+  group_by(variable) %>%
+  mutate(mean_val = mean(contribution)) %>%
+  ungroup() %>%
+  mutate(variable = fct_reorder(variable, abs(mean_val))) %>% # reorder the variables according to their contribution in term of their absolute value
+  ggplot(aes(contribution, variable, fill = mean_val > 0)) +
+  geom_col(data = ~distinct(., variable, mean_val), 
+           aes(mean_val, variable), 
+           alpha = 0.5) +
+  geom_boxplot(width = 0.5) +
+  theme(legend.position = "none") +
+  labs(y = NULL) +
+  theme_bw()
+```
+
+## Same with access
+
+```{r}
+
+work_df <- MLDummifiedALL %>% filter(!is.na(ECSUseYes)) %>%
+  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No")) %>% # specify the target
+ select(-c( ECSApp, ECSUseYes, Intention, Use))
+
+# Take a look at the data with skimr
+s <- skim(work_df)
+print(s, include_summary = FALSE)
+
+
+
+# Keep 20% of the observations for the test set.
+set.seed(1451)
+credit_split <- initial_split(work_df, prop = 0.8)
+train_df <- training(credit_split)
+test_df <- testing(credit_split)
+
+
+## MACHINE LEARNING
+
+
+rf_recipe <- recipe(target ~ ., data = train_df)  %>%
+   step_unknown(
+EntryAgeBeforeOne
+) %>% 
+  # We dummify everything
+  step_dummy( EntryAgeBeforeOne, 
+Assignment) %>% 
+  step_impute_knn(AffordCostBaseline,
+                  NormsScore,
+                  Taux.de.couv.global,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(AffordCostBaseline,
+                  NormsScore
+                  )
+
+## RUN THE RANDOM FORE
+
+## RUN THE RANDOM FOREST
+
+# In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
+rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+                       trees = 50, # if I tune it, it takes forever to run
+                       min_n = tune()) %>%
+  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
+  set_engine("partykit")
+
+
+# Flooow: specify what transformations (recipe) will be done and what algo will be fitted in a first step
+initial_flow <- workflow() %>% # create the initial workflow
+  add_recipe(rf_recipe) %>%
+  add_model(rf_spec)
+
+
+# The argument finalize is key because tidymodels needs to look
+# at the data to figure out how many features there are.
+
+# We need to tell tidymodels which parameters need to be tuned. It can conveniently be done with this chunk of code
+
+# In this version we are not tuning the number of trees, but we could.
+# We tune mtry and min_n the number of obs in each terminal leaves (you don't want one leaf == 1 obs that's overfitting)
+# mtry is the number of features that are randomly selected at each split. It is a good idea to tune it because it can have a big impact on the performance of the model
+# Doing this is an argument if I have a lot of predictors/features. At each round, it is only a subsample of predictors that is used. 
+rf_para <- extract_parameter_set_dials(rf_spec) %>% # extract the tuning parameters
+  finalize(train_df) # here we have only 2 because we set trees to 100 not tune()
+# finalize(train): we need to know the maximum number of features we could fit because it has not looked at the data yet
+# it tells tidymodel that he can look at the data quickly to see how many features there are in the data
+
+set.seed(20) # for reproducibility
+
+# Set the tuning grid
+# The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
+rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
+                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                variogram_range = 0.75, # explore the space of the hyperparameters
+                                original = TRUE)
+set.seed(30)
+
+# Set the cross validation. 
+# Ideally, we would need to do repetitions of the cross validation to increase the robustness of the results. 
+# Do this in the final version with the repeats = 10 argument
+# it will create 9 training folds and 1 validation fold. It will do this 10 times.
+cv_folds <- vfold_cv(train_df, v = 10, strata = target) # stratified CV
+
+# Set the metrics used: accuracy or cohen's kappa or F1 for a classification task (or AUC)
+rf_metrics <- metric_set(accuracy) # classification task
+
+doParallel::registerDoParallel() # used parallel cores to run the computation
+
+# tune the model, with the cross validation method defined, the grid and the metrics you set
+rf_tune <- initial_flow %>%
+  tune_grid(cv_folds, grid = rf_grid, metrics = rf_metrics)
+
+
+# select the best parameters for the model the tuning found
+rf_best <- select_best(rf_tune)
+rf_best# Trees again with X features at each time and X obs at terminal leaves
+# 34 features, and 19 obs in terminal leaves
+
+# Update the model with the best parameters found
+rf_updated <- finalize_model(rf_spec,
+                             rf_best) 
+
+# add this to the initial workflow
+workflow_new <- initial_flow %>%
+  update_model(rf_updated)
+
+# Fit the model on the training set
+rf_fit_final <- workflow_new %>%
+  fit(data = train_df) # fit on the training set
+
+# Fit the model on the test set to evaluate performance
+# Performance on the test set
+rf_fit_final %>%
+  predict(test_df) %>%
+  bind_cols(test_df) %>%
+  metrics(truth = target, estimate = .pred_class)
+# the accuracy is great but the kappa not that much (average)
+# see if tuning the trees improve this in the future
+
+
+```
+
+```{r NodeImportance}
+
+# NODE IMPORTANCE
+# You need to give up on partykit to get some info on variable importance, so we have to do it again
+
+mod_rf <-rand_forest() %>%
+  set_engine("ranger",
+             num.threads = parallel::detectCores(), # to do it in parallel 
+             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
+             verbose = TRUE) %>% # keeps a lot of details for us
+  set_mode("classification") %>%
+  set_args(trees = 50)#update here
+
+# Same steps again to fit the model
+# workflow
+
+# Reminder: even the prof could not explain this code 
+rf_flow <- workflow() %>% 
+  add_model(mod_rf) %>% 
+  add_recipe(rf_recipe)
+
+# With new code for using future
+library(future)
+set.seed(100)
+plan(multisession)
+
+fit_rf <- fit_resamples(
+  rf_flow,
+  cv_folds,
+  metrics = metric_set(accuracy),
+  control = control_resamples(verbose = TRUE,
+                              save_pred = TRUE,
+                              extract = function(x) x) # the function return the value of the prediction
+)
+
+library(forcats)
+library(tidyverse)
+# extract roots
+# code to extract the images
+rf_tree_roots <- function(x){
+  map_chr(1:50, # 50 trees
+          ~ranger::treeInfo(x, tree = .)[1, "splitvarName"]) # extract how we made the splits
+}
+
+rf_roots <- function(x){
+  x %>% 
+    select(.extracts) %>% 
+    unnest(cols = c(.extracts)) %>% 
+    mutate(fit = map(.extracts,
+                     ~.x$fit$fit$fit), # dig deep to find 
+           oob_rmse = map_dbl(fit,
+                              ~sqrt(.x$prediction.error)), # out of bag error: some items are left out of the training set during CV and we can see how well the model does on them 
+           roots = map(fit, 
+                       ~rf_tree_roots(.)) 
+    ) %>% 
+    select(roots) %>% 
+    unnest(cols = c(roots))
+}
+
+roots_data <- rf_roots(fit_rf)
+
+# Group the data by roots and count the occurrences of each root
+root_counts <- roots_data %>% 
+  group_by(roots) %>% 
+  count()
+
+# Filter out roots with counts greater than 75
+filtered_root_counts <- root_counts %>% 
+  filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+
+# Arrange the data in descending order of counts
+sorted_root_counts <- filtered_root_counts %>% 
+  arrange(desc(n))
+
+# Create a bar plot
+plot <- ggplot(sorted_root_counts, aes(x = fct_reorder(roots, n), y = n)) +
+  geom_col() + 
+  coord_flip() + 
+  labs(x = "Root", y = "Count")
+
+# Display the plot
+print(plot)
+
+
+```
+
+```{r interpretrAcc}
+
+## Contribution
+
+library(DALEXtra) # if not called already # DALEX want to know a couple of things in the explainer 
+explainer <- explain_tidymodels( # create the explainer
+  model = rf_fit_final, # what is the model 
+  data = test_df, # what do you want to explain? The test data? The train data? Something else?
+  y = test_df$target # what is the target variable? 
+  )
+
+
+set.seed(1995)
+shap <- predict_parts(explainer = explainer,
+                      new_observation = test_df[, !(names(test_df) %in% "target")], # remove the target
+                      type = "shap", 
+                      B = 20)
+
+average_shapley <- shap %>% 
+  group_by(variable) %>% 
+  summarise(contribution = mean(contribution)) %>% 
+  arrange(desc(abs(contribution)))
+
+
+shap %>%
+  group_by(variable) %>%
+  mutate(mean_val = mean(contribution)) %>%
+  ungroup() %>%
+  mutate(variable = fct_reorder(variable, abs(mean_val))) %>% # reorder the variables according to their contribution in term of their absolute value
+  ggplot(aes(contribution, variable, fill = mean_val > 0)) +
+  geom_col(data = ~distinct(., variable, mean_val), 
+           aes(mean_val, variable), 
+           alpha = 0.5) +
+  geom_boxplot(width = 0.5) +
+  theme(legend.position = "none") +
+  labs(y = NULL) +
+  theme_bw()
+```
+
+# The Lasso
+
+## Intention
+
+```{r}
+
+library(rio)
+
+
+lasso_clean <- MLDummifiedALL %>% filter(!is.na(Intention)) %>% 
+  mutate(target = as.numeric(Intention) - 1) %>%
+ select(-c(Assignment, ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+# Cleaning the data
+
+# Create a subset with the sociodemo and the predictors
+# Cleaning the data
+# Take a look at the data with skimr
+s <- skim(lasso_clean)
+print(s, include_summary = FALSE)
+
+
+
+# Preparation
+## Split the sample
+library(tidymodels)
+tidymodels_prefer()
+set.seed(30)
+lasso_split <- initial_split(lasso_clean, prop = 0.8)
+lasso_train <- training(lasso_split)
+lasso_test <- testing(lasso_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = lasso_train) %>%
+    step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_impute_knn(Taux.de.couv.global,  # we impute missing values for the numerical variables using knn
+                  AffordCostBaseline,
+                  NormsScore,
+             #     BreastFeedLength,
+              #    NumberChildren,
+                  neighbors = 5) %>% 
+  step_normalize(all_numeric_predictors()) %>%
+  step_YeoJohnson( 
+                  AffordCostBaseline,
+                  NormsScore
+                  #BreastFeedLength,
+                  #NumberChildren
+                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+
+# Model specification
+lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
+                          mixture = 1) %>% # penalty is the lambda parameter
+  # mixture is the alpha. Alpha = 1 is just the lasso
+  # Penalty is tune ()
+  set_mode("regression") %>% # we are still doing regression
+  set_engine("glmnet") # we use a different engine that does regularisation
+
+lasso_wf <- workflow() %>% # define the workflow
+  add_model(lasso_spec) %>%
+  add_recipe(model_recipe)
+
+elastic_metrics <- metric_set(rsq) # we select metrics, we don't want the 3
+# we use the rsq metric
+
+# Resampling methods: 10 fold cross-validation
+set.seed(20)
+cv_folds <- vfold_cv(lasso_train,
+                     v = 10,
+                     repeats = 5)
+
+# Using dials to tune the model: 
+glmnet_param <- extract_parameter_set_dials(lasso_spec)# it extracts for me the parameter that 
+# needs to be tuned
+glmnet_param
+
+# Set the grid
+set.seed(15)
+lasso_grid <- grid_max_entropy(glmnet_param,
+                               size = 100, # generate 50 different lambdas
+                               # 50 is a bit low, 100 or 150 is better
+                               original = TRUE, # we are keeoing the original scale, the log
+                               variogram_range = 0.5) # the higher the value, the less likely it is to explore 
+
+# Vérifier que la recette fonctionne
+prep(model_recipe) %>%
+  bake(new_data = NULL) %>%
+  glimpse()
+
+# Tuning the Hyper-Parameter
+doParallel::registerDoParallel() # to know how many cores to use at the same time
+lasso_tune <- lasso_wf %>%
+  tune_grid(cv_folds,
+            grid = lasso_grid, # use the grid we just created
+            metrics = elastic_metrics)
+# So far we've selected 50 values of lambda. It run a regression for each lambda within each fold
+# We are running 50 * 10 * 5 = 2500 regressions in total, which all has a different R2
+
+# Plot the (average) performance
+autoplot(lasso_tune) # x is different values of lambda in the log scale. y is the average R2
+
+# Select the best lambda
+lasso_best <- select_best(lasso_tune)
+lasso_best # Model 46 
+
+temp <- collect_metrics(lasso_tune)
+print(temp, n = 50) # print all the 50 lambdas
+# the std error is the variance divided by the square root of N
+# We see that model 46 is the best, but we can also see that the difference between the best and the worst is not that big
+
+# Finalizing the fit
+lasso_updated <- finalize_model(lasso_spec, # I finalize by using the pre specified moded
+                                lasso_best) # this replace the spec() argument by the picked lambda
+workflow_new <- lasso_wf %>%
+  update_model(lasso_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = lasso_train)
+
+tidy_lasso <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+tidy_lasso # generosity got kicked out
+
+# Evaluating the model: performance
+new_fit %>%
+  predict(lasso_test) %>%
+  bind_cols(lasso_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+
+## POST LASSO 
+
+lasso_var <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+# Apply the recipe without normalization (simplified)
+model_recipe_post <- recipe(target ~ ., data = lasso_train) %>%
+# # We dummify everything
+# step_dummy(#Educ3, 
+#            #Educ3Dad,
+#           
+#            AffordSubsidiesBaseline,
+#            #BirthPlace3, 
+#            #FmlyIncomeBaseline,
+#             #   IncomeBaseline, 
+#            TrustCreche, 
+#            LikertReturnHKBaseline, 
+#evelInfoSubExPost             ) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+   step_impute_knn(all_numeric_predictors(), neighbors = 5)
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe_post) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+library(broom)      # Pour tidy()
+library(dplyr)      # Pour manipuler les données
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(post_lasso_model,
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable') %>% autofit()
+```
+
+## Application
+
+```{r}
+
+library(rio)
+
+
+
+lasso_clean <- MLDummifiedALL %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(target = as.numeric(ECSApp)) %>%
+  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
+         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
+         ) %>%  # the idea db we would be working with in the end
+ select(-c( ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche, TrustCrecheNo ))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+s <- skim(lasso_clean)
+print(s, include_summary = FALSE)
+
+
+
+# Preparation
+## Split the sample
+library(tidymodels)
+tidymodels_prefer()
+set.seed(10)
+lasso_split <- initial_split(lasso_clean, prop = 0.8)
+lasso_train <- training(lasso_split)
+lasso_test <- testing(lasso_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = lasso_train) %>%
+  step_unknown(EntryAgeBeforeOne                           
+               #FmlyIncomeBaseline,
+                # IncomeBaseline, 
+           #    TrustCreche, 
+            #   DeprivHolidays,
+               #BreastFeedIntend,
+            #   InformalReciprocity, 
+             #TrustAssMat,
+             #TrustFam,
+            # TrustFriend,
+             #CoupleCohabiting,
+             #AccessEasy5, 
+             #NormsHouse, 
+#NormsWork, 
+#LevelInfoSubExPost, 
+#Assignment
+) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+   # Supprimer les variables à variance nulle
+  # Normaliser les prédicteurs numériques
+  step_normalize(AffordCostBaseline, 
+                 NormsOpposedN, 
+                 NormsScore, 
+                 Taux.de.couv.global
+                 ) %>%
+  step_YeoJohnson(NormsOpposedN, 
+                  AffordCostBaseline, 
+                  NormsScore
+                  #BreastFeedLength,
+                  #NumberChildren
+                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+# Model specification
+lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
+                          mixture = 1) %>% # penalty is the lambda parameter
+  # mixture is the alpha. Alpha = 1 is just the lasso
+  # Penalty is tune ()
+  set_mode("regression") %>% # we are still doing regression
+  set_engine("glmnet") # we use a different engine that does regularisation
+
+lasso_wf <- workflow() %>% # define the workflow
+  add_model(lasso_spec) %>%
+  add_recipe(model_recipe)
+
+elastic_metrics <- metric_set(rsq) # we select metrics, we don't want the 3
+# we use the rsq metric
+
+# Resampling methods: 10 fold cross-validation
+set.seed(20)
+cv_folds <- vfold_cv(lasso_train,
+                     v = 10,
+                     repeats = 5)
+
+# Using dials to tune the model: 
+glmnet_param <- extract_parameter_set_dials(lasso_spec)# it extracts for me the parameter that 
+# needs to be tuned
+glmnet_param
+
+# Set the grid
+set.seed(15)
+lasso_grid <- grid_max_entropy(glmnet_param,
+                               size = 150, # generate 50 different lambdas
+                               # 50 is a bit low, 100 or 150 is better
+                               original = TRUE, # we are keeoing the original scale, the log
+                               variogram_range = 0.5) # the higher the value, the less likely it is to explore 
+
+# Vérifier que la recette fonctionne
+prep(model_recipe) %>%
+  bake(new_data = NULL) %>%
+  glimpse()
+
+# Tuning the Hyper-Parameter
+doParallel::registerDoParallel() # to know how many cores to use at the same time
+lasso_tune <- lasso_wf %>%
+  tune_grid(cv_folds,
+            grid = lasso_grid, # use the grid we just created
+            metrics = elastic_metrics)
+# So far we've selected 50 values of lambda. It run a regression for each lambda within each fold
+# We are running 50 * 10 * 5 = 2500 regressions in total, which all has a different R2
+
+# Plot the (average) performance
+autoplot(lasso_tune) # x is different values of lambda in the log scale. y is the average R2
+
+# Select the best lambda
+lasso_best <- select_best(lasso_tune)
+lasso_best # Model 46 
+
+temp <- collect_metrics(lasso_tune)
+print(temp, n = 50) # print all the 50 lambdas
+# the std error is the variance divided by the square root of N
+# We see that model 46 is the best, but we can also see that the difference between the best and the worst is not that big
+
+# Finalizing the fit
+lasso_updated <- finalize_model(lasso_spec, # I finalize by using the pre specified moded
+                                lasso_best) # this replace the spec() argument by the picked lambda
+workflow_new <- lasso_wf %>%
+  update_model(lasso_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = lasso_train)
+
+tidy_lasso <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+tidy_lasso # generosity got kicked out
+
+# Evaluating the model: performance
+new_fit %>%
+  predict(lasso_test) %>%
+  bind_cols(lasso_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+
+## POST LASSO 
+
+lasso_var <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+# Apply the recipe without normalization (simplified)
+model_recipe_post <- recipe(target ~ ., data = lasso_train) %>%
+  step_unknown(EntryAgeBeforeOne) %>%  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+   step_impute_knn(all_numeric_predictors(), neighbors = 5)
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe_post) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+library(broom)      # Pour tidy()
+library(dplyr)      # Pour manipuler les données
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(post_lasso_model,
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable') %>% autofit()
+
+```
+
+## Access
+
+```{r}
+## DO THE LASSO 
+library(rio)
+
+lasso_clean <- MLDummifiedALL %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes)) %>%
+  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
+         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
+         ) %>%  # the idea db we would be working with in the end
+ select(-c( ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche, TrustCrecheNo ))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+s <- skim(lasso_clean)
+print(s, include_summary = FALSE)
+
+
+
+
+# Preparation
+## Split the sample
+library(tidymodels)
+tidymodels_prefer()
+set.seed(10)
+lasso_split <- initial_split(lasso_clean, prop = 0.8)
+lasso_train <- training(lasso_split)
+lasso_test <- testing(lasso_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = lasso_train) %>%
+    step_unknown(EntryAgeBeforeOne 
+) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+   # Supprimer les variables à variance nulle
+  # Normaliser les prédicteurs numériques
+  step_normalize(AffordCostBaseline, 
+                 NormsOpposedN, 
+                 NormsScore, 
+                 Taux.de.couv.global
+                 ) %>%
+  step_YeoJohnson(NormsOpposedN, 
+                  AffordCostBaseline, 
+                  NormsScore
+                  #BreastFeedLength,
+                  #NumberChildren
+                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+# Model specification
+lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
+                          mixture = 1) %>% # penalty is the lambda parameter
+  # mixture is the alpha. Alpha = 1 is just the lasso
+  # Penalty is tune ()
+  set_mode("regression") %>% # we are still doing regression
+  set_engine("glmnet") # we use a different engine that does regularisation
+
+lasso_wf <- workflow() %>% # define the workflow
+  add_model(lasso_spec) %>%
+  add_recipe(model_recipe)
+
+elastic_metrics <- metric_set(rsq) # we select metrics, we don't want the 3
+# we use the rsq metric
+
+# Resampling methods: 10 fold cross-validation
+set.seed(20)
+cv_folds <- vfold_cv(lasso_train,
+                     v = 10,
+                     repeats = 5)
+
+# Using dials to tune the model: 
+glmnet_param <- extract_parameter_set_dials(lasso_spec)# it extracts for me the parameter that 
+# needs to be tuned
+glmnet_param
+
+# Set the grid
+set.seed(15)
+lasso_grid <- grid_max_entropy(glmnet_param,
+                               size = 150, # generate 50 different lambdas
+                               # 50 is a bit low, 100 or 150 is better
+                               original = TRUE, # we are keeoing the original scale, the log
+                               variogram_range = 0.5) # the higher the value, the less likely it is to explore 
+
+# Vérifier que la recette fonctionne
+prep(model_recipe) %>%
+  bake(new_data = NULL) %>%
+  glimpse()
+
+# Tuning the Hyper-Parameter
+doParallel::registerDoParallel() # to know how many cores to use at the same time
+lasso_tune <- lasso_wf %>%
+  tune_grid(cv_folds,
+            grid = lasso_grid, # use the grid we just created
+            metrics = elastic_metrics)
+# So far we've selected 50 values of lambda. It run a regression for each lambda within each fold
+# We are running 50 * 10 * 5 = 2500 regressions in total, which all has a different R2
+
+# Plot the (average) performance
+autoplot(lasso_tune) # x is different values of lambda in the log scale. y is the average R2
+
+# Select the best lambda
+lasso_best <- select_best(lasso_tune)
+lasso_best # Model 46 
+
+temp <- collect_metrics(lasso_tune)
+print(temp, n = 50) # print all the 50 lambdas
+# the std error is the variance divided by the square root of N
+# We see that model 46 is the best, but we can also see that the difference between the best and the worst is not that big
+
+# Finalizing the fit
+lasso_updated <- finalize_model(lasso_spec, # I finalize by using the pre specified moded
+                                lasso_best) # this replace the spec() argument by the picked lambda
+workflow_new <- lasso_wf %>%
+  update_model(lasso_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = lasso_train)
+
+tidy_lasso <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+tidy_lasso # generosity got kicked out
+
+lasso_var = tidy_lasso %>% filter(estimate != 0)
+# Evaluating the model: performance
+new_fit %>%
+  predict(lasso_test) %>%
+  bind_cols(lasso_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+
+lasso_var <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+# Apply the recipe without normalization (simplified)
+model_recipe_post <- recipe(target ~ ., data = lasso_train) %>%
+  step_unknown(EntryAgeBeforeOne) %>%  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+   step_impute_knn(all_numeric_predictors(), neighbors = 5)
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe_post) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+library(broom)      # Pour tidy()
+library(dplyr)      # Pour manipuler les données
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(post_lasso_model,
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable')
+
+```
