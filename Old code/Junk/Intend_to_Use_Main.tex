@@ -1,0 +1,959 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\newenvironment{Shaded}{}{}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\BuiltInTok}[1]{\textcolor[rgb]{0.00,0.50,0.00}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{#1}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{#1}}
+\newcommand{\ImportTok}[1]{\textcolor[rgb]{0.00,0.50,0.00}{\textbf{#1}}}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{#1}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newlength{\cslentryspacingunit} % times entry-spacing
+\setlength{\cslentryspacingunit}{\parskip}
+\newenvironment{CSLReferences}[2] % #1 hanging-ident, #2 entry spacing
+ {% don't indent paragraphs
+  \setlength{\parindent}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+  \let\oldpar\par
+  \def\par{\hangindent=\cslhangindent\oldpar}
+  \fi
+  % set entry spacing
+  \setlength{\parskip}{#2\cslentryspacingunit}
+ }%
+ {}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{#1\hfill\break}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{#1}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{#1}\break}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+\usepackage{xcolor}
+\usepackage{mathptmx}
+\usepackage[scaled=0.9]{helvet}
+\renewcommand{\familydefault}{\rmdefault}
+\usepackage{siunitx}
+\usepackage{placeins}
+\usepackage{fontspec}
+\usepackage{dsfont}
+\usepackage{babel}
+\usepackage{amsthm} % to introduce theorems etc.
+\newtheorem{Theorem}{Theorem}
+\newtheorem{mydef}{Definition}
+\usepackage[hang]{footmisc}	% Footnote formatting
+\renewcommand{\hangfootparindent}{1em}
+\renewcommand{\hangfootparskip}{0em}
+\renewcommand{\footnotemargin}{0.00001pt}
+\def\footnotelayout{\hspace{1em}}%
+\def\footnotelayout{\hspace{1em}}%
+\renewcommand\thepart{\hspace{1cm} Part \arabic{part}}
+\renewcommand\thesection{\Roman{section}}
+\renewcommand\thesubsection{\arabic{subsection}}
+\renewcommand\thesubsubsection{\Alph{subsubsection}}
+\renewcommand\theparagraph{\alph{paragraph})}
+\renewcommand\thesubparagraph{\roman{subparagraph})}  
+\newcommand{\esp}[1]{\mathds{E}[ #1 ]}
+\newcommand{\espb}[1]{\mathds{E}\Big[ #1 \Big]}
+\newcommand{\var}[1]{\mathds{V}[ #1 ]}
+\newcommand{\one}[1]{\mathds{1}( #1 )}
+\newcommand{\normal}[1]{\mathcal{N}}
+\usepackage{etoolbox} %— available from CTAN (required)–
+\usepackage{keyval}%— a standard package (required)–
+\usepackage{ifthen}%— a standard package (required)–
+\usepackage[authordate, backend=bibtex,sorting=nyt, natbib, ]{biblatex-chicago}
+\renewcommand{\bibfont}{\small}
+\usepackage{graphicx} % You need this for the headers:
+
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same} % disable monospaced font for URLs
+\hypersetup{
+  pdftitle={Who wants a Nanny ? Socio-demographics and psychological predictor of early childcare use},
+  pdfauthor={Laudine Carbuccia; Arthur Heim},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Who wants a Nanny ? Socio-demographics and psychological
+predictor of early childcare use}
+\usepackage{etoolbox}
+\makeatletter
+\providecommand{\subtitle}[1]{% add subtitle to \maketitle
+  \apptocmd{\@title}{\par {\large #1 \par}}{}{}
+}
+\makeatother
+\subtitle{A zrverv}
+\author{Laudine Carbuccia\footnote{LIEPP - Sciences Po,
+  \href{mailto:laudine.carbuccia@sciencespo.fr}{\nolinkurl{laudine.carbuccia@sciencespo.fr}}} \and Arthur
+Heim\footnote{Paris school of Economics \& Cnaf}}
+\date{02 July, 2023}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+This trial assesses the impact of an intervention aimed at improving
+demand for and access to early childcare services (ECS) in France. The
+literature reports that attendance of high-quality ECS has positive
+effects both on women's employment and on children's development and
+school achievement, more so for children of low socioeconomic status
+(SES) families. However, these children are strongly underrepresented in
+ECS. We hypothesize that structural barriers relating to the
+accessibility of ECS (rationing of places and criteria of access) and to
+their costs for the families only partly explain the lower demand for
+and access of low-SES families. Relying on a qualitative preparatory
+study, we expect that a lack of information about these services as well
+as administrative barriers in the application process contribute to
+unequal access. Therefore, we designed an intervention targeting
+pregnant mothers and delivering information and support about the
+availability, costs, eligibility criteria of ECS and the related
+application procedures. We will contact mothers during their visits to
+maternity wards of hospitals in the metropolitan area of Paris (Ile de
+France) and administer a baseline questionnaire to collect information
+on socio-demographic characteristics, knowledge of ECS, and intentions
+to use them. After this interview, they will be randomly assigned to
+three experimental arms (control, information-only treatment,
+information plus administrative support treatment). One year later we
+will administer a phone interview on actual recourse and two years later
+a follow-up to measure long-term impacts on children's development.
+\end{abstract}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\#\# }\AlertTok{WARNING}\DocumentationTok{: There are to features to undo depending on the anaylses you want to run }
+\CommentTok{\# Line X: if you work on the intervention, remove miscarriages}
+\CommentTok{\# Line X: if you work on the intervention, exclude undocumented mothers}
+\CommentTok{\#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\#\#\#\#\#\#\#{-}\#\#{-}}
+\DocumentationTok{\#\#\#\#\# Import and clean the raw survey database \%\%\%\%\%\%\%\%\%\%\%\#\#}
+\DocumentationTok{\#\#\#\#\#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\#\#\#\#\#\#\#{-}}\AlertTok{\#\#\#}\DocumentationTok{{-}}
+
+\DocumentationTok{\#\#Import data\_tot = full is the raw datasheet with also empty observations (i.e., participants that refused to participate or that did not meet inclusion criteria}
+\NormalTok{data\_tot }\OtherTok{\textless{}{-}} \FunctionTok{read\_csv}\NormalTok{(}\StringTok{"../Descriptive\_statistics/data\_full.csv"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Rows: 2803 Columns: 122
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (122): StartDate, EndDate, Status, IPAddress, Progress, Duration (in sec...
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\# Clean data\_tot}
+
+\CommentTok{\#create a df with the first two rows that contains the full questions}
+\NormalTok{details\_values }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{2}\NormalTok{,]}
+
+
+\CommentTok{\#remove these rows from the main data frame}
+\NormalTok{data\_tot }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot[}\SpecialCharTok{{-}}\FunctionTok{c}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\DecValTok{2}\NormalTok{),]}
+
+
+\CommentTok{\#change the encoding for UTF{-}8 so that everything is more readable}
+\ControlFlowTok{for}\NormalTok{ (col }\ControlFlowTok{in} \FunctionTok{colnames}\NormalTok{(data\_tot))\{}
+  \FunctionTok{Encoding}\NormalTok{(data\_tot[[col]]) }\OtherTok{\textless{}{-}} \StringTok{"UTF{-}8"}
+\NormalTok{\}}
+
+\CommentTok{\#put all missing values as NA}
+\NormalTok{data\_tot }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate\_all}\NormalTok{(.,}\SpecialCharTok{\textasciitilde{}}\FunctionTok{na\_if}\NormalTok{(.,}\StringTok{""}\NormalTok{))}
+
+
+\CommentTok{\#convert relevant VARIABLES INTO FACTORS}
+\DocumentationTok{\#\#NB: pour ajouter les stats sur les heures, prendre le dataset du 24/10 et ajouter "\textquotesingle{}HOUR\_1\textquotesingle{},\textquotesingle{}HOUR\_2\textquotesingle{},\textquotesingle{}HOUR\_3\textquotesingle{},\textquotesingle{}HOUR\_4\textquotesingle{},"}
+\NormalTok{names }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{\textquotesingle{}Q3\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}MAT\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Q11\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Q5\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}surveyor\_id\textquotesingle{}}\NormalTok{,}
+           \StringTok{\textquotesingle{}INTERNETCON\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}DIPLOMA\textquotesingle{}}\NormalTok{, }
+           \StringTok{\textquotesingle{}PARTNER\textquotesingle{}}\NormalTok{,}\StringTok{\textquotesingle{}BIRTHPLACE\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}BIRTHPLACE2\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}DIPLOMA2\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}OCCUPATION\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}OCCUPATION2\textquotesingle{}}\NormalTok{,}
+           \StringTok{\textquotesingle{}SMOKEYN\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}SMOKEPREG\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}BREASTFEED\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}AfterBirthOccupation\textquotesingle{}}\NormalTok{,}
+           \StringTok{\textquotesingle{}ECSYN\textquotesingle{}}\NormalTok{,}\StringTok{\textquotesingle{}ECS\_Used\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}ECS\_Subsidies\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}ACCESSBILITY1\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}ACCESSIBILITY2\textquotesingle{}}\NormalTok{,}\StringTok{\textquotesingle{}ECS\_Type\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}ECS\_Need\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}ECS\_Ideal\_Entry\textquotesingle{}}\NormalTok{,}
+           \StringTok{\textquotesingle{}INFORMALCARE\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}NORMS\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}COST\_Career\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}OPPCOST\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}COST\_WB\textquotesingle{}}\NormalTok{,}
+           \StringTok{\textquotesingle{}INFO\_RESC\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}SOC\_RESC\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}RETURNS\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}COMPUTERYN\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}INCOME\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}FMLYINCOME\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}DISCOUNTING\textquotesingle{}}\NormalTok{, }
+           \StringTok{\textquotesingle{}LANGUAGE\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}COMP\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}EXP\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}INFO\_SUB\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}PATNER\textquotesingle{}}\NormalTok{, }
+           \StringTok{\textquotesingle{}TRUST\_1\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}TRUST\_2\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}TRUST\_3\textquotesingle{}}\NormalTok{,}\StringTok{\textquotesingle{}TRUST\_4\textquotesingle{}}\NormalTok{, }
+           \StringTok{\textquotesingle{}DEPRIVATION\_1\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}DEPRIVATION\_2\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}DEPRIVATION\_3\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}DEPRIVATION\_4\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}DEPRIVATION\_5\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}SansPapier\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}ECS\_Cost\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}INFORMAL\_RCP\textquotesingle{}}
+\NormalTok{)}
+
+\NormalTok{data\_tot[,names] }\OtherTok{\textless{}{-}} \FunctionTok{lapply}\NormalTok{(data\_tot[,names] , factor)}
+
+\CommentTok{\#convert relevant VARIABLES INTO numerical ones}
+
+\NormalTok{names\_numerical }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"Duration (in seconds)"}\NormalTok{, }\StringTok{"ZIPCODE\_1\_TEXT"}\NormalTok{, }\StringTok{"Q117\_1\_TEXT"}\NormalTok{, }\StringTok{"RecordedDate"}\NormalTok{, }\StringTok{"PREGMONTH\_1\_TEXT"}\NormalTok{, }
+                     \StringTok{"BIRTHDATE\#2\_1"}\NormalTok{, }\StringTok{"BIRTHDATE\#3\_1"}\NormalTok{, }\StringTok{"NBR\_KIDS\_4\_TEXT"}\NormalTok{, }\StringTok{"AGE\_KIDS\#1\_1\_1"}\NormalTok{, }\StringTok{"AGE\_KIDS\#1\_2\_1"}\NormalTok{,}
+                     \StringTok{"AGE\_KIDS\#1\_3\_1"}\NormalTok{, }\StringTok{"AGE\_KIDS\#1\_4\_1"}\NormalTok{, }\StringTok{"AGE\_KIDS\#1\_5\_1"}\NormalTok{, }\StringTok{"AGE\_KIDS\#1\_6\_1"}\NormalTok{, }\StringTok{"AGE\_KIDS\#1\_7\_1"}\NormalTok{, }
+                     \StringTok{"AGE\_KIDS\#1\_8\_1"}\NormalTok{, }\StringTok{"DateArrival\_16\_TEXT"}\NormalTok{, }\StringTok{"DateArrival2\_16\_TEXT"}\NormalTok{, }\StringTok{"LengthBREASTFEED\_4\_TEXT"}\NormalTok{,}
+                     \StringTok{"ECS\_Date\#2\_1"}\NormalTok{, }\StringTok{"ECS\_Cost\_1\_TEXT"}\NormalTok{, }\StringTok{"NUMBER\_1\_TEXT"}\NormalTok{, }\StringTok{"NUMBER2\_1\_TEXT"}\NormalTok{)}
+\NormalTok{data\_tot[,names\_numerical] }\OtherTok{\textless{}{-}} \FunctionTok{lapply}\NormalTok{(data\_tot[,names\_numerical] , as.numeric)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning in lapply(data_tot[, names_numerical], as.numeric): NAs introduced by
+## coercion
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\# Dealing with the LANGUAGE column}
+
+\CommentTok{\#1.there were a mistake in LANGUAGE for one participant, row 1003, we correct it}
+
+\CommentTok{\# change the language of the participant with error in LANGUAGE code}
+\NormalTok{data\_tot}\SpecialCharTok{$}\NormalTok{LANGUAGE[}\DecValTok{1003}\NormalTok{] }\OtherTok{\textless{}{-}} \StringTok{"français"}
+\NormalTok{data\_tot}\SpecialCharTok{$}\NormalTok{LANGUAGE[}\DecValTok{666}\NormalTok{] }\OtherTok{\textless{}{-}} \StringTok{"arabe"}
+
+
+\CommentTok{\#2. Some participants are coded as "other" or "Je ne souhaite pas regarder les vidéos" in the LANGUAGE column, they need to be turned into French}
+
+\NormalTok{data\_tot }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{LANGUAGE =} \FunctionTok{fct\_collapse}\NormalTok{ (LANGUAGE,}
+                                  \AttributeTok{french =} \FunctionTok{c}\NormalTok{(}\StringTok{"français"}\NormalTok{, }\StringTok{"Je ne souhaite pas recevoir les vidéos"}\NormalTok{, }\StringTok{"Autre"}\NormalTok{), }
+                                  \AttributeTok{english =} \StringTok{"anglais"}\NormalTok{,}
+                                  \AttributeTok{arabic =} \StringTok{"arabe"}\NormalTok{))}
+
+
+\DocumentationTok{\#\# Delete miscarriages if working on the endline survey}
+\CommentTok{\#rows\_to\_delete \textless{}{-} c(1325, 1046, 470, 961)}
+\CommentTok{\#data\_tot\textless{}{-} subset(data\_tot, !(row.names(data\_tot) \%in\% rows\_to\_delete))}
+
+\DocumentationTok{\#\#\#\#\#\#\#{-} CREATE NEW DATASETS keeping only completed questionnaires: data\_tot\_clean}
+
+\CommentTok{\# All the observation that we can keep for Baseline}
+\DocumentationTok{\#\# We filter individuals who did not fill the mandatory question. INCOME is one.}
+\NormalTok{data\_tot\_clean }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{drop\_na}\NormalTok{(}\StringTok{"INCOME"}\NormalTok{)}
+
+
+\DocumentationTok{\#\# Isolate date (StartDate\_D) and time (StartDate\_T) variables to have proper survey dates }
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{StartDate\_D }\OtherTok{\textless{}{-}} \FunctionTok{as.Date}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{StartDate)}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{StartDate\_T }\OtherTok{\textless{}{-}}\FunctionTok{strftime}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{StartDate, }\AttributeTok{format=}\StringTok{"\%H:\%M:\%S"}\NormalTok{)}
+
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{StartDate }\OtherTok{=} \FunctionTok{ymd\_hms}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{StartDate)}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{EndDate }\OtherTok{=} \FunctionTok{ymd\_hms}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{EndDate)}
+
+\CommentTok{\#compute mothers\textquotesingle{} birth{-}dates into age: AGE variable}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{BIRTHDATE }\OtherTok{\textless{}{-}} \FunctionTok{paste}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\StringTok{\textasciigrave{}}\AttributeTok{BIRTHDATE\#3\_1}\StringTok{\textasciigrave{}}\NormalTok{,data\_tot\_clean}\SpecialCharTok{$}\StringTok{\textasciigrave{}}\AttributeTok{BIRTHDATE\#1\_1}\StringTok{\textasciigrave{}}\NormalTok{,data\_tot\_clean}\SpecialCharTok{$}\StringTok{\textasciigrave{}}\AttributeTok{BIRTHDATE\#2\_1}\StringTok{\textasciigrave{}}\NormalTok{, }\AttributeTok{sep=}\StringTok{"{-}"}\NormalTok{)}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{BIRTHDATE }\OtherTok{\textless{}{-}} \FunctionTok{ymd}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{BIRTHDATE)}
+
+\NormalTok{date\_ref }\OtherTok{\textless{}{-}}  \FunctionTok{ymd}\NormalTok{(}\StringTok{"2022{-}12{-}31"}\NormalTok{)}
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{AGE }\OtherTok{\textless{}{-}} \FunctionTok{age\_calc}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{BIRTHDATE, date\_ref, }\AttributeTok{units =} \StringTok{"years"}\NormalTok{)}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{AGE }\OtherTok{=} \FunctionTok{floor}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{AGE) }
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{AGE }\OtherTok{\textless{}{-}} \FunctionTok{as.numeric}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{AGE)}
+
+\CommentTok{\#create an Early Childcare Structure (ECS) ideal entry date}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date }\OtherTok{\textless{}{-}} \FunctionTok{paste}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\StringTok{\textasciigrave{}}\AttributeTok{ECS\_Date\#1\_1}\StringTok{\textasciigrave{}}\NormalTok{,data\_tot\_clean}\SpecialCharTok{$}\StringTok{\textasciigrave{}}\AttributeTok{ECS\_Date\#2\_1}\StringTok{\textasciigrave{}}\NormalTok{, }\AttributeTok{sep=}\StringTok{" "}\NormalTok{)}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date }\OtherTok{\textless{}{-}} \FunctionTok{myd}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date,  }\AttributeTok{truncated =} \DecValTok{1}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: 409 failed to parse.
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\#put the DECEMBER 2026 observations that coded for "Don\textquotesingle{}t know" as NA}
+\CommentTok{\# TO DO: in later versions, this should be replaced by "Ne sait pas encore" instead of NA}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date }\OtherTok{\textless{}{-}} 
+  \FunctionTok{na\_if}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date, }\FunctionTok{ymd}\NormalTok{(}\StringTok{"2026{-}12{-}01"}\NormalTok{))}
+
+
+
+\DocumentationTok{\#\# ZIPCODES : Creation of a variable \textquotesingle{}DEP\textquotesingle{} that contains the department numbers of all participants.}
+\NormalTok{data\_tot\_clean }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{DEP =} \FunctionTok{substr}\NormalTok{(ZIPCODE\_1\_TEXT, }\DecValTok{1}\NormalTok{, }\DecValTok{2}\NormalTok{))}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{DEP }\OtherTok{\textless{}{-}} \FunctionTok{as.factor}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{DEP)}
+
+
+\DocumentationTok{\#\# Manipulate the number and types of ECS Known in order to do stats on the information level}
+
+\CommentTok{\# Put all the ECS known into one column : ECS\_full}
+\NormalTok{data\_tot\_clean }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{ECS\_full =} \FunctionTok{paste}\NormalTok{(ECS\_Type, ECS\_Known\_Y, ECS\_Known\_N, }\AttributeTok{sep =} \StringTok{","}\NormalTok{)) }
+
+\CommentTok{\# Split ECS\_full into separate ECS columns}
+\NormalTok{ecs\_list }\OtherTok{\textless{}{-}} \FunctionTok{strsplit}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_full, }\StringTok{","}\NormalTok{)}
+
+\NormalTok{max\_ecs }\OtherTok{\textless{}{-}} \FunctionTok{max}\NormalTok{(}\FunctionTok{lengths}\NormalTok{(ecs\_list))}
+\NormalTok{ecs\_columns }\OtherTok{\textless{}{-}} \FunctionTok{matrix}\NormalTok{(}\AttributeTok{nrow =} \FunctionTok{length}\NormalTok{(ecs\_list), }\AttributeTok{ncol =}\NormalTok{ max\_ecs)}
+
+\CommentTok{\# Fill the ECS columns with the separated values}
+\ControlFlowTok{for}\NormalTok{ (i }\ControlFlowTok{in} \FunctionTok{seq\_along}\NormalTok{(ecs\_list)) \{}
+\NormalTok{  ecs\_columns[i, }\DecValTok{1}\SpecialCharTok{:}\FunctionTok{length}\NormalTok{(ecs\_list[[i]])] }\OtherTok{\textless{}{-}}\NormalTok{ ecs\_list[[i]]}
+\NormalTok{\}}
+
+\CommentTok{\# Create ECS column names}
+\NormalTok{ecs\_column\_names }\OtherTok{\textless{}{-}} \FunctionTok{paste0}\NormalTok{(}\StringTok{"ECS\_"}\NormalTok{, }\DecValTok{1}\SpecialCharTok{:}\NormalTok{max\_ecs)}
+
+\CommentTok{\# Create a new data frame with the separated ECS columns: ecs\_df}
+\NormalTok{ecs\_df }\OtherTok{\textless{}{-}} \FunctionTok{as.data.frame}\NormalTok{(ecs\_columns, }\AttributeTok{stringsAsFactors =} \ConstantTok{FALSE}\NormalTok{)}
+\FunctionTok{names}\NormalTok{(ecs\_df) }\OtherTok{\textless{}{-}}\NormalTok{ ecs\_column\_names}
+
+
+\DocumentationTok{\#\# Prepare the merge between data\_tot\_clean and ecs\_df}
+
+\CommentTok{\# Create an ID for each row of ecs\_df}
+\NormalTok{ecs\_df}\SpecialCharTok{$}\NormalTok{ID\_row }\OtherTok{\textless{}{-}} \DecValTok{1}\SpecialCharTok{:}\FunctionTok{nrow}\NormalTok{(ecs\_df)}
+
+\CommentTok{\# do the same for data\_tot\_clean}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ID\_row }\OtherTok{\textless{}{-}} \DecValTok{1}\SpecialCharTok{:}\FunctionTok{nrow}\NormalTok{(data\_tot\_clean)}
+
+\DocumentationTok{\#\# merge the two dataframes}
+\NormalTok{data\_tot\_clean }\OtherTok{\textless{}{-}} \FunctionTok{merge}\NormalTok{(data\_tot\_clean, ecs\_df, }\AttributeTok{by =} \StringTok{"ID\_row"}\NormalTok{, }\AttributeTok{all.x =} \ConstantTok{TRUE}\NormalTok{)}
+
+\DocumentationTok{\#\# Remove the useless values}
+
+\NormalTok{columns\_to\_update }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"ECS\_1"}\NormalTok{, }\StringTok{"ECS\_2"}\NormalTok{, }\StringTok{"ECS\_3"}\NormalTok{, }\StringTok{"ECS\_4"}\NormalTok{, }\StringTok{"ECS\_5"}\NormalTok{, }\StringTok{"ECS\_6"}\NormalTok{, }\StringTok{"ECS\_7"}\NormalTok{, }\StringTok{"ECS\_8"}\NormalTok{, }\StringTok{"ECS\_9"}\NormalTok{, }\StringTok{"ECS\_10"}\NormalTok{, }\StringTok{"ECS\_11"}\NormalTok{)}
+
+\CommentTok{\# Replace "NA", "Aucun" and "Aucun autre" with NA in the ECS columns}
+\NormalTok{data\_tot\_clean[columns\_to\_update] }\OtherTok{\textless{}{-}} \FunctionTok{lapply}\NormalTok{(data\_tot\_clean[columns\_to\_update], }\ControlFlowTok{function}\NormalTok{(x) }\FunctionTok{replace}\NormalTok{(x, x }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\StringTok{"NA"}\NormalTok{, }\StringTok{"Aucun autre"}\NormalTok{, }\StringTok{"Aucun"}\NormalTok{), }\ConstantTok{NA}\NormalTok{))}
+
+\NormalTok{ecs\_df[columns\_to\_update] }\OtherTok{\textless{}{-}} \FunctionTok{lapply}\NormalTok{(ecs\_df[columns\_to\_update], }\ControlFlowTok{function}\NormalTok{(x) }\FunctionTok{replace}\NormalTok{(x, x }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\StringTok{"NA"}\NormalTok{, }\StringTok{"Aucun autre"}\NormalTok{, }\StringTok{"Aucun"}\NormalTok{), }\ConstantTok{NA}\NormalTok{))}
+
+
+\CommentTok{\# Remove additional occurrences of "Crèches municipales (ou juste «crèches »)" in the ECS columns}
+
+\ControlFlowTok{for}\NormalTok{ (col }\ControlFlowTok{in}\NormalTok{ columns\_to\_update) \{}
+\NormalTok{  unique\_values }\OtherTok{\textless{}{-}} \FunctionTok{unique}\NormalTok{(data\_tot\_clean[, col])}
+\NormalTok{  first\_occurrence }\OtherTok{\textless{}{-}}\NormalTok{ unique\_values[}\DecValTok{1}\NormalTok{]}
+\NormalTok{  data\_tot\_clean[, col][data\_tot\_clean[, col] }\SpecialCharTok{==} \StringTok{"Crèches municipales (ou juste «crèches »)"} \SpecialCharTok{\&}\NormalTok{ data\_tot\_clean[, col] }\SpecialCharTok{!=}\NormalTok{ first\_occurrence] }\OtherTok{\textless{}{-}} \ConstantTok{NA}
+\NormalTok{\}}
+
+\ControlFlowTok{for}\NormalTok{ (col }\ControlFlowTok{in}\NormalTok{ columns\_to\_update) \{}
+\NormalTok{  unique\_values }\OtherTok{\textless{}{-}} \FunctionTok{unique}\NormalTok{(ecs\_df[, col])}
+\NormalTok{  first\_occurrence }\OtherTok{\textless{}{-}}\NormalTok{ unique\_values[}\DecValTok{1}\NormalTok{]}
+\NormalTok{  ecs\_df[, col][ecs\_df[, col] }\SpecialCharTok{==} \StringTok{"Crèches municipales (ou juste «crèches »)"} \SpecialCharTok{\&}\NormalTok{ ecs\_df[, col] }\SpecialCharTok{!=}\NormalTok{ first\_occurrence] }\OtherTok{\textless{}{-}} \ConstantTok{NA}
+\NormalTok{\}}
+
+
+\DocumentationTok{\#\# Create 5 additional operational columns : }
+\CommentTok{\# those knowing Crèches municipales, those knowing only it, those knowing only 1 ECS, those knowing only One or no ECS, and the number of ECS known}
+
+
+\CommentTok{\# Participants that knew crèches : }
+\CommentTok{\#1. Create a new column called "Crèches municipales" with initial value 0}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Crèches\_municipales }\OtherTok{\textless{}{-}} \DecValTok{0}
+
+\CommentTok{\# 2. Check if "Crèches municipales (ou juste «crèches »)" is mentioned in any of the ECS columns}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Crèches\_municipales }\OtherTok{\textless{}{-}} \FunctionTok{apply}\NormalTok{(data\_tot\_clean[, columns\_to\_update], }\DecValTok{1}\NormalTok{, }\ControlFlowTok{function}\NormalTok{(row) \{}
+  \ControlFlowTok{if}\NormalTok{ (}\StringTok{"Crèches municipales (ou juste «crèches »)"} \SpecialCharTok{\%in\%}\NormalTok{ row }\SpecialCharTok{\&} \FunctionTok{sum}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(row)) }\SpecialCharTok{==} \DecValTok{1}\NormalTok{) \{}
+    \FunctionTok{return}\NormalTok{(}\DecValTok{1}\NormalTok{)}
+\NormalTok{  \} }\ControlFlowTok{else}\NormalTok{ \{}
+    \FunctionTok{return}\NormalTok{(}\DecValTok{0}\NormalTok{)}
+\NormalTok{  \}}
+\NormalTok{\})}
+
+
+\CommentTok{\# Participants that knew Halte{-}garderies : }
+\CommentTok{\#1. Create a new column called "Haltes" with initial value 0}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Haltes }\OtherTok{\textless{}{-}} \DecValTok{0}
+
+\CommentTok{\# 2. Check if "Haltes garderies" is mentioned in any of the ECS columns}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Haltes }\OtherTok{\textless{}{-}} \FunctionTok{apply}\NormalTok{(data\_tot\_clean[, columns\_to\_update], }\DecValTok{1}\NormalTok{, }\ControlFlowTok{function}\NormalTok{(row) \{}
+  \ControlFlowTok{if}\NormalTok{ (}\StringTok{"Haltes garderies"} \SpecialCharTok{\%in\%}\NormalTok{ row }\SpecialCharTok{\&} \FunctionTok{sum}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(row)) }\SpecialCharTok{==} \DecValTok{1}\NormalTok{) \{}
+    \FunctionTok{return}\NormalTok{(}\DecValTok{1}\NormalTok{)}
+\NormalTok{  \} }\ControlFlowTok{else}\NormalTok{ \{}
+    \FunctionTok{return}\NormalTok{(}\DecValTok{0}\NormalTok{)}
+\NormalTok{  \}}
+\NormalTok{\})}
+
+
+\CommentTok{\# Participants that knew *only* crèches : }
+\CommentTok{\#1. Create a new column called "Single\_ECS\_Creches" initialized with 0}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Single\_ECS\_Creches }\OtherTok{\textless{}{-}} \DecValTok{0}
+
+\CommentTok{\# 2. Check if participant mentioned only one ECS type and it is "Crèches municipales (ou juste «crèches »)"}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Single\_ECS\_Creches }\OtherTok{\textless{}{-}} \FunctionTok{ifelse}\NormalTok{(}\FunctionTok{rowSums}\NormalTok{(data\_tot\_clean[, columns\_to\_update] }\SpecialCharTok{==} \StringTok{"Crèches municipales (ou juste «crèches »)"}\NormalTok{, }\AttributeTok{na.rm =} \ConstantTok{TRUE}\NormalTok{) }\SpecialCharTok{==} \DecValTok{1} \SpecialCharTok{\&}
+                                      \FunctionTok{rowSums}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(data\_tot\_clean[, columns\_to\_update])) }\SpecialCharTok{==} \DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{)}
+
+\CommentTok{\# Participants that knew only 1 ECS: }
+\CommentTok{\# 1. Create a new column called "Only\_One\_ECS" with initial value 0}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Only\_One\_ECS }\OtherTok{\textless{}{-}} \DecValTok{0}
+
+\CommentTok{\# 2. Check if the participant has mentioned only one ECS type in any of the ECS columns}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Only\_One\_ECS }\OtherTok{\textless{}{-}} \FunctionTok{apply}\NormalTok{(data\_tot\_clean[, columns\_to\_update], }\DecValTok{1}\NormalTok{, }\ControlFlowTok{function}\NormalTok{(row) \{}
+\NormalTok{  unique\_values }\OtherTok{\textless{}{-}} \FunctionTok{unique}\NormalTok{(}\FunctionTok{na.omit}\NormalTok{(row))}
+  \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{length}\NormalTok{(unique\_values) }\SpecialCharTok{==} \DecValTok{1} \SpecialCharTok{\&} \FunctionTok{sum}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(row)) }\SpecialCharTok{==} \DecValTok{1}\NormalTok{) \{}
+    \FunctionTok{return}\NormalTok{(}\DecValTok{1}\NormalTok{)}
+\NormalTok{  \} }\ControlFlowTok{else}\NormalTok{ \{}
+    \FunctionTok{return}\NormalTok{(}\DecValTok{0}\NormalTok{)}
+\NormalTok{  \}}
+\NormalTok{\})}
+
+\CommentTok{\# Participants that knew 1 ECS or less: }
+\CommentTok{\# 1. Create a new column called "One\_or\_None\_ECS" with initial value 0}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{One\_or\_None\_ECS }\OtherTok{\textless{}{-}} \DecValTok{0}
+
+\CommentTok{\# 2. Check if the participant has mentioned only one ECS type or none in any of the ECS columns}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{One\_or\_None\_ECS }\OtherTok{\textless{}{-}} \FunctionTok{apply}\NormalTok{(data\_tot\_clean[, columns\_to\_update], }\DecValTok{1}\NormalTok{, }\ControlFlowTok{function}\NormalTok{(row) \{}
+\NormalTok{  unique\_values }\OtherTok{\textless{}{-}} \FunctionTok{unique}\NormalTok{(}\FunctionTok{na.omit}\NormalTok{(row))}
+  \ControlFlowTok{if}\NormalTok{ (}\FunctionTok{length}\NormalTok{(unique\_values) }\SpecialCharTok{\textless{}=} \DecValTok{1} \SpecialCharTok{\&} \FunctionTok{sum}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(row)) }\SpecialCharTok{\textless{}=} \DecValTok{1}\NormalTok{) \{}
+    \FunctionTok{return}\NormalTok{(}\DecValTok{1}\NormalTok{)}
+\NormalTok{  \} }\ControlFlowTok{else}\NormalTok{ \{}
+    \FunctionTok{return}\NormalTok{(}\DecValTok{0}\NormalTok{)}
+\NormalTok{  \}}
+\NormalTok{\})}
+
+
+\CommentTok{\# Number of ECS types mentioned by each participants:}
+\CommentTok{\# 1. Create a new column called "Num\_ECS" with initial value 0}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Num\_ECS }\OtherTok{\textless{}{-}} \DecValTok{0}
+
+\CommentTok{\# 2. Count the number of ECS mentioned by each participant}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Num\_ECS }\OtherTok{\textless{}{-}} \FunctionTok{rowSums}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{is.na}\NormalTok{(data\_tot\_clean[, columns\_to\_update]))}
+
+
+
+\DocumentationTok{\#\# compute the age of the baby now for each observation}
+\NormalTok{pregnancy\_length }\OtherTok{\textless{}{-}} \DecValTok{280}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{interview\_date }\OtherTok{\textless{}{-}} \FunctionTok{as.Date}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{StartDate\_D)}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{PREGMONTH }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot\_clean}\SpecialCharTok{$}\NormalTok{PREGMONTH\_1\_TEXT}
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{PREGMONTH\_days }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot\_clean}\SpecialCharTok{$}\NormalTok{PREGMONTH}\SpecialCharTok{*}\FloatTok{30.4167}
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Pregnancy\_Days\_Left }\OtherTok{\textless{}{-}}\NormalTok{ pregnancy\_length }\SpecialCharTok{{-}}\NormalTok{ data\_tot\_clean}\SpecialCharTok{$}\NormalTok{PREGMONTH\_days}
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{baby\_birth\_date }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot\_clean}\SpecialCharTok{$}\NormalTok{interview\_date }\SpecialCharTok{+}\NormalTok{ data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Pregnancy\_Days\_Left}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{baby\_age }\OtherTok{\textless{}{-}} \FunctionTok{round}\NormalTok{(}\FunctionTok{as.numeric}\NormalTok{(}\FunctionTok{difftime}\NormalTok{(date\_ref, data\_tot\_clean}\SpecialCharTok{$}\NormalTok{baby\_birth\_date, }\AttributeTok{units =} \StringTok{"days"}\NormalTok{))}\SpecialCharTok{/}\FloatTok{30.4167}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+
+
+\CommentTok{\#order level of education }
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ordered\_educ }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{DIPLOMA, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}
+  \StringTok{"N’est jamais allé à l’école (6{-}8 ans)"}\NormalTok{, }\StringTok{"CEP(Certificat d’Etudes Primaires) / fin école primaire (9{-}11 ans)"}\NormalTok{,}
+  \StringTok{"BEPC, Brevet élémentaire, Brevet des collèges / fin collège (13{-}16 ans)"}\NormalTok{,}
+  \StringTok{"CAP, BEP"}\NormalTok{,}
+  \StringTok{"Bac / fin lycée (16{-}19 ans)"}\NormalTok{,}
+  \StringTok{"Bac +2 (Deug, BTS, DUT) (19{-}20 ans)"}\NormalTok{,}
+  \StringTok{"Bac +3  / fin d’un diplôme de premier cycle universitaire (21{-}22 ans)"}\NormalTok{,}
+  \StringTok{"Bac +4 ou +5 (2nd cycle universitaire, ingénieur, grande école…) (22{-}24 ans)"}\NormalTok{,}
+  \StringTok{"Plus de Bac +5 (24{-}26 ans)"}\NormalTok{), }\AttributeTok{ordered =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{labels =} 
+    \FunctionTok{c}\NormalTok{(}\StringTok{"No school"}\NormalTok{, }\StringTok{"9{-}11"}\NormalTok{, }\StringTok{"Brevet"}\NormalTok{, }\StringTok{"CAP"}\NormalTok{, }\StringTok{"Bac"}\NormalTok{, }\StringTok{"Bac +2"}\NormalTok{, }\StringTok{"Bac + 3"}\NormalTok{, }\StringTok{"Bac + 4/5"}\NormalTok{, }\StringTok{"+ Bac+5"}\NormalTok{)) }
+
+\CommentTok{\#Order family income }
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{FMLYINCOME }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{FMLYINCOME, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}
+  \StringTok{"Je ne sais pas"}\NormalTok{,}
+  \StringTok{"Je ne souhaite pas répondre"}\NormalTok{,}
+  \StringTok{"Moins de 500 euros"}\NormalTok{,}
+  \StringTok{"Entre 500 et 700 euros"}\NormalTok{,}
+  \StringTok{"Entre 700 et 900 euros "}\NormalTok{,}
+  \StringTok{"Entre 1000 et 1500 euros"}\NormalTok{,}
+  \StringTok{"Entre 1500 et 2000 euros"}\NormalTok{,}
+  \StringTok{"Entre 2000 et 2500 euros "}\NormalTok{,}
+  \StringTok{"Entre 2500 et 3000 euros"}\NormalTok{,}
+  \StringTok{"Entre 3000 et 4500 euros"}\NormalTok{,}
+  \StringTok{"Entre 4500 et 5000 euros"}\NormalTok{, }
+  \StringTok{"Entre 5000 et 6000 euros"}\NormalTok{,}
+  \StringTok{"Entre 6000 et 7000 euros"}\NormalTok{,}
+  \StringTok{"Entre 7000 et 8000 euros"}\NormalTok{,}
+  \StringTok{"Plus de 8000"}\NormalTok{), }\AttributeTok{ordered =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{labels =} 
+    \FunctionTok{c}\NormalTok{(}\StringTok{"NSP"}\NormalTok{, }\StringTok{"Ne veut pas répondre"}\NormalTok{, }\StringTok{"{-} 500"}\NormalTok{, }\StringTok{"500{-}700"}\NormalTok{, }\StringTok{"700{-}1000"}\NormalTok{, }\StringTok{"1000{-}1500"}\NormalTok{, }\StringTok{"1500{-}2000"}\NormalTok{, }\StringTok{"2000{-}2500"}\NormalTok{, }\StringTok{"2500{-}3000"}\NormalTok{, }\StringTok{"3000{-}4500"}\NormalTok{, }\StringTok{"4500{-}5000"}\NormalTok{,}
+      \StringTok{"5000{-}6000"}\NormalTok{, }\StringTok{"6000{-}7000"}\NormalTok{, }\StringTok{"7000{-}8000"}\NormalTok{, }\StringTok{"+8000"}\NormalTok{)) }
+
+\CommentTok{\#Order income }
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{INCOME }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{INCOME, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}
+  \StringTok{"Je ne sais pas"}\NormalTok{, }\StringTok{"Je ne souhaite pas répondre"}\NormalTok{,}
+  \StringTok{"Moins de 500 euros"}\NormalTok{,}
+  \StringTok{"Entre 500 et 700 euros"}\NormalTok{,}
+  \StringTok{"Entre 700 et 900 euros "}\NormalTok{,}
+  \StringTok{"Entre 1000 et 1500 euros"}\NormalTok{,}
+  \StringTok{"Entre 1500 et 2000 euros"}\NormalTok{,}
+  \StringTok{"Entre 2000 et 2500 euros"}\NormalTok{,}
+  \StringTok{"Entre 2500 et 3000 euros"}\NormalTok{,}
+  \StringTok{"Entre 3000 et 4500 euros"}\NormalTok{,}
+  \StringTok{"Entre 4500 et 5000 euros"}\NormalTok{, }
+  \StringTok{"Entre 5000 et 6000 euros"}\NormalTok{,}
+  \StringTok{"Plus de 6000 "}\NormalTok{), }\AttributeTok{ordered =} \ConstantTok{TRUE}\NormalTok{, }\AttributeTok{labels =} 
+    \FunctionTok{c}\NormalTok{(}\StringTok{"NSP"}\NormalTok{, }\StringTok{"Ne veut pas répondre"}\NormalTok{, }\StringTok{"{-} 500"}\NormalTok{,}
+      \StringTok{"500{-}700"}\NormalTok{, }\StringTok{"700{-}1000"}\NormalTok{, }\StringTok{"1000{-}1500"}\NormalTok{,}
+      \StringTok{"1500{-}2000"}\NormalTok{, }\StringTok{"2000{-}2500"}\NormalTok{, }\StringTok{"2500{-}3000"}\NormalTok{,}
+      \StringTok{"3000{-}4500"}\NormalTok{, }\StringTok{"4500{-}5000"}\NormalTok{,}
+      \StringTok{"5000{-}6000"}\NormalTok{, }\StringTok{"+6000"}\NormalTok{)) }
+
+\CommentTok{\#Clean the type of ECS wanted at the time of the interview: }
+\CommentTok{\#merge the different types of crèches into a single level "Crèches" and all the nannies into a single variable: "Nounou"}
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_TypeR }\OtherTok{\textless{}{-}}   \FunctionTok{fct\_collapse}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Type,}
+\NormalTok{                                           Crèches }\OtherTok{=} \FunctionTok{c}\NormalTok{(}\StringTok{"Autres types de crèches"}\NormalTok{, }
+                                                       \StringTok{"Crèches municipales (ou juste «crèches »)"}\NormalTok{, }
+                                                       \StringTok{"Crèches associatives"}\NormalTok{), }
+                                           \AttributeTok{Nounou =} \FunctionTok{c}\NormalTok{(}\StringTok{"Nounou à domicile"}\NormalTok{, }\StringTok{"Garde partagée"}\NormalTok{), }
+                                           \AttributeTok{NSP =} \FunctionTok{c}\NormalTok{(}\StringTok{"Je ne sais pas encore"}\NormalTok{, }\StringTok{"Je ne souhaite pas répondre"}\NormalTok{))}
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_TypeR }\OtherTok{\textless{}{-}} \FunctionTok{factor}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_TypeR, }\AttributeTok{levels =} \FunctionTok{c}\NormalTok{(}
+  \StringTok{"Crèches"}\NormalTok{, }\StringTok{"Assistantes maternelles"}\NormalTok{,}
+  \StringTok{"Nounou"}\NormalTok{,}
+  \StringTok{"Haltes garderies"}\NormalTok{,}
+  \StringTok{"Jardin d’enfant"}\NormalTok{, }\StringTok{"Autre"}\NormalTok{,}
+  \StringTok{"NSP"}\NormalTok{, }\ConstantTok{NA}\NormalTok{), }\AttributeTok{ordered =} \ConstantTok{TRUE}\NormalTok{)}
+
+\CommentTok{\# Isolate ppl boarn abroad and ppl born in France}
+
+\NormalTok{data\_tot\_clean }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{(}\AttributeTok{FrenchYN =} \FunctionTok{fct\_collapse}\NormalTok{(BIRTHPLACE, }
+                                                                   \AttributeTok{French =} \FunctionTok{c}\NormalTok{(}\StringTok{"En France métropolitaine"}\NormalTok{, }\StringTok{"Dans un territoire français d’outre{-}mer"}\NormalTok{), }
+                                                                   \AttributeTok{Else =} \FunctionTok{c}\NormalTok{(}\StringTok{"Afrique subsaharienne"}\NormalTok{, }\StringTok{"MENA (Maghreb +Arabie saoudite, etc.)"}\NormalTok{, }\StringTok{"Europe/Amérique du Nord, Australie"}\NormalTok{, }\StringTok{"Asie (hors MENA)"}\NormalTok{, }\StringTok{"Amérique Latine (à partir du Mexique)"}\NormalTok{, }\StringTok{"Autre"}\NormalTok{, }\StringTok{"Je ne souhaite pas répondre"}\NormalTok{ ) ) ) }
+
+
+\DocumentationTok{\#\#\#\#EDUC LEVEL binary: EDUC}
+
+\CommentTok{\#rajouter ,"Autre. Préciser :" si besoin}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{EDUC }\OtherTok{\textless{}{-}} \FunctionTok{fct\_collapse}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{DIPLOMA,}
+                                    \AttributeTok{Bac =} \FunctionTok{c}\NormalTok{(}\StringTok{"Bac / fin lycée (16{-}19 ans)"}\NormalTok{, }
+                                            \StringTok{"BEPC, Brevet élémentaire, Brevet des collèges / fin collège (13{-}16 ans)"}\NormalTok{, }
+                                            \StringTok{"CAP, BEP"}\NormalTok{, }\StringTok{"CEP(Certificat d’Etudes Primaires) / fin école primaire (9{-}11 ans)"}\NormalTok{,}
+                                            \StringTok{"N’est jamais allé à l’école (6{-}8 ans)"}\NormalTok{),}
+                                    \AttributeTok{Sup =} \FunctionTok{c}\NormalTok{(}\StringTok{"Bac +2 (Deug, BTS, DUT) (19{-}20 ans)"}\NormalTok{, }
+                                            \StringTok{"Bac +3  / fin d’un diplôme de premier cycle universitaire (21{-}22 ans)"}\NormalTok{,}
+                                            \StringTok{"Bac +4 ou +5 (2nd cycle universitaire, ingénieur, grande école…) (22{-}24 ans)"}\NormalTok{,}
+                                            \StringTok{"Plus de Bac +5 (24{-}26 ans)"}\NormalTok{)}
+\NormalTok{)}
+
+
+\DocumentationTok{\#\#\#\#\#\#\#{-} INTENTION }
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{INTENTION }\OtherTok{\textless{}{-}} \FunctionTok{fct\_collapse}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECSYN,}
+                                         \AttributeTok{No =} \FunctionTok{c}\NormalTok{(}\StringTok{"Je ne sais pas encore"}\NormalTok{, }\StringTok{"Non"}\NormalTok{), }
+                                         \AttributeTok{Yes =} \StringTok{"Oui"}
+\NormalTok{)}
+
+
+\DocumentationTok{\#\#\#\#\#\#\#{-}\#\# MONTH PREG}
+
+\NormalTok{data\_tot\_clean }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{PREG\_BINARY =} \FunctionTok{case\_when}\NormalTok{( PREGMONTH\_1\_TEXT }\SpecialCharTok{\textless{}=} \DecValTok{7} \SpecialCharTok{\textasciitilde{}} \StringTok{"7Less"}\NormalTok{, }
+\NormalTok{                                  PREGMONTH\_1\_TEXT }\SpecialCharTok{\textgreater{}}  \DecValTok{7} \SpecialCharTok{\textasciitilde{}} \StringTok{"8OR9"}\NormalTok{))}
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{PREG\_BINARY }\OtherTok{\textless{}{-}} \FunctionTok{as.factor}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{PREG\_BINARY)}
+
+\FunctionTok{summary}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{PREG\_BINARY)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 7Less  8OR9 
+##  1250   781
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\#\#\#\#\#\#{-}\#\# Already used childcare}
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Used }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Used }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{replace\_na}\NormalTok{(}\StringTok{"Non"}\NormalTok{)}
+
+
+\DocumentationTok{\#\# Recoding other predictore variable}
+
+\DocumentationTok{\#\#\# Whether ppl think that subsidies are avaiblable for ECS}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Sub\_YN }\OtherTok{\textless{}{-}}   \FunctionTok{fct\_collapse}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Subsidies,}
+                                        \AttributeTok{Yes =} \StringTok{"Oui"}\NormalTok{, }
+                                        \AttributeTok{No\_NSP =} \FunctionTok{c}\NormalTok{(}\StringTok{"Je ne sais pas"}\NormalTok{, }\StringTok{"Non"}\NormalTok{))}
+
+\CommentTok{\# Whether they perceive them as accessible (getting a place)}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Access1\_binary }\OtherTok{\textless{}{-}}   \FunctionTok{fct\_collapse}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ACCESSBILITY1,}
+                                            \AttributeTok{Difficult\_Access =} \FunctionTok{c}\NormalTok{(}\StringTok{"assez difficile"}\NormalTok{, }\StringTok{"impossible"}\NormalTok{, }\StringTok{"très difficile"}\NormalTok{, }\StringTok{"quasiment impossible"}\NormalTok{ ), }
+                                            \AttributeTok{Not\_difficult =} \FunctionTok{c}\NormalTok{(}\StringTok{"assez facile"}\NormalTok{, }\StringTok{"très facile"}\NormalTok{), }
+                                            \StringTok{\textasciigrave{}}\AttributeTok{Dont know}\StringTok{\textasciigrave{}} \OtherTok{=} \FunctionTok{c}\NormalTok{(}\StringTok{"je ne sais pas"}\NormalTok{, }\StringTok{"je ne souhaite pas répondre"}\NormalTok{))}
+
+\CommentTok{\# Whether they perceive them as accessible (getting a place)}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Access2\_binary }\OtherTok{\textless{}{-}}   \FunctionTok{fct\_collapse}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ACCESSIBILITY2,}
+                                                \AttributeTok{Accessible =} \FunctionTok{c}\NormalTok{(}\StringTok{"Oui"}\NormalTok{, }\StringTok{"Non, mais on prendra un autre mode de garde en plus"}\NormalTok{), }
+                                                \AttributeTok{Not\_accessible =} \FunctionTok{c}\NormalTok{(}\StringTok{"Non"}\NormalTok{), }
+                                                \StringTok{\textasciigrave{}}\AttributeTok{Dont know}\StringTok{\textasciigrave{}} \OtherTok{=} \FunctionTok{c}\NormalTok{(}\StringTok{"Je ne sais pas encore"}\NormalTok{, }\StringTok{"Je ne souhaite pas répondre"}\NormalTok{))}
+
+\CommentTok{\# Collapse trust in crèche into 3 levels}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Trust\_creche }\OtherTok{\textless{}{-}}   \FunctionTok{fct\_collapse}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{TRUST\_3,}
+                                               \AttributeTok{Agree =} \FunctionTok{c}\NormalTok{(}\StringTok{"Assez d’accord"}\NormalTok{, }\StringTok{"Très d’accord"}\NormalTok{),}
+                                               \StringTok{\textasciigrave{}}\AttributeTok{Dont agree}\StringTok{\textasciigrave{}} \OtherTok{=} \FunctionTok{c}\NormalTok{(}\StringTok{"Très en désaccord"}\NormalTok{, }\StringTok{"Assez en désaccord"}\NormalTok{), }
+                                               \StringTok{\textasciigrave{}}\AttributeTok{Dont know}\StringTok{\textasciigrave{}} \OtherTok{=} \FunctionTok{c}\NormalTok{(}\StringTok{"Je ne sais pas"}\NormalTok{, }\StringTok{"Pas petinent"}\NormalTok{))}
+
+
+\CommentTok{\# Whether they would fit their working hours}
+
+
+\DocumentationTok{\#\#\# Create ECS\_Date that is a variable for people wanting to use ECS in September 2023 or before, and those wanting to use ECS after that}
+
+\CommentTok{\# Create an empty binary variable}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date\_binary }\OtherTok{\textless{}{-}} \ConstantTok{NA}
+
+\CommentTok{\# Define the cutoff date}
+\NormalTok{cutoff\_date }\OtherTok{\textless{}{-}} \FunctionTok{as.Date}\NormalTok{(}\StringTok{"2023{-}09{-}02"}\NormalTok{)}
+
+\CommentTok{\# Set values for ECS dates before and after the cutoff}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date\_binary[data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date }\SpecialCharTok{\textless{}}\NormalTok{ cutoff\_date] }\OtherTok{\textless{}{-}} \StringTok{"Before 09.2023"}
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date\_binary[data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date }\SpecialCharTok{\textgreater{}=}\NormalTok{ cutoff\_date] }\OtherTok{\textless{}{-}} \StringTok{"After 09.2023"}
+
+\CommentTok{\# Convert the binary variable to a factor}
+\CommentTok{\#data\_tot\_clean$ECS\_Date\_binary \textless{}{-} factor(data\_tot\_clean$ECS\_Date\_binary, levels = c("Before December 2023", "After December 2023"))}
+
+\FunctionTok{head}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{ECS\_Date\_binary)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "Before 09.2023" "Before 09.2023" "After 09.2023"  "Before 09.2023"
+## [5] "Before 09.2023" "Before 09.2023"
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\# Create a "data" dataset that contains only the valid rows (ie. those with phone numbers)}
+\NormalTok{data }\OtherTok{\textless{}{-}}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{drop\_na}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\StringTok{"NUMBER\_1\_TEXT"}\NormalTok{))}
+
+
+\NormalTok{data}\SpecialCharTok{$}\NormalTok{SansPapier }\OtherTok{\textless{}{-}} \FunctionTok{replace}\NormalTok{(data}\SpecialCharTok{$}\NormalTok{SansPapier, }\FunctionTok{is.na}\NormalTok{(data}\SpecialCharTok{$}\NormalTok{SansPapier), }\StringTok{"Non"}\NormalTok{)}
+
+\CommentTok{\# SANS PAPIER: TO read if working on the intervention}
+\CommentTok{\#data \textless{}{-} subset(data, data$SansPapier == "Non")}
+
+\CommentTok{\# Creation of subsamples of interest }
+\CommentTok{\#Low{-}SES mothers}
+\NormalTok{lowSES }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(EDUC }\SpecialCharTok{==} \StringTok{"Bac"}\NormalTok{) }
+
+\NormalTok{highSES }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(EDUC }\SpecialCharTok{==} \StringTok{"Sup"}\NormalTok{) }
+
+
+\CommentTok{\#Migrant mothers}
+\NormalTok{migrants }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(FrenchYN }\SpecialCharTok{==} \StringTok{"Else"}\NormalTok{) }
+
+\NormalTok{nonmigrants  }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(FrenchYN }\SpecialCharTok{==} \StringTok{"French"}\NormalTok{) }
+
+\CommentTok{\# Seine Saint Denis }
+\NormalTok{SSD }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(DEP }\SpecialCharTok{==} \StringTok{"93"}\NormalTok{) }
+
+\NormalTok{nonSSD }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(DEP }\SpecialCharTok{!=} \StringTok{"93"}\NormalTok{) }
+
+
+\DocumentationTok{\#\# Creation of inactive mothers}
+\DocumentationTok{\#\# TO DO : inclure dnas le code intial }
+
+\NormalTok{data\_tot\_clean}\SpecialCharTok{$}\NormalTok{Active }\OtherTok{\textless{}{-}}   \FunctionTok{fct\_collapse}\NormalTok{(data\_tot\_clean}\SpecialCharTok{$}\NormalTok{OCCUPATION,}
+                                        \AttributeTok{Active =} \FunctionTok{c}\NormalTok{(}\StringTok{"Je travaille (y compris si congé maladie, maternité ou parental)"}\NormalTok{, }\StringTok{"Je suis étudiant(e), stagiaire ou fait une formation"}\NormalTok{), }
+                                        \AttributeTok{Inactive =} \FunctionTok{c}\NormalTok{(}\StringTok{"Je suis au chômage, cherche un emploi"}\NormalTok{, }\StringTok{"Je suis femme au foyer"}\NormalTok{, }\StringTok{"Autre"}\NormalTok{, }\StringTok{"J’ai une pension de retraite, d’invalidité, etc."}\NormalTok{), }
+                                        \AttributeTok{NSP =} \FunctionTok{c}\NormalTok{(}\StringTok{"Ne souhaite pas répondre"}\NormalTok{, }\StringTok{"Ne sait pas"}\NormalTok{))}
+
+
+
+\NormalTok{inactive }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%}  
+  \FunctionTok{filter}\NormalTok{(Active }\SpecialCharTok{==} \StringTok{"Inactive"}\NormalTok{) }
+
+\NormalTok{active }\OtherTok{=}\NormalTok{ data\_tot\_clean }\SpecialCharTok{\%\textgreater{}\%}  
+  \FunctionTok{filter}\NormalTok{(Active }\SpecialCharTok{==} \StringTok{"Active"}\NormalTok{) }
+
+
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}}
+
+
+\CommentTok{\#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\#\#}
+\DocumentationTok{\#\#\#\#\# Import and clean the randomization data \%\%\%\%\%\%\%\%\%\%\%\#\#}
+\DocumentationTok{\#\#\#\#\#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\#\#}
+
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}\{r creation of a database that includes randomization data,  include= FALSE\}}
+
+\CommentTok{\#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\#\#}
+\DocumentationTok{\#\#\#\#\# Import the data from the waves to augment the database  \%\%\%\%\%\%\%\%\%\%\%\#\#}
+\DocumentationTok{\#\#\#\#\#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\#\#}
+\CommentTok{\#Import the data of the different waves into a Waves database}
+
+\NormalTok{Wave1 }\OtherTok{\textless{}{-}} \FunctionTok{fread}\NormalTok{(}\StringTok{"../pre{-}analysis{-}Laudine/Databases/Wave1.csv"}\NormalTok{, }\AttributeTok{encoding=}\StringTok{"UTF{-}8"}\NormalTok{)}
+\NormalTok{Wave2 }\OtherTok{\textless{}{-}} \FunctionTok{fread}\NormalTok{(}\StringTok{"../pre{-}analysis{-}Laudine/Databases/Wave2.csv"}\NormalTok{, }\AttributeTok{encoding=}\StringTok{"UTF{-}8"}\NormalTok{)}
+\NormalTok{Wave3 }\OtherTok{\textless{}{-}} \FunctionTok{fread}\NormalTok{(}\StringTok{"../pre{-}analysis{-}Laudine/Databases/Wave3.csv"}\NormalTok{, }\AttributeTok{encoding=}\StringTok{"UTF{-}8"}\NormalTok{)}
+\NormalTok{Wave4 }\OtherTok{\textless{}{-}} \FunctionTok{fread}\NormalTok{(}\StringTok{"../pre{-}analysis{-}Laudine/Databases/Wave4.csv"}\NormalTok{, }\AttributeTok{encoding=}\StringTok{"UTF{-}8"}\NormalTok{)}
+\NormalTok{Wave5 }\OtherTok{\textless{}{-}} \FunctionTok{fread}\NormalTok{(}\StringTok{"../pre{-}analysis{-}Laudine/Databases/Wave5.csv"}\NormalTok{, }\AttributeTok{encoding=}\StringTok{"UTF{-}8"}\NormalTok{)}
+\NormalTok{Wave6 }\OtherTok{\textless{}{-}} \FunctionTok{fread}\NormalTok{(}\StringTok{"../pre{-}analysis{-}Laudine/Databases/Wave6.csv"}\NormalTok{, }\AttributeTok{encoding=}\StringTok{"UTF{-}8"}\NormalTok{)}
+\NormalTok{Wave7 }\OtherTok{\textless{}{-}} \FunctionTok{fread}\NormalTok{(}\StringTok{"../pre{-}analysis{-}Laudine/Databases/Wave7.csv"}\NormalTok{, }\AttributeTok{encoding=}\StringTok{"UTF{-}8"}\NormalTok{)}
+
+\CommentTok{\# Add a column "Which\_wave" indicating from which wave the data comes}
+\CommentTok{\#TO DO: If one find time to do it: do it more elegantly }
+\NormalTok{Wave1}\SpecialCharTok{$}\NormalTok{Which\_wave }\OtherTok{\textless{}{-}} \StringTok{"Wave1"}
+\NormalTok{Wave2}\SpecialCharTok{$}\NormalTok{Which\_wave }\OtherTok{\textless{}{-}} \StringTok{"Wave2"}
+\NormalTok{Wave3}\SpecialCharTok{$}\NormalTok{Which\_wave }\OtherTok{\textless{}{-}} \StringTok{"Wave3"}
+\NormalTok{Wave4}\SpecialCharTok{$}\NormalTok{Which\_wave }\OtherTok{\textless{}{-}} \StringTok{"Wave4"}
+\NormalTok{Wave5}\SpecialCharTok{$}\NormalTok{Which\_wave }\OtherTok{\textless{}{-}} \StringTok{"Wave5"}
+\NormalTok{Wave6}\SpecialCharTok{$}\NormalTok{Which\_wave }\OtherTok{\textless{}{-}} \StringTok{"Wave6"}
+\NormalTok{Wave7}\SpecialCharTok{$}\NormalTok{Which\_wave }\OtherTok{\textless{}{-}} \StringTok{"Wave7"}
+
+\CommentTok{\#Create  the Waves file that compile all Waves}
+\NormalTok{Waves }\OtherTok{\textless{}{-}} \FunctionTok{bind\_rows}\NormalTok{(}\FunctionTok{list}\NormalTok{(Wave1, Wave2, Wave3, Wave4, Wave5, Wave6, Wave7))}
+\NormalTok{Waves }\OtherTok{=} \FunctionTok{as.data.frame}\NormalTok{(Waves)}
+
+\CommentTok{\# change the language of the participant at row 1003 that was arabic instead of French}
+\NormalTok{Waves}\SpecialCharTok{$}\NormalTok{LANGUAGE[}\DecValTok{813}\NormalTok{] }\OtherTok{\textless{}{-}} \StringTok{"français"}
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}}
+
+
+\CommentTok{\#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\#\#}
+\DocumentationTok{\#\#\#\#\# Creation of an augmented dataframe: data\_full \%\%\%\%\%\%\%\%\%\%\%\#\#}
+\DocumentationTok{\#\#\#\#\#\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\%\#\#}
+
+
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}\{r create an augmented main database with randomization data, echo= FALSE\}}
+\DocumentationTok{\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}}
+\DocumentationTok{\#\#\#\#\#\# Creation of a dataset that keeps the best of both worlds \#\#\#\#\#\#{-}}
+\DocumentationTok{\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}}
+
+\DocumentationTok{\#\# In this chunk, we create a data\_full data base that keeps both the final }
+\CommentTok{\#cleaned data extracted from the questionnaire (data) AND the additional information }
+\CommentTok{\#about the randomization contained in the Waves data base}
+
+\CommentTok{\#Indeed, some columns, as EDUC for instance are weird in the Waves data set, }
+\CommentTok{\#so we just want to keep the additional information brought by Waves, but extract this additional information}
+\CommentTok{\#to augment the main data set: data}
+
+\CommentTok{\#As a reminder, Waves is the data from the randomization, containing mainly the Treatment groups of the participants}
+\CommentTok{\# What we want to do in this part is to add to our main database "data", the additional information contained in "Waves"}
+\DocumentationTok{\#\#\#\# !!!!!! }\AlertTok{CAUTION}\DocumentationTok{ : by doing so, we will remove the numbers of the fathers, because we want a one to one correspondence between households and rows}
+
+\DocumentationTok{\#\# Clean Waves}
+\NormalTok{Waves}\SpecialCharTok{$}\NormalTok{NUMBER\_1\_TEXT }\OtherTok{\textless{}{-}} \FunctionTok{as.numeric}\NormalTok{(Waves}\SpecialCharTok{$}\NormalTok{NUMBER\_1\_TEXT)}
+
+\CommentTok{\# Get column names in data}
+\NormalTok{cols\_to\_remove }\OtherTok{\textless{}{-}} \FunctionTok{colnames}\NormalTok{(data)}
+
+\CommentTok{\# Add the common column to keep to the list of columns to remove}
+\NormalTok{cols\_to\_remove }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(cols\_to\_remove, }\StringTok{"NUMBER\_1\_TEXT"}\NormalTok{)}
+
+\CommentTok{\# Get column names in Waves}
+\NormalTok{cols\_in\_waves }\OtherTok{\textless{}{-}} \FunctionTok{colnames}\NormalTok{(Waves)}
+
+\CommentTok{\# Select only the columns in Waves that are not already in data (ie. the information about randomization)}
+\NormalTok{cols\_to\_keep }\OtherTok{\textless{}{-}}\NormalTok{ cols\_in\_waves[}\SpecialCharTok{!}\NormalTok{(cols\_in\_waves }\SpecialCharTok{\%in\%}\NormalTok{ cols\_to\_remove)]}
+
+\CommentTok{\# Remove the superfluous columns from Waves }
+\NormalTok{Waves\_filtered }\OtherTok{\textless{}{-}}\NormalTok{ Waves[, cols\_to\_keep]}
+
+
+\CommentTok{\#But we can see that there are still some columns that were duplicated}
+\CommentTok{\#There are columns that are here just because they have a different format of encoding: from the first to Q117\_1 }
+\CommentTok{\# ===\textgreater{} THIS PART DOESN\textquotesingle{}T WORK, IT REMOVES MORE THAN JUST THE DUPLICATES}
+\CommentTok{\# We want to remove them}
+
+\CommentTok{\#Get Q117\_1 column number}
+\CommentTok{\#which(colnames(Waves\_filtered)=="Q117\_1" )}
+
+\CommentTok{\# It is column 64}
+\CommentTok{\#Waves\_filtered \textless{}{-} Waves\_filtered[,{-}c(1:64)]}
+
+\CommentTok{\#Now they are removed ====\textgreater{} IT DOESN\textquotesingle{}T WORK}
+
+\CommentTok{\#But as we said, we want a one to one correspondence between households and row}
+\CommentTok{\#Remove the PhoneFather because we don\textquotesingle{}t want to do a family twice}
+
+\NormalTok{Waves\_filtered}\SpecialCharTok{$}\NormalTok{WhichPhone }\OtherTok{\textless{}{-}} \FunctionTok{as.factor}\NormalTok{(Waves\_filtered}\SpecialCharTok{$}\NormalTok{WhichPhone)}
+
+\NormalTok{Waves\_filtered }\OtherTok{\textless{}{-}}\NormalTok{ Waves\_filtered }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(WhichPhone }\SpecialCharTok{==} \StringTok{"PhoneMother"}\NormalTok{)}
+
+\DocumentationTok{\#\#Now do the inner join to keep the information added by Waves}
+
+\CommentTok{\#Put the two binding columns in the same format}
+\NormalTok{Waves\_filtered}\SpecialCharTok{$}\NormalTok{Number }\OtherTok{\textless{}{-}} \FunctionTok{as.numeric}\NormalTok{(Waves\_filtered}\SpecialCharTok{$}\NormalTok{Number)}
+
+\CommentTok{\# Do the inner join}
+\NormalTok{data\_full }\OtherTok{\textless{}{-}}\NormalTok{ data }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{full\_join}\NormalTok{(.,Waves\_filtered, }\AttributeTok{by =} \FunctionTok{c}\NormalTok{(}\StringTok{"NUMBER\_1\_TEXT"} \OtherTok{=} \StringTok{"Number"}\NormalTok{))}
+
+\CommentTok{\# Check that there are no duplicates}
+\ControlFlowTok{if}\NormalTok{ (}\FunctionTok{sum}\NormalTok{(}\FunctionTok{duplicated}\NormalTok{(data\_full}\SpecialCharTok{$}\NormalTok{NUMBER\_1\_TEXT)) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{) \{}
+  
+  
+  \FunctionTok{print}\NormalTok{(}\FunctionTok{which}\NormalTok{(}\FunctionTok{duplicated}\NormalTok{(data\_full}\SpecialCharTok{$}\NormalTok{NUMBER\_1\_TEXT)))}
+  
+\NormalTok{\} }\ControlFlowTok{else}\NormalTok{\{}
+  
+  \FunctionTok{print}\NormalTok{(}\StringTok{"No duplicates"}\NormalTok{)}
+  
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1]  36  37  38  39 100 224 225 226
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Remove the duplicates}
+
+\NormalTok{Ones }\OtherTok{\textless{}{-}}\NormalTok{ data\_full }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{filter}\NormalTok{(}\SpecialCharTok{!}\FunctionTok{duplicated}\NormalTok{(data\_full}\SpecialCharTok{$}\NormalTok{NUMBER\_1\_TEXT))}
+\NormalTok{uniqueDup }\OtherTok{\textless{}{-}}\NormalTok{ data\_full }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{filter}\NormalTok{(}\FunctionTok{duplicated}\NormalTok{(data\_full}\SpecialCharTok{$}\NormalTok{NUMBER\_1\_TEXT)) }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{distinct}\NormalTok{(.,StartDate,}\AttributeTok{.keep\_all =} \ConstantTok{TRUE}\NormalTok{)}
+
+\NormalTok{data\_full }\OtherTok{\textless{}{-}} \FunctionTok{bind\_rows}\NormalTok{(Ones,uniqueDup)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## New names:
+## New names:
+## * `...1` -> `...164`
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\# CREATE AN EXCEL FILE with the ALL participants and the full data if needed, regardless of their language}
+
+
+\CommentTok{\#Write the file with full data}
+\CommentTok{\#writexl::write\_xlsx(data\_full, "../Data/all\_waves\_rand/All\_participants\_full.xlsx", col\_names = TRUE)}
+
+
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}}
+
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}\{r cleaning of the data\_full database, echo = FALSE\}}
+\DocumentationTok{\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}}
+\DocumentationTok{\#\#\#\#\#\#\#{-} Cleaning the data\_full database \#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#}
+\DocumentationTok{\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#\#\#\#\#\#\#{-}\#}
+
+\DocumentationTok{\#\# In this chunk, we clean the most complete data base up to date: data\_full, that includes all variables from the questionnaire but also data from the randomization}
+
+\CommentTok{\#convert VARIABLES INTO FACTORS}
+\CommentTok{\#TO DO: to continue}
+\NormalTok{names }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{\textquotesingle{}ID\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Assignment\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Which\_wave\textquotesingle{}}
+\NormalTok{)}
+
+\NormalTok{data\_full[,names] }\OtherTok{\textless{}{-}} \FunctionTok{lapply}\NormalTok{(data\_full[,names] , factor)}
+
+\CommentTok{\#convert VARIABLES INTO numerical ones}
+\CommentTok{\#TO DO: to continue}
+\NormalTok{names\_numerical }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"TAUXCOUV\_COM"}\NormalTok{ )}
+\NormalTok{data\_full[,names\_numerical] }\OtherTok{\textless{}{-}} \FunctionTok{lapply}\NormalTok{(data\_full[,names\_numerical] , as.numeric)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning in `[<-.data.frame`(`*tmp*`, , names_numerical, value = list(20.6, :
+## provided 1963 variables to replace 1 variables
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#\textasciigrave{}\textasciigrave{}\textasciigrave{}}
+\end{Highlighting}
+\end{Shaded}
+
+\newpage
+
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+the database has 1963
+
+\hypertarget{bibliography}{%
+\section{Bibliography}\label{bibliography}}
+
+\hypertarget{refs}{}
+\begin{CSLReferences}{0}{0}
+\end{CSLReferences}
+
+\end{document}
