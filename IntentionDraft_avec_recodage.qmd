@@ -129,7 +129,7 @@ On controls only with applications
 ```{r}
 
 # Ensure your data is in the correct format for ggalluvial
-alluvial_data_Controls <- Controls %>%
+alluvial_data_Controls <- Control %>%
   dplyr::select(ChildcareTypeEndline, ChildcareTypeBaseline, ECSApp) %>%
   dplyr::filter(!is.na(ChildcareTypeBaseline) & !is.na(ChildcareTypeEndline)) %>% 
   mutate(ECSApp = ifelse(ECSApp == 1, "Applied", "Did not apply"))
@@ -156,7 +156,7 @@ Low-SES vs High SES
 
 ```{r}
 # Ensure your data is in the correct format for ggalluvial
-alluvial_data_Controls_HighSES <- Controls %>% filter(Educ == "Sup") %>% 
+alluvial_data_Controls_HighSES <- Control %>% filter(Educ == "Sup") %>% 
   dplyr::select(ChildcareTypeEndline, ChildcareTypeBaseline, ECSApp) %>%
   dplyr::filter(!is.na(ChildcareTypeBaseline) & !is.na(ChildcareTypeEndline)) %>% 
   mutate(ECSApp = ifelse(ECSApp == 1, "Applied", "Did not apply"))
@@ -181,7 +181,7 @@ ggplot(alluvial_data_Controls_HighSES,
 ```{r}
 
 # Ensure your data is in the correct format for ggalluvial
-alluvial_data_Controls_LowSES <- Controls %>% filter(Educ == "Bac") %>%    dplyr::select(ChildcareTypeEndline, ChildcareTypeBaseline, ECSApp) %>%   dplyr::filter(!is.na(ChildcareTypeBaseline) & !is.na(ChildcareTypeEndline)) %>%    mutate(ECSApp = ifelse(ECSApp == 1, "Applied", "Did not apply"))  
+alluvial_data_Controls_LowSES <- Control %>% filter(Educ == "Bac") %>%    dplyr::select(ChildcareTypeEndline, ChildcareTypeBaseline, ECSApp) %>%   dplyr::filter(!is.na(ChildcareTypeBaseline) & !is.na(ChildcareTypeEndline)) %>%    mutate(ECSApp = ifelse(ECSApp == 1, "Applied", "Did not apply"))  
 
 # Create the alluvial plot 
 ggplot(alluvial_data_Controls_LowSES,        aes(axis1 = ChildcareTypeBaseline, axis2 = ECSApp, axis3 =  ChildcareTypeEndline)) +   geom_alluvium(aes(fill = ChildcareTypeBaseline), width = 1/12) +   geom_stratum(width = 1/12, fill = "gray") +   geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +   scale_x_discrete(limits = c("Desired Care (During Pregnancy)", "Actual Care (Endline)"),                    expand = c(0.15, 0.15)) +   theme_minimal() +   labs(title = "Flow of Early Childcare Preferences to Actual Care",        x = "Stages",        y = "Number of Families")
@@ -193,18 +193,20 @@ ggplot(alluvial_data_Controls_LowSES,        aes(axis1 = ChildcareTypeBaseline, 
 ```{r}
 library(fixest)
 library(modelsummary)
-cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the mother: High-SES')
+cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the mother: High-SES', "ECSApp"= "Applied")
 lm1 <- feols(ECSPlanToBaseline~ Educ , data = MainDB, cluster = ~blocksMatWave)
 
 lm2 <- feols(ECSApp~  Educ, data = Control, cluster = ~blocksMatWave)
 lm3 <- feols(ECSUseYes~  Educ, data = Control, cluster = ~blocksMatWave)
+lm4 <- feols(ECSUseYes~  Educ + ECSApp, data = Control, cluster = ~blocksMatWave)
 
 
 
 modelsummary(list(
 "Intention" = lm1,    
 "Application" = lm2, 
-"Access" = lm3
+"Access" = lm3, 
+"Access Apply" = lm4
 
 ), statistic = "{std.error} ({p.value})",
                       estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
@@ -977,10 +979,10 @@ library(rio)
 
 lasso_clean <- dbMachineLearning %>% filter(!is.na(Intention)) %>% 
   mutate(target = as.numeric(Intention) - 1) %>%
-  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Assez d’accord" |TrustCreche == "Très d’accord" , TRUE, FALSE)),
-         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Assez en désaccord" |TrustCreche == "Très en désaccord" , TRUE, FALSE))
+  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
+         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
          ) %>%  # the idea db we would be working with in the end
- select(-c(Assignment, IdealEntryAge, ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche))%>%      
+ select(-c(Assignment, ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche, Taux.de.couv.global,EntryAgeBeforeOne, TrustCrecheNo ))%>%      
   mutate(across(where(is.logical), as.numeric)) 
 # Create a subset with the sociodemo and the predictors
 # Cleaning the data
@@ -1018,7 +1020,6 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
                   AffordCostBaseline,
                   NormsScore,
                   TrustCrecheYes, 
-                  TrustCrecheNo,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
@@ -1196,12 +1197,12 @@ coefficients_table <- tidy(post_lasso_model) %>%
          std.error = round(std.error, 3))
 # Sélectionner les colonnes importantes
 
-# Générer un joli tableau pour Word
-coefficients_table %>%
-  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
-        caption = "Tableau des coefficients du modèle Lasso") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
-
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
 library(modelsummary)
 
 
@@ -1225,63 +1226,20 @@ modelsummary(post_lasso_model,
 
 library(rio)
 
-lasso_clean <- MainDB %>%
-  filter(!is.na(ECSApp)) %>%
-  mutate(target = as.numeric(ECSApp)) %>% # specify the target
-  select(c(target, # we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
-           NormsOpposedN,
-           AffordCostBaseline, 
-           #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
-             #Educ3Dad, 
-           DiscountRate,
-     ComputerYN,
-     AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             DiscountRate,
-             AccessHoursBaseline, 
-   #  Primipare, #to check 
-    # BirthPlace3, 
-    # Active,  
-AccessInformalFullTime,
-#Age,
-#SingleMum, 
-#FmlyIncomeBaseline,
- #               IncomeBaseline,
-                LikertReturnHKBaseline,
-                TrustCreche,
-TrustAssMat,
-                KnowsCreche,
-                KnowsAssMat, 
-     ComputerYN ,
-     HighLowECECBaseline ,
-            #     BreastFeedIntend,
-            #     BreastFeedLength, 
-Language3,
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline,
-             #    AccessEasyBaseline,
-                 NormsBaseline,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                 DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
-#NumberChildren,
-                TrustFam,
-                TrustFriend,
-#   CoupleCohabiting,
-AccessEasy5, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-)) %>%      mutate(across(where(is.logical), as.numeric)) 
 
+
+lasso_clean <- dbMachineLearning %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(target = as.numeric(ECSApp)) %>%
+  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
+         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
+         ) %>%  # the idea db we would be working with in the end
+ select(-c( ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche, TrustCrecheNo ))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+s <- skim(lasso_clean)
+print(s, include_summary = FALSE)
 
 
 
@@ -1296,30 +1254,35 @@ lasso_test <- testing(lasso_split)
 
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = lasso_train) %>%
-  step_unknown(#Primipare,
+  step_unknown(EntryAgeBeforeOne                           
                #FmlyIncomeBaseline,
                 # IncomeBaseline, 
-               TrustCreche, 
-               DeprivHolidays,
+           #    TrustCreche, 
+            #   DeprivHolidays,
                #BreastFeedIntend,
-               InformalReciprocity, 
-             TrustAssMat,
-             TrustFam,
-             TrustFriend,
+            #   InformalReciprocity, 
+             #TrustAssMat,
+             #TrustFam,
+            # TrustFriend,
              #CoupleCohabiting,
-             AccessEasy5, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
+             #AccessEasy5, 
+             #NormsHouse, 
+#NormsWork, 
+#LevelInfoSubExPost, 
+#Assignment
 ) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_normalize(all_numeric_predictors()) %>%
+  step_normalize(AffordCostBaseline, 
+                 NormsOpposedN, 
+                 NormsScore, 
+                 Taux.de.couv.global
+                 ) %>%
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline
+                  AffordCostBaseline, 
+                  NormsScore
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
@@ -1405,6 +1368,102 @@ new_fit %>%
   bind_cols(lasso_test) %>%
   metrics(truth = target, estimate = .pred)
 
+
+## POST LASSO 
+
+lasso_var <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+# Apply the recipe without normalization (simplified)
+model_recipe_post <- recipe(target ~ ., data = lasso_train) %>%
+  step_unknown(EntryAgeBeforeOne) %>%  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+   step_impute_knn(all_numeric_predictors(), neighbors = 5)
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe_post) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+library(broom)      # Pour tidy()
+library(dplyr)      # Pour manipuler les données
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(post_lasso_model,
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable')
+
 ```
 
 ## Access
@@ -1413,62 +1472,18 @@ new_fit %>%
 ## DO THE LASSO 
 library(rio)
 
-lasso_clean <- MainDB %>%
-  filter(!is.na(ECSApp)) %>%
-  mutate(target = as.numeric(ECSApp)) %>% # specify the target
-  select(c(target, # we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
-           NormsOpposedN,
-           AffordCostBaseline, 
-           #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
-             #Educ3Dad, 
-           DiscountRate,
-     ComputerYN,
-     AffordSubsidiesBaseline,
-             AffordNMCostWBBaseline,
-             AffordOppCostBaseline,
-             AffordNMCostCareerBaseline,
-             DiscountRate,
-             AccessHoursBaseline, 
-   #  Primipare, #to check 
-    # BirthPlace3, 
-    # Active,  
-AccessInformalFullTime,
-#Age,
-#SingleMum, 
-#FmlyIncomeBaseline,
- #               IncomeBaseline,
-                LikertReturnHKBaseline,
-                TrustCreche,
-TrustAssMat,
-                KnowsCreche,
-                KnowsAssMat, 
-     ComputerYN ,
-     HighLowECECBaseline ,
-            #     BreastFeedIntend,
-            #     BreastFeedLength, 
-Language3,
-                InformalReciprocity, # Do the parents already take care of the children of others
-                AffordCostDK, 
-                AffordCostBaseline,
-             #    AccessEasyBaseline,
-                 NormsBaseline,
-                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-                 DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-                DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
-#NumberChildren,
-                TrustFam,
-                TrustFriend,
-#   CoupleCohabiting,
-AccessEasy5, 
-NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-)) %>%      mutate(across(where(is.logical), as.numeric)) 
+lasso_clean <- dbMachineLearning %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes)) %>%
+  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
+         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
+         ) %>%  # the idea db we would be working with in the end
+ select(-c( ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche, TrustCrecheNo ))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+s <- skim(lasso_clean)
+print(s, include_summary = FALSE)
 
 
 
@@ -1484,34 +1499,23 @@ lasso_test <- testing(lasso_split)
 
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = lasso_train) %>%
-  step_unknown(#Primipare,
-               #FmlyIncomeBaseline,
-                # IncomeBaseline, 
-               TrustCreche, 
-               DeprivHolidays,
-               #BreastFeedIntend,
-               InformalReciprocity, 
-             TrustAssMat,
-             TrustFam,
-             TrustFriend,
-             #CoupleCohabiting,
-             AccessEasy5, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
+    step_unknown(EntryAgeBeforeOne 
 ) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_normalize(all_numeric_predictors()) %>%
+  step_normalize(AffordCostBaseline, 
+                 NormsOpposedN, 
+                 NormsScore, 
+                 Taux.de.couv.global
+                 ) %>%
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline
+                  AffordCostBaseline, 
+                  NormsScore
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
-
 # Model specification
 lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
                           mixture = 1) %>% # penalty is the lambda parameter
@@ -1595,16 +1599,25 @@ new_fit %>%
   metrics(truth = target, estimate = .pred)
 
 
-## POST LASSO 
-
 lasso_var <- tidy_lasso %>% 
   filter(estimate != 0) %>%
   filter(term != "(Intercept)") %>%
   pull(term)  # Liste des variables sélectionnées
 
+
+
+# Apply the recipe without normalization (simplified)
+model_recipe_post <- recipe(target ~ ., data = lasso_train) %>%
+  step_unknown(EntryAgeBeforeOne) %>%  
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+   step_impute_knn(all_numeric_predictors(), neighbors = 5)
+
+## Post Lasso on training and test sets
+
 # Appliquer la recipe sur les données d'entraînement
 lasso_train_baked <- prep(model_recipe_post) %>% # we preprosess the data
-  bake(new_data = lasso_train) # it creates the dataset normalized and transformed
+  bake(new_data = lasso_train) # it creates the transformed dataset  
 
 # We do the same for the test set 
 lasso_test_baked <- prep(model_recipe_post) %>% # should we apply the transformatios ? 
@@ -1614,14 +1627,14 @@ lasso_test_baked <- prep(model_recipe_post) %>% # should we apply the transforma
 lasso_train_post <- lasso_train_baked %>%
   select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
 
-lasso_test_post <- lasso_test_baked %>%
+lasso_test_post <- lasso_test_baked %>% # for model metrics
   select(all_of(c("target", lasso_var)))
 
 # Fit the model on the training set 
 post_lasso_model <- lm(target ~ ., data = lasso_train_post)
 
 
-# Accuracy on the test set
+# Accuracy on the test set based on the predicted coefficient
 post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
 
 # Calculer les métriques
@@ -1631,31 +1644,6 @@ post_lasso_metrics <- metrics(
   estimate = estimate
 )
 print(post_lasso_metrics)
-
-
-
-
-# Apply the recipe (simplified)
-model_recipe_post <- recipe(target ~ ., data = lasso_train) %>%
-  step_unknown(#Primipare,
-               #FmlyIncomeBaseline,
-                # IncomeBaseline, 
-               TrustCreche, 
-               DeprivHolidays,
-               #BreastFeedIntend,
-               InformalReciprocity, 
-             TrustAssMat,
-             TrustFam,
-             TrustFriend,
-             #CoupleCohabiting,
-             AccessEasy5, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost, 
-Assignment
-) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
-    step_zv() %>%
-   step_impute_knn(all_numeric_predictors(), neighbors = 5)
 
 ### Test with the whole dataset
 # Appliquer la recipe sur les données d'entraînement
@@ -1670,5 +1658,38 @@ lasso_train_post <- lasso_train_baked %>%
 # Fit the model on the training set 
 post_lasso_model <- lm(target ~ ., data = lasso_train_post)
 
+library(broom)      # Pour tidy()
+library(dplyr)      # Pour manipuler les données
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(post_lasso_model,
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable')
 
 ```
