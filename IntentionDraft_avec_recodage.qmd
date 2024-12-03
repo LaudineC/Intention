@@ -290,15 +290,23 @@ modelsummary(list(
 
 # Regression globale
 
+## Intention
+
 ```{r regression}
 
 library(rio)
 
 db_clean <- dbMachineLearning %>%
-  filter(!is.na(ECSPlanToBaseline)) %>%
-  mutate(target = as.numeric(ECSPlanToBaseline)) 
+  filter(!is.na(Intention)) %>%
+  mutate(target = as.numeric(Intention) -1) %>% 
+   mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
+         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
+         ) %>%  # the idea db we would be working with in the end
+ select(-c(Assignment,  ECSApp, ECSUseYes, Intention, KnownNbTypeECS, EntryAgeBeforeOne, TrustCreche, TrustCrecheNo))
 
-
+# Take a look at the data with skimr
+s <- skim(db_clean)
+print(s, include_summary = FALSE)
 
 # Preparation
 ## Split the sample
@@ -311,32 +319,44 @@ test <- testing(split)
 
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = train) %>%
-  step_unknown(#Primipare,
-               #FmlyIncomeBaseline,
-                # IncomeBaseline, 
-               TrustCreche, 
-               DeprivHolidays,
-               #BreastFeedIntend,
-               InformalReciprocity, 
-             TrustAssMat,
-             TrustFam,
-             TrustFriend,
-             #CoupleCohabiting,
-             AccessEasy5, 
-             NormsHouse, 
-NormsWork, 
-LevelInfoSubExPost
-) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
-    step_zv() %>%
-   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
-   # Supprimer les variables à variance nulle
-  # Normaliser les prédicteurs numériques
-  step_normalize(all_numeric_predictors()) %>%
+  # We dummify everything
+ step_dummy(#Educ3, 
+             #Educ3Dad,
+             AffordSubsidiesBaseline,
+             AccessHoursBaselineNo, 
+             AccessHoursBaselineYes,
+             #BirthPlace3, 
+             #FmlyIncomeBaseline,
+              #   IncomeBaseline, 
+             #TrustCreche, 
+             LikertReturnHKBaseline, 
+LevelInfoSubExPost2, 
+LevelComprehensionExPostGoodExcellent
+             ) %>% 
+  step_impute_knn(NormsOpposedN,  # we impute missing values for the numerical variables using knn
+                  AffordCostBaseline,
+                  NormsScore,
+                  Taux.de.couv.global,
+             #     BreastFeedLength,
+              #    NumberChildren,
+                  neighbors = 5) %>% 
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline
+                  AffordCostBaseline,
+                  NormsScore
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+ # %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+ #   step_zv() %>%
+ #  step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+ #  # Supprimer les variables à variance nulle
+ # # Normaliser les prédicteurs numériques
+ # step_normalize(all_numeric_predictors()) %>%
+ # step_YeoJohnson(NormsOpposedN, 
+ #                 AffordCostBaseline
+ #                 #BreastFeedLength,
+ #                 #NumberChildren
+ #                 ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
 
 reg_model <-
   linear_reg() %>%
@@ -369,10 +389,42 @@ reg_fit %>%
 
 ## On the full sample
 
-# Fitting the model to the training data
-reg_fit <- fit(reg_flow, db_clean) # fits happy flow to the training data
-tidy = tidy(reg_fit) %>%  filter(!is.na(estimate)) %>% arrange(desc(estimate))
+# Fitting the model to the whole data
+reg_fit <- fit(reg_flow, db_clean) # 
+
 print(tidy, n = 128)
+
+
+library(broom)      # Pour tidy()
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+library(modelsummary)
+
+# We want a nice table with ordered coefficents 
+# Sort  coefficients
+sorted_coefficients <- tidy(reg_fit) %>%
+  arrange(desc(abs(estimate)))
+
+# create a vector with sorted names 
+sorted_names <- sorted_coefficients$term
+
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(reg_fit,
+            coef_map = sorted_names,
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable')
+
+
 ```
 
 # Machine Learning
@@ -456,7 +508,7 @@ LevelComprehensionExPostGoodExcellent
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
 rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = 10, # if I tune it, it takes forever to run
+                       trees = 50, # if I tune it, it takes forever to run
                        min_n = tune()) %>%
   set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
   set_engine("partykit")
@@ -487,7 +539,7 @@ set.seed(20) # for reproducibility
 # Set the tuning grid
 # The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
 rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
-                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                size = 100, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
                                 variogram_range = 0.75, # explore the space of the hyperparameters
                                 original = TRUE)
 set.seed(30)
@@ -535,7 +587,96 @@ rf_fit_final %>%
 # see if tuning the trees improve this in the future
 
 
+
 ```
+
+
+```{r NodeImportance}
+
+# NODE IMPORTANCE
+# You need to give up on partykit to get some info on variable importance, so we have to do it again
+
+mod_rf <-rand_forest() %>%
+  set_engine("ranger",
+             num.threads = parallel::detectCores(), # to do it in parallel 
+             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
+             verbose = TRUE) %>% # keeps a lot of details for us
+  set_mode("classification") %>%
+  set_args(trees = 50)#update here
+
+# Same steps again to fit the model
+# workflow
+
+# Reminder: even the prof could not explain this code 
+rf_flow <- workflow() %>% 
+  add_model(mod_rf) %>% 
+  add_recipe(rf_recipe)
+
+# With new code for using future
+library(future)
+set.seed(100)
+plan(multisession)
+
+fit_rf <- fit_resamples(
+  rf_flow,
+  cv_folds,
+  metrics = metric_set(accuracy),
+  control = control_resamples(verbose = TRUE,
+                              save_pred = TRUE,
+                              extract = function(x) x) # the function return the value of the prediction
+)
+
+library(forcats)
+library(tidyverse)
+# extract roots
+# code to extract the images
+rf_tree_roots <- function(x){
+  map_chr(1:50, # 50 trees
+          ~ranger::treeInfo(x, tree = .)[1, "splitvarName"]) # extract how we made the splits
+}
+
+rf_roots <- function(x){
+  x %>% 
+    select(.extracts) %>% 
+    unnest(cols = c(.extracts)) %>% 
+    mutate(fit = map(.extracts,
+                     ~.x$fit$fit$fit), # dig deep to find 
+           oob_rmse = map_dbl(fit,
+                              ~sqrt(.x$prediction.error)), # out of bag error: some items are left out of the training set during CV and we can see how well the model does on them 
+           roots = map(fit, 
+                       ~rf_tree_roots(.)) 
+    ) %>% 
+    select(roots) %>% 
+    unnest(cols = c(roots))
+}
+
+roots_data <- rf_roots(fit_rf)
+
+# Group the data by roots and count the occurrences of each root
+root_counts <- roots_data %>% 
+  group_by(roots) %>% 
+  count()
+
+# Filter out roots with counts greater than 75
+filtered_root_counts <- root_counts %>% 
+  filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+
+# Arrange the data in descending order of counts
+sorted_root_counts <- filtered_root_counts %>% 
+  arrange(desc(n))
+
+# Create a bar plot
+plot <- ggplot(sorted_root_counts, aes(x = fct_reorder(roots, n), y = n)) +
+  geom_col() + 
+  coord_flip() + 
+  labs(x = "Root", y = "Count")
+
+# Display the plot
+print(plot)
+
+
+```
+
 
 ```{r interpretr}
 ## Contribution
@@ -578,6 +719,12 @@ shap %>%
   labs(y = NULL) +
   theme_bw()
 
+
+shap %>%
+  group_by(variable) %>%
+  mutate(mean_val = mean(contribution)) %>%
+  ungroup() %>%
+  mutate(variable = fct_reorder(variable, abs(mean_val)))
 ```
 
 ## Same with application
@@ -657,7 +804,7 @@ Assignment) %>%
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
 rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = 10, # if I tune it, it takes forever to run
+                       trees = 50, # if I tune it, it takes forever to run
                        min_n = tune()) %>%
   set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
   set_engine("partykit")
@@ -688,7 +835,7 @@ set.seed(20) # for reproducibility
 # Set the tuning grid
 # The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
 rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
-                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
                                 variogram_range = 0.75, # explore the space of the hyperparameters
                                 original = TRUE)
 set.seed(30)
@@ -734,6 +881,93 @@ rf_fit_final %>%
   metrics(truth = target, estimate = .pred_class)
 # the accuracy is great but the kappa not that much (average)
 # see if tuning the trees improve this in the future
+
+
+```
+
+
+```{r NodeImportance}
+
+# NODE IMPORTANCE
+# You need to give up on partykit to get some info on variable importance, so we have to do it again
+
+mod_rf <-rand_forest() %>%
+  set_engine("ranger",
+             num.threads = parallel::detectCores(), # to do it in parallel 
+             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
+             verbose = TRUE) %>% # keeps a lot of details for us
+  set_mode("classification") %>%
+  set_args(trees = 50)#update here
+
+# Same steps again to fit the model
+# workflow
+
+# Reminder: even the prof could not explain this code 
+rf_flow <- workflow() %>% 
+  add_model(mod_rf) %>% 
+  add_recipe(rf_recipe)
+
+# With new code for using future
+library(future)
+set.seed(100)
+plan(multisession)
+
+fit_rf <- fit_resamples(
+  rf_flow,
+  cv_folds,
+  metrics = metric_set(accuracy),
+  control = control_resamples(verbose = TRUE,
+                              save_pred = TRUE,
+                              extract = function(x) x) # the function return the value of the prediction
+)
+
+library(forcats)
+library(tidyverse)
+# extract roots
+# code to extract the images
+rf_tree_roots <- function(x){
+  map_chr(1:50, # 50 trees
+          ~ranger::treeInfo(x, tree = .)[1, "splitvarName"]) # extract how we made the splits
+}
+
+rf_roots <- function(x){
+  x %>% 
+    select(.extracts) %>% 
+    unnest(cols = c(.extracts)) %>% 
+    mutate(fit = map(.extracts,
+                     ~.x$fit$fit$fit), # dig deep to find 
+           oob_rmse = map_dbl(fit,
+                              ~sqrt(.x$prediction.error)), # out of bag error: some items are left out of the training set during CV and we can see how well the model does on them 
+           roots = map(fit, 
+                       ~rf_tree_roots(.)) 
+    ) %>% 
+    select(roots) %>% 
+    unnest(cols = c(roots))
+}
+
+roots_data <- rf_roots(fit_rf)
+
+# Group the data by roots and count the occurrences of each root
+root_counts <- roots_data %>% 
+  group_by(roots) %>% 
+  count()
+
+# Filter out roots with counts greater than 75
+filtered_root_counts <- root_counts %>% 
+  filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+
+# Arrange the data in descending order of counts
+sorted_root_counts <- filtered_root_counts %>% 
+  arrange(desc(n))
+
+# Create a bar plot
+plot <- ggplot(sorted_root_counts, aes(x = fct_reorder(roots, n), y = n)) +
+  geom_col() + 
+  coord_flip() + 
+  labs(x = "Root", y = "Count")
+
+# Display the plot
+print(plot)
 
 
 ```
@@ -850,7 +1084,7 @@ Assignment) %>%
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
 rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = 10, # if I tune it, it takes forever to run
+                       trees = 50, # if I tune it, it takes forever to run
                        min_n = tune()) %>%
   set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
   set_engine("partykit")
@@ -881,7 +1115,7 @@ set.seed(20) # for reproducibility
 # Set the tuning grid
 # The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
 rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
-                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
                                 variogram_range = 0.75, # explore the space of the hyperparameters
                                 original = TRUE)
 set.seed(30)
@@ -931,7 +1165,95 @@ rf_fit_final %>%
 
 ```
 
-```{r interpretrApp}
+
+```{r NodeImportance}
+
+# NODE IMPORTANCE
+# You need to give up on partykit to get some info on variable importance, so we have to do it again
+
+mod_rf <-rand_forest() %>%
+  set_engine("ranger",
+             num.threads = parallel::detectCores(), # to do it in parallel 
+             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
+             verbose = TRUE) %>% # keeps a lot of details for us
+  set_mode("classification") %>%
+  set_args(trees = 50)#update here
+
+# Same steps again to fit the model
+# workflow
+
+# Reminder: even the prof could not explain this code 
+rf_flow <- workflow() %>% 
+  add_model(mod_rf) %>% 
+  add_recipe(rf_recipe)
+
+# With new code for using future
+library(future)
+set.seed(100)
+plan(multisession)
+
+fit_rf <- fit_resamples(
+  rf_flow,
+  cv_folds,
+  metrics = metric_set(accuracy),
+  control = control_resamples(verbose = TRUE,
+                              save_pred = TRUE,
+                              extract = function(x) x) # the function return the value of the prediction
+)
+
+library(forcats)
+library(tidyverse)
+# extract roots
+# code to extract the images
+rf_tree_roots <- function(x){
+  map_chr(1:50, # 50 trees
+          ~ranger::treeInfo(x, tree = .)[1, "splitvarName"]) # extract how we made the splits
+}
+
+rf_roots <- function(x){
+  x %>% 
+    select(.extracts) %>% 
+    unnest(cols = c(.extracts)) %>% 
+    mutate(fit = map(.extracts,
+                     ~.x$fit$fit$fit), # dig deep to find 
+           oob_rmse = map_dbl(fit,
+                              ~sqrt(.x$prediction.error)), # out of bag error: some items are left out of the training set during CV and we can see how well the model does on them 
+           roots = map(fit, 
+                       ~rf_tree_roots(.)) 
+    ) %>% 
+    select(roots) %>% 
+    unnest(cols = c(roots))
+}
+
+roots_data <- rf_roots(fit_rf)
+
+# Group the data by roots and count the occurrences of each root
+root_counts <- roots_data %>% 
+  group_by(roots) %>% 
+  count()
+
+# Filter out roots with counts greater than 75
+filtered_root_counts <- root_counts %>% 
+  filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+
+# Arrange the data in descending order of counts
+sorted_root_counts <- filtered_root_counts %>% 
+  arrange(desc(n))
+
+# Create a bar plot
+plot <- ggplot(sorted_root_counts, aes(x = fct_reorder(roots, n), y = n)) +
+  geom_col() + 
+  coord_flip() + 
+  labs(x = "Root", y = "Count")
+
+# Display the plot
+print(plot)
+
+
+```
+
+
+```{r interpretrAcc}
 
 ## Contribution
 
@@ -996,24 +1318,13 @@ print(s, include_summary = FALSE)
 ## Split the sample
 library(tidymodels)
 tidymodels_prefer()
-set.seed(10)
+set.seed(30)
 lasso_split <- initial_split(lasso_clean, prop = 0.8)
 lasso_train <- training(lasso_split)
 lasso_test <- testing(lasso_split)
 
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = lasso_train) %>%
-# # We dummify everything
-# step_dummy(#Educ3, 
-#            #Educ3Dad,
-#           
-#            AffordSubsidiesBaseline,
-#            #BirthPlace3, 
-#            #FmlyIncomeBaseline,
-#             #   IncomeBaseline, 
-#            TrustCreche, 
-#            LikertReturnHKBaseline, 
-#evelInfoSubExPost             ) %>%
     step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
     step_impute_knn(NormsOpposedN,  # we impute missing values for the numerical variables using knn
@@ -1061,7 +1372,7 @@ glmnet_param
 # Set the grid
 set.seed(15)
 lasso_grid <- grid_max_entropy(glmnet_param,
-                               size = 50, # generate 50 different lambdas
+                               size = 100, # generate 50 different lambdas
                                # 50 is a bit low, 100 or 150 is better
                                original = TRUE, # we are keeoing the original scale, the log
                                variogram_range = 0.5) # the higher the value, the less likely it is to explore 
@@ -1217,7 +1528,7 @@ modelsummary(post_lasso_model,
              coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
              #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
              stars = c("***"=.01,"**"=.05,"*"=.1),
-              output = 'flextable')
+              output = 'flextable') %>% autofit()
 ```
 
 ## Application
@@ -1316,7 +1627,7 @@ glmnet_param
 # Set the grid
 set.seed(15)
 lasso_grid <- grid_max_entropy(glmnet_param,
-                               size = 50, # generate 50 different lambdas
+                               size = 150, # generate 50 different lambdas
                                # 50 is a bit low, 100 or 150 is better
                                original = TRUE, # we are keeoing the original scale, the log
                                variogram_range = 0.5) # the higher the value, the less likely it is to explore 
@@ -1462,7 +1773,7 @@ modelsummary(post_lasso_model,
              coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
              #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
              stars = c("***"=.01,"**"=.05,"*"=.1),
-              output = 'flextable')
+              output = 'flextable') %>% autofit()
 
 ```
 
@@ -1545,7 +1856,7 @@ glmnet_param
 # Set the grid
 set.seed(15)
 lasso_grid <- grid_max_entropy(glmnet_param,
-                               size = 50, # generate 50 different lambdas
+                               size = 150, # generate 50 different lambdas
                                # 50 is a bit low, 100 or 150 is better
                                original = TRUE, # we are keeoing the original scale, the log
                                variogram_range = 0.5) # the higher the value, the less likely it is to explore 
@@ -1693,3 +2004,7 @@ modelsummary(post_lasso_model,
               output = 'flextable')
 
 ```
+
+## Application
+
+## Access
