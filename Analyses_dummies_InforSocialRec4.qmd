@@ -1082,7 +1082,7 @@ library(rio)
 
 lasso_clean <- MLDummified %>% filter(!is.na(Intention)) %>% 
   mutate(target = as.numeric(Intention) - 1) %>%
- select(-c(Assignment, ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne))%>%      
+ select(-c(Assignment, ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne,BabyHealthIndex, MotherHealthIndex ))%>%      
   mutate(across(where(is.logical), as.numeric)) 
 
 # Cleaning the data
@@ -1109,7 +1109,6 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
     step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
     step_impute_knn(Taux.de.couv.global,  # we impute missing values for the numerical variables using knn
-                  
                   NormsScore,
                   PrescriptiveNorm,
              #     BreastFeedLength,
@@ -1367,11 +1366,11 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
   step_impute_knn(
                   NormsScore,
                   Taux.de.couv.global,
-                  PrescriptiveNorm,
+                 # PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(
+  step_YeoJohnson(MotherHealthIndex,
                   NormsScore,
-                  PrescriptiveNorm
+                 # PrescriptiveNorm
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
 
 # Model specification
