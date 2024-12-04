@@ -416,7 +416,9 @@ dbMachineLearning <- MainDB %>%# we select the variables that we want. Check tha
           Assignment, 
           ECSIdealAgeEntryBaseline, 
           AccessHoursBaseline, 
-          Taux.de.couv.global
+          Taux.de.couv.global,
+         MotherHealthIndex,
+         BabyHealthIndex
   )) %>% # Recode the variables so that there are in the right format
   mutate(
     NormsOpposedN = as.numeric(NormsOpposedN), 
@@ -476,9 +478,10 @@ MLDummified <- dbMachineLearning %>%
     NegativeImpactCareer = ifelse(AffordNMCostCareerNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Career
     NegativeImpactWellBeing = ifelse(AffordNMCostWBNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Well Being
     Active = ifelse(Active == 'Active', "Yes", "No"), # The mother was active at baseline
-    NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
-    NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
-    PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
+   # NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
+   # NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
+    PrescriptiveNorm = NormsOpposedN, # Prescriptive norms
+   PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
     KnowsECIsSubsidized = ifelse(AffordSubsidiesBaseline == "Yes", "Yes", "No"), # knows that EC is subsidized
     BelieveAccessingChildcareEasy = ifelse(AccessEasy5 == "Easy", "Yes", "No"), #Maybe check
     DontKnowECCosts = ifelse(AffordCostDK == TRUE, "Yes", "No"), # Don't know EC costs

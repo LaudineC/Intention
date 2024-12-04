@@ -34,14 +34,14 @@ test <- testing(split)
 
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = train) %>%
-  step_impute_knn(  # we impute missing values for the numerical variables using knn
+  step_impute_knn( PrescriptiveNorm, # we impute missing values for the numerical variables using knn
                   AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
-  step_YeoJohnson( 
+  step_YeoJohnson( PrescriptiveNorm,
                   AffordCostBaseline,
                   NormsScore
                   #BreastFeedLength,
@@ -92,8 +92,6 @@ reg_fit %>%
 
 # Fitting the model to the whole data
 reg_fit <- fit(reg_flow, db_clean) # 
-
-print(tidy, n = 128)
 
 
 library(broom)      # Pour tidy()
@@ -152,10 +150,12 @@ model_recipe <- recipe(target ~ ., data = train) %>%
   step_zv() %>%
   step_impute_knn(AffordCostBaseline,                   
                   NormsScore,                   
-                  Taux.de.couv.global,            
+                  Taux.de.couv.global,
+                  PrescriptiveNorm, 
                   neighbors = 5) %>%   
   step_YeoJohnson(AffordCostBaseline,                   
-                  NormsScore                   
+                  NormsScore, 
+                  PrescriptiveNorm
                   )
 
  reg_model <-   linear_reg() %>%   
@@ -179,7 +179,7 @@ model_recipe <- recipe(target ~ ., data = train) %>%
  
  # Fitting the model to the whole data
  reg_fit <- fit(reg_flow, db_clean) #  
- print(tidy, n = 128)   
+ #print(tidy, n = 128)   
  library(broom)      # Pour tidy() library(knitr)      # Pour knitr::kable 
  library(kableExtra) # Pour styliser les tableaux 
  library(modelsummary)  # We want a nice table with ordered coefficents  
@@ -221,10 +221,12 @@ model_recipe <- recipe(target ~ ., data = train) %>%
   step_zv() %>%
   step_impute_knn(AffordCostBaseline,                   
                   NormsScore,                   
-                  Taux.de.couv.global,            
+                  Taux.de.couv.global,      
+                  PrescriptiveNorm,
                   neighbors = 5) %>%   
   step_YeoJohnson(AffordCostBaseline,                   
-                  NormsScore                   
+                  NormsScore,
+                  PrescriptiveNorm
                   )
 
  reg_model <-   linear_reg() %>%   
@@ -248,7 +250,7 @@ model_recipe <- recipe(target ~ ., data = train) %>%
  
  # Fitting the model to the whole data
  reg_fit <- fit(reg_flow, db_clean) #  
- print(tidy, n = 128)   
+ #print(tidy, n = 128)   
  library(broom)      # Pour tidy() library(knitr)      # Pour knitr::kable 
  library(kableExtra) # Pour styliser les tableaux 
  library(modelsummary)  # We want a nice table with ordered coefficents  
@@ -308,9 +310,11 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_impute_knn(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
+                  PrescriptiveNorm,
                   neighbors = 5) %>% 
   step_YeoJohnson(AffordCostBaseline,
-                  NormsScore
+                  NormsScore,
+                  PrescriptiveNorm
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
@@ -364,7 +368,6 @@ cv_folds <- vfold_cv(train_df, v = 10, strata = target) # stratified CV
 # Set the metrics used: accuracy or cohen's kappa or F1 for a classification task (or AUC)
 rf_metrics <- metric_set(accuracy) # classification task
 
-doParallel::registerDoParallel() # used parallel cores to run the computation
 
 # tune the model, with the cross validation method defined, the grid and the metrics you set
 rf_tune <- initial_flow %>%
@@ -410,9 +413,11 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_impute_knn(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
+                  PrescriptiveNorm,
                   neighbors = 5) %>% 
   step_YeoJohnson(AffordCostBaseline,
-                  NormsScore
+                  NormsScore,
+                  PrescriptiveNorm
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
@@ -479,8 +484,9 @@ root_counts <- roots_data %>%
   count()
 
 # Filter out roots with counts greater than 75
-filtered_root_counts <- root_counts %>% 
-  filter(n > 10) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+filtered_root_counts <- root_counts 
+#%>% 
+#  filter(n > 10) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
 
 # Arrange the data in descending order of counts
 sorted_root_counts <- filtered_root_counts %>% 
@@ -558,6 +564,9 @@ work_df <- MLDummified %>%
   ) %>% 
  select(-c( ECSApp, ECSUseYes, Intention, Application))
 
+# Take a look at the data with skimr
+s <- skim(work_df)
+print(s, include_summary = FALSE)
 
 # Keep 20% of the observations for the test set.
 set.seed(1451)
@@ -576,15 +585,17 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_impute_knn(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
+                  PrescriptiveNorm,
                   neighbors = 5) %>% 
   step_YeoJohnson(AffordCostBaseline,
-                  NormsScore
+                  NormsScore,
+                  PrescriptiveNorm
                   )
 ## RUN THE RANDOM FOREST
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
 rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = 10, # if I tune it, it takes forever to run
+                       trees = 50, # if I tune it, it takes forever to run
                        min_n = tune()) %>%
   set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
   set_engine("partykit")
@@ -615,7 +626,7 @@ set.seed(20) # for reproducibility
 # Set the tuning grid
 # The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
 rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
-                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
                                 variogram_range = 0.75, # explore the space of the hyperparameters
                                 original = TRUE)
 set.seed(30)
@@ -676,9 +687,11 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_impute_knn(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
+                  PrescriptiveNorm,
                   neighbors = 5) %>% 
   step_YeoJohnson(AffordCostBaseline,
-                  NormsScore
+                  NormsScore,
+                  PrescriptiveNorm
                   #BreastFeedLength,
                   #NumberChildren
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
@@ -808,7 +821,9 @@ shap %>%
 ```{r}
 
 work_df <- MLDummified %>% filter(!is.na(ECSUseYes)) %>%
-  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No")) %>% # specify the target
+  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No"),
+         target = factor(Use, labels = c("No", "Yes"))
+         ) %>% # specify the target
  select(-c( ECSApp, ECSUseYes, Intention, Use))
 
 # Take a look at the data with skimr
@@ -835,11 +850,11 @@ EntryAgeBeforeOne
   step_dummy( EntryAgeBeforeOne, 
 Assignment) %>% 
   step_impute_knn(AffordCostBaseline,
-                  NormsScore,
                   Taux.de.couv.global,
+                  PrescriptiveNorm,
                   neighbors = 5) %>% 
   step_YeoJohnson(AffordCostBaseline,
-                  NormsScore
+                  PrescriptiveNorm
                   )
 
 ## RUN THE RANDOM FORE
@@ -996,8 +1011,9 @@ root_counts <- roots_data %>%
   count()
 
 # Filter out roots with counts greater than 75
-filtered_root_counts <- root_counts %>% 
-  filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+filtered_root_counts <- root_counts 
+#%>% 
+ # filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
 
 # Arrange the data in descending order of counts
 sorted_root_counts <- filtered_root_counts %>% 
@@ -1094,11 +1110,12 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
     step_impute_knn(Taux.de.couv.global,  # we impute missing values for the numerical variables using knn
                   AffordCostBaseline,
                   NormsScore,
+                  PrescriptiveNorm,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
   step_normalize(all_numeric_predictors()) %>%
-  step_YeoJohnson( 
+  step_YeoJohnson( PrescriptiveNorm,
                   AffordCostBaseline,
                   NormsScore
                   #BreastFeedLength,
@@ -1304,11 +1321,8 @@ library(rio)
 
 lasso_clean <- dbMachineLearning %>%
   filter(!is.na(ECSApp)) %>%
-  mutate(target = as.numeric(ECSApp)) %>%
-  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
-         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
-         ) %>%  # the idea db we would be working with in the end
- select(-c( ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche, TrustCrecheNo ))%>%      
+  mutate(target = as.numeric(ECSApp))  %>%  # the idea db we would be working with in the end
+ select(-c( ECSApp, ECSUseYes, Intention))%>%      
   mutate(across(where(is.logical), as.numeric)) 
 
 
@@ -1349,16 +1363,14 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_normalize(AffordCostBaseline, 
-                 NormsOpposedN, 
-                 NormsScore, 
-                 Taux.de.couv.global
-                 ) %>%
-  step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline, 
-                  NormsScore
-                  #BreastFeedLength,
-                  #NumberChildren
+  step_impute_knn(AffordCostBaseline,
+                  NormsScore,
+                  Taux.de.couv.global,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(AffordCostBaseline,
+                  NormsScore,
+                  PrescriptiveNorm
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
 
 # Model specification
@@ -1549,10 +1561,7 @@ library(rio)
 lasso_clean <- dbMachineLearning %>%
   filter(!is.na(ECSUseYes)) %>%
   mutate(target = as.numeric(ECSUseYes)) %>%
-  mutate(TrustCrecheYes = as.numeric(ifelse(TrustCreche == "Agree", TRUE, FALSE)),
-         TrustCrecheNo = as.numeric(ifelse(TrustCreche == "Disagree" , TRUE, FALSE))
-         ) %>%  # the idea db we would be working with in the end
- select(-c( ECSApp, ECSUseYes, Intention, KnownNbTypeECS, TrustCreche, TrustCrecheNo ))%>%      
+ select(-c( ECSApp, ECSUseYes, Intention))%>%      
   mutate(across(where(is.logical), as.numeric)) 
 
 
@@ -1579,17 +1588,15 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_normalize(AffordCostBaseline, 
-                 NormsOpposedN, 
-                 NormsScore, 
-                 Taux.de.couv.global
+  step_normalize(AffordCostBaseline,
+                  NormsScore,
+                  Taux.de.couv.global,
+                  PrescriptiveNorm
                  ) %>%
-  step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline, 
-                  NormsScore
-                  #BreastFeedLength,
-                  #NumberChildren
-                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+  step_YeoJohnson(AffordCostBaseline,
+                  NormsScore,
+                  PrescriptiveNorm
+                  )
 # Model specification
 lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
                           mixture = 1) %>% # penalty is the lambda parameter
@@ -2538,7 +2545,9 @@ shap %>%
 ```{r}
 
 work_df <- MLDummifiedALL %>% filter(!is.na(ECSUseYes)) %>%
-  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No")) %>% # specify the target
+  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No"),
+         target = factor(Use, labels = c("No", "Yes"))
+                         ) %>% # specify the target
  select(-c( ECSApp, ECSUseYes, Intention, Use))
 
 # Take a look at the data with skimr
