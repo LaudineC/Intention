@@ -360,7 +360,7 @@ rm(SocDemo, SocDemo.c, SocDemoId,
    Incomes, IncomesId, Incomes.c,
    Knows, KnowsId, Knows.c) 
 
-#---- MainDBMachineLearning ----
+#---- 2_MainDBMachineLearning ----
 dbMachineLearning <- MainDB %>%# we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
   select(c(Intention, 
            ECSApp, 
@@ -397,8 +397,8 @@ dbMachineLearning <- MainDB %>%# we select the variables that we want. Check tha
            AffordCostBaseline,
            #    AccessEasyBaseline,
            NormsBaseline,
-          # LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-          # LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
+           #LikertAccessInfoBaseline, # FOR 4
+           #LikertAccessSoc, # FOR 4
           # DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
           # DeprivFood, # DEPRIVATION: do parents struggle to buy food?
           # DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
@@ -465,6 +465,9 @@ dbMachineLearning <- MainDB %>%# we select the variables that we want. Check tha
   mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
 # Add knowledge variables
 
+#----------------- For 3 Part I with all dummies except Numerics -----------------
+
+
 MLDummified <- dbMachineLearning %>% 
   mutate(
     TrustEarlyChildcareAgree = ifelse(TrustCreche == "Agree", "Yes", "No"), # the mother trust early childcare 
@@ -513,8 +516,9 @@ MLDummified <- dbMachineLearning %>%
 
 # For now we keep Prohressive norms and ThinkCostBelow500 as numeric because a lot of nas otherwise
 
+#----------------- For 3 Part II with all dummies -----------------
 
-# With all
+# With all in dummies, even numeric ones
 MLDummifiedALL <- dbMachineLearning %>% 
   mutate(
     TrustEarlyChildcareAgree = ifelse(TrustCreche == "Agree", "Yes", "No"), # the mother trust early childcare 
@@ -561,3 +565,60 @@ MLDummifiedALL <- dbMachineLearning %>%
   )) %>% 
   mutate(across(where(is.logical), as.factor)) %>% 
   mutate(across(where(is.character), as.factor)) 
+
+
+#----- For 4 with social and informational ressources ----
+## TO DO BEFORE_GO TO 2 and selevt informational and social resources
+
+MLDummified <- dbMachineLearning %>% 
+  mutate(
+    TrustEarlyChildcareAgree = ifelse(TrustCreche == "Agree", "Yes", "No"), # the mother trust early childcare 
+    TrustEarlyChildcareAgree = ifelse(is.na(TrustEarlyChildcareAgree) == TRUE, "No", as.character(TrustEarlyChildcareAgree)), # the mother trust early childcare
+    NormsUseMostToAll = ifelse(NormsBaseline == "Most to All", "Yes", "No"), # Descriptive norms
+    ECBenefitChildrenAgree = ifelse(LikertReturnHKBaseline == "Agree", "Yes", "No"), # believe in EC returns
+    ECAccessHoursFit = ifelse(AccessHoursBaselineYes == TRUE, "Yes", "No"), # early childcare opening hours fit
+    LevelInformation = LevelInfoSubExPost2, # Level of knowledge
+    LevelComprehensionGoodExcellent = LevelComprehensionExPostGoodExcellent, # Level of comprehension French
+    NegativeImpactSalary = ifelse(AffordOppCostNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Salary
+    NegativeImpactCareer = ifelse(AffordNMCostCareerNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Career
+    NegativeImpactWellBeing = ifelse(AffordNMCostWBNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Well Being
+    Active = ifelse(Active == 'Active', "Yes", "No"), # The mother was active at baseline
+    # NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
+    # NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
+    PrescriptiveNorm = NormsOpposedN, # Prescriptive norms
+    PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
+    KnowsECIsSubsidized = ifelse(AffordSubsidiesBaseline == "Yes", "Yes", "No"), # knows that EC is subsidized
+    BelieveAccessingChildcareEasy = ifelse(AccessEasy5 == "Easy", "Yes", "No"), #Maybe check
+    DontKnowECCosts = ifelse(AffordCostDK == TRUE, "Yes", "No"), # Don't know EC costs
+    #ProgressiveNorms = ifelse(NormsScore < 2, "Yes", "No"), # Progressive norms: play with that a bit
+    # ThinkCostBelow500 = ifelse(AffordCostBaseline < 500, "Yes", "No"), # Think cost below 500
+    HasAccessToAComputer = ifelse(ComputerYN == "Oui", "Yes", "No"), # Has access to a computer
+    CanAccessScoialResources = ifelse((LikertAccessSoc == "Assez d’accord" | LikertAccessSoc == "Très d’accord"), 
+                                      "Yes", "No"), # Can access social resources
+    CanAccessInformation = ifelse((LikertAccessInfoBaseline == "Assez d’accord" | LikertAccessInfoBaseline == "Très d’accord"),
+                                  "Yes", "No") # Can access information
+    ) %>% select(-c(TrustCreche, 
+                  NormsBaseline, 
+                  LikertReturnHKBaseline, 
+                  AccessHoursBaselineNo, 
+                  AccessHoursBaselineYes, 
+                  LevelInfoSubExPost2,
+                  LevelComprehensionExPostGoodExcellent,
+                  AffordOppCostNegativeBaseline, 
+                  AffordNMCostWBNegativeBaseline,
+                  AffordNMCostCareerNegativeBaseline,
+                  NormsOpposedN, 
+                  Discount501or0, 
+                  AffordCostDK, 
+                  AccessEasy5, 
+                  ComputerYN, 
+                  # AffordCostBaseline, 
+                  #  NormsScore, 
+                  KnownNbTypeECS, 
+                  AffordSubsidiesBaseline,
+                  LikertAccessInfoBaseline, 
+                  LikertAccessSoc,
+                  AffordCostBaseline
+  )) %>% 
+  mutate(across(where(is.logical), as.factor)) %>% 
+  mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels

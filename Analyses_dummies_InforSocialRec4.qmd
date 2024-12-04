@@ -35,14 +35,14 @@ test <- testing(split)
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = train) %>%
   step_impute_knn( PrescriptiveNorm, # we impute missing values for the numerical variables using knn
-                  AffordCostBaseline,
+                  
                   NormsScore,
                   Taux.de.couv.global,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
   step_YeoJohnson( PrescriptiveNorm,
-                  AffordCostBaseline,
+                  
                   NormsScore
                   #BreastFeedLength,
                   #NumberChildren
@@ -148,12 +148,12 @@ test <- testing(split)  # Apply the recipe (simplified)
 
 model_recipe <- recipe(target ~ ., data = train) %>%   
   step_zv() %>%
-  step_impute_knn(AffordCostBaseline,                   
+  step_impute_knn(                   
                   NormsScore,                   
                   Taux.de.couv.global,
                   PrescriptiveNorm, 
                   neighbors = 5) %>%   
-  step_YeoJohnson(AffordCostBaseline,                   
+  step_YeoJohnson(                   
                   NormsScore, 
                   PrescriptiveNorm
                   )
@@ -219,12 +219,12 @@ test <- testing(split)  # Apply the recipe (simplified)
 
 model_recipe <- recipe(target ~ ., data = train) %>%   
   step_zv() %>%
-  step_impute_knn(AffordCostBaseline,                   
+  step_impute_knn(                   
                   NormsScore,                   
                   Taux.de.couv.global,      
                   PrescriptiveNorm,
                   neighbors = 5) %>%   
-  step_YeoJohnson(AffordCostBaseline,                   
+  step_YeoJohnson(                   
                   NormsScore,
                   PrescriptiveNorm
                   )
@@ -278,8 +278,9 @@ model_recipe <- recipe(target ~ ., data = train) %>%
 #| echo: false
 
 
-data <- MLDummified %>% filter(!is.na(Intention)) %>% mutate(target = factor(Intention, labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
- select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne))
+data <- MLDummified %>% filter(!is.na(Intention)) %>% 
+  mutate(target = factor(Intention, labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
+ select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne,BabyHealthIndex, MotherHealthIndex ))
 # Create a subset with the sociodemo and the predictors
 # Cleaning the data
 
@@ -288,7 +289,7 @@ tidymodels_prefer()
 # Take a look at the data with skimr
 s <- skim(data)
 print(s, include_summary = FALSE)
-# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN, AffordCostBaseline, NumberChildren we may want to impute them
+# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN,  NumberChildren we may want to impute them
 
 
 # Keep 20% of the observations for the test set.
@@ -307,12 +308,12 @@ test_df <- testing(credit_split)
 
 rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
-  step_impute_knn(AffordCostBaseline,
+  step_impute_knn(
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(AffordCostBaseline,
+  step_YeoJohnson(
                   NormsScore,
                   PrescriptiveNorm
                   #BreastFeedLength,
@@ -410,12 +411,12 @@ rf_fit_final %>%
 # You need to give up on partykit to get some info on variable importance, so we have to do it again
 
 rf_recipe <- recipe(target ~ ., data = train_df)  %>%
-  step_impute_knn(AffordCostBaseline,
+  step_impute_knn(
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(AffordCostBaseline,
+  step_YeoJohnson(
                   NormsScore,
                   PrescriptiveNorm
                   #BreastFeedLength,
@@ -582,12 +583,12 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
  step_unknown(EntryAgeBeforeOne) %>% 
   # We dummify everything
   step_dummy(Assignment) %>% 
-  step_impute_knn(AffordCostBaseline,
+  step_impute_knn(
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(AffordCostBaseline,
+  step_YeoJohnson(
                   NormsScore,
                   PrescriptiveNorm
                   )
@@ -595,7 +596,7 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
 rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = 50, # if I tune it, it takes forever to run
+                       trees = 10, # if I tune it, it takes forever to run
                        min_n = tune()) %>%
   set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
   set_engine("partykit")
@@ -626,7 +627,7 @@ set.seed(20) # for reproducibility
 # Set the tuning grid
 # The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
 rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
-                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
                                 variogram_range = 0.75, # explore the space of the hyperparameters
                                 original = TRUE)
 set.seed(30)
@@ -684,12 +685,12 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_unknown(EntryAgeBeforeOne) %>% 
   step_dummy(EntryAgeBeforeOne, 
              Assignment) %>% 
-  step_impute_knn(AffordCostBaseline,
+  step_impute_knn(
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(AffordCostBaseline,
+  step_YeoJohnson(
                   NormsScore,
                   PrescriptiveNorm
                   #BreastFeedLength,
@@ -849,11 +850,11 @@ EntryAgeBeforeOne
   # We dummify everything
   step_dummy( EntryAgeBeforeOne, 
 Assignment) %>% 
-  step_impute_knn(AffordCostBaseline,
+  step_impute_knn(
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(AffordCostBaseline,
+  step_YeoJohnson(
                   PrescriptiveNorm
                   )
 
@@ -863,7 +864,7 @@ Assignment) %>%
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
 rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = 50, # if I tune it, it takes forever to run
+                       trees = 10, # if I tune it, it takes forever to run
                        min_n = tune()) %>%
   set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
   set_engine("partykit")
@@ -894,7 +895,7 @@ set.seed(20) # for reproducibility
 # Set the tuning grid
 # The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
 rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
-                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
                                 variogram_range = 0.75, # explore the space of the hyperparameters
                                 original = TRUE)
 set.seed(30)
@@ -1108,7 +1109,7 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
     step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
     step_impute_knn(Taux.de.couv.global,  # we impute missing values for the numerical variables using knn
-                  AffordCostBaseline,
+                  
                   NormsScore,
                   PrescriptiveNorm,
              #     BreastFeedLength,
@@ -1116,7 +1117,7 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
                   neighbors = 5) %>% 
   step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson( PrescriptiveNorm,
-                  AffordCostBaseline,
+                  
                   NormsScore
                   #BreastFeedLength,
                   #NumberChildren
@@ -1363,12 +1364,12 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_impute_knn(AffordCostBaseline,
+  step_impute_knn(
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(AffordCostBaseline,
+  step_YeoJohnson(
                   NormsScore,
                   PrescriptiveNorm
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
@@ -1588,12 +1589,12 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_normalize(AffordCostBaseline,
+  step_normalize(
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm
                  ) %>%
-  step_YeoJohnson(AffordCostBaseline,
+  step_YeoJohnson(
                   NormsScore,
                   PrescriptiveNorm
                   )
@@ -1775,15 +1776,7 @@ modelsummary(post_lasso_model,
 
 ```
 
-
-
----------------------
-# Dummified all with Norms and costs
-
-
-# Regression globale
-
-## Intention
+------------------------------------------------------------------------
 
 ```{r regression}
 
@@ -2026,8 +2019,6 @@ model_recipe <- recipe(target ~ ., data = train) %>%
               output = 'flextable')  
 ```
 
-
-
 # Machine Learning
 
 ## Intention
@@ -2046,7 +2037,7 @@ tidymodels_prefer()
 # Take a look at the data with skimr
 s <- skim(data)
 print(s, include_summary = FALSE)
-# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN, AffordCostBaseline, NumberChildren we may want to impute them
+# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN,  NumberChildren we may want to impute them
 
 
 # Keep 20% of the observations for the test set.
@@ -2573,11 +2564,11 @@ EntryAgeBeforeOne
   # We dummify everything
   step_dummy( EntryAgeBeforeOne, 
 Assignment) %>% 
-  step_impute_knn(AffordCostBaseline,
+  step_impute_knn(
                   NormsScore,
                   Taux.de.couv.global,
                   neighbors = 5) %>% 
-  step_YeoJohnson(AffordCostBaseline,
+  step_YeoJohnson(
                   NormsScore
                   )
 
@@ -2831,14 +2822,14 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
     step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
     step_impute_knn(Taux.de.couv.global,  # we impute missing values for the numerical variables using knn
-                  AffordCostBaseline,
+                  
                   NormsScore,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
   step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson( 
-                  AffordCostBaseline,
+                  
                   NormsScore
                   #BreastFeedLength,
                   #NumberChildren
@@ -3088,13 +3079,13 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_normalize(AffordCostBaseline, 
+  step_normalize( 
                  NormsOpposedN, 
                  NormsScore, 
                  Taux.de.couv.global
                  ) %>%
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline, 
+                   
                   NormsScore
                   #BreastFeedLength,
                   #NumberChildren
@@ -3318,13 +3309,13 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_normalize(AffordCostBaseline, 
+  step_normalize( 
                  NormsOpposedN, 
                  NormsScore, 
                  Taux.de.couv.global
                  ) %>%
   step_YeoJohnson(NormsOpposedN, 
-                  AffordCostBaseline, 
+                   
                   NormsScore
                   #BreastFeedLength,
                   #NumberChildren
