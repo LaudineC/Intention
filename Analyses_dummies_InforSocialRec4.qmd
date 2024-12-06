@@ -34,15 +34,14 @@ test <- testing(split)
 
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = train) %>%
-  step_impute_knn( PrescriptiveNorm, # we impute missing values for the numerical variables using knn
-                  
+  step_impute_knn( AffordCostBaseline, # we impute missing values for the numerical variables using knn
                   NormsScore,
                   Taux.de.couv.global,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
-  step_YeoJohnson( PrescriptiveNorm,
-                  
+  step_YeoJohnson(
+                  AffordCostBaseline,
                   NormsScore
                   #BreastFeedLength,
                   #NumberChildren
@@ -148,12 +147,12 @@ test <- testing(split)  # Apply the recipe (simplified)
 
 model_recipe <- recipe(target ~ ., data = train) %>%   
   step_zv() %>%
-  step_impute_knn(                   
+  step_impute_knn(AffordCostBaseline,           
                   NormsScore,                   
                   Taux.de.couv.global,
                   PrescriptiveNorm, 
                   neighbors = 5) %>%   
-  step_YeoJohnson(                   
+  step_YeoJohnson(AffordCostBaseline,                   
                   NormsScore, 
                   PrescriptiveNorm
                   )
@@ -219,12 +218,12 @@ test <- testing(split)  # Apply the recipe (simplified)
 
 model_recipe <- recipe(target ~ ., data = train) %>%   
   step_zv() %>%
-  step_impute_knn(                   
+  step_impute_knn(  AffordCostBaseline,                 
                   NormsScore,                   
                   Taux.de.couv.global,      
                   PrescriptiveNorm,
                   neighbors = 5) %>%   
-  step_YeoJohnson(                   
+  step_YeoJohnson(     AffordCostBaseline,              
                   NormsScore,
                   PrescriptiveNorm
                   )
@@ -308,12 +307,12 @@ test_df <- testing(credit_split)
 
 rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
-  step_impute_knn(
+  step_impute_knn(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(
+  step_YeoJohnson(AffordCostBaseline,
                   NormsScore,
                   PrescriptiveNorm
                   #BreastFeedLength,
@@ -411,12 +410,12 @@ rf_fit_final %>%
 # You need to give up on partykit to get some info on variable importance, so we have to do it again
 
 rf_recipe <- recipe(target ~ ., data = train_df)  %>%
-  step_impute_knn(
+  step_impute_knn(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(
+  step_YeoJohnson(AffordCostBaseline,
                   NormsScore,
                   PrescriptiveNorm
                   #BreastFeedLength,
@@ -535,6 +534,7 @@ average_shapley <- shap %>%
 shap %>%
   group_by(variable) %>%
   mutate(mean_val = mean(contribution)) %>%
+  filtre
   ungroup() %>%
   mutate(variable = fct_reorder(variable, abs(mean_val))) %>% # reorder the variables according to their contribution in term of their absolute value
   ggplot(aes(contribution, variable, fill = mean_val > 0)) +
@@ -547,7 +547,7 @@ shap %>%
   theme_bw()
 
 
-shap %>%
+shap <- shap %>%
   group_by(variable) %>%
   mutate(mean_val = mean(contribution)) %>%
   ungroup() %>%
@@ -583,12 +583,12 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
  step_unknown(EntryAgeBeforeOne) %>% 
   # We dummify everything
   step_dummy(Assignment) %>% 
-  step_impute_knn(
+  step_impute_knn( AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(
+  step_YeoJohnson( AffordCostBaseline ,
                   NormsScore,
                   PrescriptiveNorm
                   )
@@ -685,12 +685,12 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
   step_unknown(EntryAgeBeforeOne) %>% 
   step_dummy(EntryAgeBeforeOne, 
              Assignment) %>% 
-  step_impute_knn(
+  step_impute_knn( AffordCostBaseline, 
                   NormsScore,
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(
+  step_YeoJohnson(AffordCostBaseline, 
                   NormsScore,
                   PrescriptiveNorm
                   #BreastFeedLength,
@@ -759,8 +759,8 @@ root_counts <- roots_data %>%
   count()
 
 # Filter out roots with counts greater than 75
-filtered_root_counts <- root_counts %>% 
-  filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
+filtered_root_counts <- root_counts #%>% 
+ # filter(n > 20) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
 
 # Arrange the data in descending order of counts
 sorted_root_counts <- filtered_root_counts %>% 
@@ -850,11 +850,11 @@ EntryAgeBeforeOne
   # We dummify everything
   step_dummy( EntryAgeBeforeOne, 
 Assignment) %>% 
-  step_impute_knn(
+  step_impute_knn(AffordCostBaseline, 
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
-  step_YeoJohnson(
+  step_YeoJohnson(AffordCostBaseline, 
                   PrescriptiveNorm
                   )
 
@@ -1111,12 +1111,13 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
     step_impute_knn(Taux.de.couv.global,  # we impute missing values for the numerical variables using knn
                   NormsScore,
                   PrescriptiveNorm,
+                  AffordCostBaseline,
              #     BreastFeedLength,
               #    NumberChildren,
                   neighbors = 5) %>% 
   step_normalize(all_numeric_predictors()) %>%
   step_YeoJohnson( PrescriptiveNorm,
-                  
+                  AffordCostBaseline,
                   NormsScore
                   #BreastFeedLength,
                   #NumberChildren
@@ -1363,13 +1364,15 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_impute_knn(
+  step_impute_knn(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
                  # PrescriptiveNorm,
                   neighbors = 5) %>% 
   step_YeoJohnson(MotherHealthIndex,
+                  BabyHealthIndex,
                   NormsScore,
+                  AffordCostBaseline
                  # PrescriptiveNorm
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
 
@@ -1588,14 +1591,16 @@ model_recipe <- recipe(target ~ ., data = lasso_train) %>%
    step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
    # Supprimer les variables à variance nulle
   # Normaliser les prédicteurs numériques
-  step_normalize(
+  step_normalize(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
-                  PrescriptiveNorm
+                  BabyHealthIndex,
+                  MotherHealthIndex
                  ) %>%
-  step_YeoJohnson(
+  step_YeoJohnson(AffordCostBaseline,
                   NormsScore,
-                  PrescriptiveNorm
+                  BabyHealthIndex,
+                  MotherHealthIndex
                   )
 # Model specification
 lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
@@ -2026,8 +2031,11 @@ model_recipe <- recipe(target ~ ., data = train) %>%
 #| echo: false
 
 
-data <- MLDummifiedALL %>% filter(!is.na(Intention)) %>% mutate(target = factor(Intention, labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
- select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne))
+data <- MLDummifiedALL %>% filter(!is.na(Intention)) %>% 
+  mutate(target = factor(Intention, labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
+ select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne, MotherHealthBelowAverage, BabyHealthBelowAverage, 
+           DontKnowECCosts, ThinkCostBelow500)# we need to remove it otherwise it will be collinear
+        )
 # Create a subset with the sociodemo and the predictors
 # Cleaning the data
 
@@ -2054,10 +2062,12 @@ test_df <- testing(credit_split)
 # step_unkown turns NAs into "unknown" becuse tidymodels and our algo do not like NAs
 
 rf_recipe <- recipe(target ~ ., data = train_df)  %>%
-    step_unknown( 
-               ThinkCostBelow500, 
+    step_unknown(ProgressiveNorms,
+              # ThinkCostBelow500, 
                CoverageAboveAverage               
-               ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+               )  %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) 
+# some variables are skewed. We transform them using YeoJohson that can also deal with missing values
 
 ## RUN THE RANDOM FOREST
 
@@ -2819,21 +2829,7 @@ lasso_test <- testing(lasso_split)
 # Apply the recipe (simplified)
 model_recipe <- recipe(target ~ ., data = lasso_train) %>%
     step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
-    step_zv() %>%
-    step_impute_knn(Taux.de.couv.global,  # we impute missing values for the numerical variables using knn
-                  
-                  NormsScore,
-             #     BreastFeedLength,
-              #    NumberChildren,
-                  neighbors = 5) %>% 
-  step_normalize(all_numeric_predictors()) %>%
-  step_YeoJohnson( 
-                  
-                  NormsScore
-                  #BreastFeedLength,
-                  #NumberChildren
-                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
-
+    step_zv()
 
 # Model specification
 lasso_spec <-  linear_reg(penalty = tune(), # here we need something new

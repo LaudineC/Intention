@@ -397,8 +397,8 @@ dbMachineLearning <- MainDB %>%# we select the variables that we want. Check tha
            AffordCostBaseline,
            #    AccessEasyBaseline,
            NormsBaseline,
-           #LikertAccessInfoBaseline, # FOR 4
-           #LikertAccessSoc, # FOR 4
+           LikertAccessInfoBaseline, # FOR 4
+           LikertAccessSoc, # FOR 4
           # DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
           # DeprivFood, # DEPRIVATION: do parents struggle to buy food?
           # DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
@@ -484,14 +484,15 @@ MLDummified <- dbMachineLearning %>%
    # NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
    # NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
     PrescriptiveNorm = NormsOpposedN, # Prescriptive norms
-   PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
+    PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
     KnowsECIsSubsidized = ifelse(AffordSubsidiesBaseline == "Yes", "Yes", "No"), # knows that EC is subsidized
     BelieveAccessingChildcareEasy = ifelse(AccessEasy5 == "Easy", "Yes", "No"), #Maybe check
     DontKnowECCosts = ifelse(AffordCostDK == TRUE, "Yes", "No"), # Don't know EC costs
     #ProgressiveNorms = ifelse(NormsScore < 2, "Yes", "No"), # Progressive norms: play with that a bit
    # ThinkCostBelow500 = ifelse(AffordCostBaseline < 500, "Yes", "No"), # Think cost below 500
     HasAccessToAComputer = ifelse(ComputerYN == "Oui", "Yes", "No"), # Has access to a computer
-  ) %>% select(-c(TrustCreche, 
+  
+   ) %>% select(-c(TrustCreche, 
                   NormsBaseline, 
                   LikertReturnHKBaseline, 
                   AccessHoursBaselineNo, 
@@ -509,7 +510,7 @@ MLDummified <- dbMachineLearning %>%
                  # AffordCostBaseline, 
                 #  NormsScore, 
                   KnownNbTypeECS, 
-                AffordSubsidiesBaseline
+                AffordCostBaseline
                   )) %>% 
   mutate(across(where(is.logical), as.factor)) %>% 
   mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
@@ -541,7 +542,13 @@ MLDummifiedALL <- dbMachineLearning %>%
     ProgressiveNorms = ifelse(NormsScore < 2, "Yes", "No"), # Progressive norms: play with that a bit
     ThinkCostBelow500 = ifelse(AffordCostBaseline < 500, "Yes", "No"), # Think cost below 500
     HasAccessToAComputer = ifelse(ComputerYN == "Oui", "Yes", "No"), # Has access to a computer
-    CoverageAboveAverage = ifelse(Taux.de.couv.global > 55, "Yes", "No") # Coverage above average
+    CoverageAboveAverage = ifelse(Taux.de.couv.global > 55, "Yes", "No"), # Coverage above average
+    CanAccessScoialResources = ifelse((LikertAccessSoc == "Assez d’accord" | LikertAccessSoc == "Très d’accord"), 
+                                      "Yes", "No"), # Can access social resources
+    CanAccessInformation = ifelse((LikertAccessInfoBaseline == "Assez d’accord" | LikertAccessInfoBaseline == "Très d’accord"),
+                                  "Yes", "No"), # Can access information
+    MotherHealthBelowAverage = ifelse(MotherHealthIndex < 83.6, "Yes", "No"), # Mother health below average
+    BabyHealthBelowAverage = ifelse(BabyHealthIndex < 88, "Yes", "No") # Baby health below average
     ) %>% select(-c(TrustCreche, 
                   NormsBaseline, 
                   LikertReturnHKBaseline, 
@@ -561,7 +568,11 @@ MLDummifiedALL <- dbMachineLearning %>%
                   NormsScore, 
                   KnownNbTypeECS, 
                   AffordSubsidiesBaseline, 
-                  Taux.de.couv.global
+                  Taux.de.couv.global, 
+                  AffordCostDK,
+                  AffordCostBaseline,
+                  MotherHealthIndex,
+                  BabyHealthIndex
   )) %>% 
   mutate(across(where(is.logical), as.factor)) %>% 
   mutate(across(where(is.character), as.factor)) 
@@ -612,13 +623,12 @@ MLDummified <- dbMachineLearning %>%
                   AffordCostDK, 
                   AccessEasy5, 
                   ComputerYN, 
-                  # AffordCostBaseline, 
                   #  NormsScore, 
                   KnownNbTypeECS, 
                   AffordSubsidiesBaseline,
                   LikertAccessInfoBaseline, 
                   LikertAccessSoc,
-                  AffordCostBaseline
+                  #AffordCostBaseline
   )) %>% 
   mutate(across(where(is.logical), as.factor)) %>% 
   mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
