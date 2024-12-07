@@ -312,6 +312,7 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
                   Taux.de.couv.global,
                   PrescriptiveNorm,
                   neighbors = 5) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
   step_YeoJohnson(AffordCostBaseline,
                   NormsScore,
                   PrescriptiveNorm
@@ -322,11 +323,16 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
 ## RUN THE RANDOM FOREST
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
-rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = 10, # if I tune it, it takes forever to run
-                       min_n = tune()) %>%
-  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
-  set_engine("partykit")
+rf_spec <- rand_forest() %>% #rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+           #            trees = 50, # if I tune it, it takes forever to run
+            #           min_n = tune()) %>%
+    set_engine("ranger",
+             num.threads = parallel::detectCores(), # to do it in parallel 
+             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
+             verbose = TRUE) %>% # keeps a lot of details for us
+  set_mode("classification") %>% 
+  #set_engine("partykit")
+    set_args(trees = 50)#update here
 
 
 # Flooow: specify what transformations (recipe) will be done and what algo will be fitted in a first step
@@ -354,7 +360,7 @@ set.seed(20) # for reproducibility
 # Set the tuning grid
 # The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
 rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
-                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
                                 variogram_range = 0.75, # explore the space of the hyperparameters
                                 original = TRUE)
 set.seed(30)
@@ -368,6 +374,7 @@ cv_folds <- vfold_cv(train_df, v = 10, strata = target) # stratified CV
 # Set the metrics used: accuracy or cohen's kappa or F1 for a classification task (or AUC)
 rf_metrics <- metric_set(accuracy) # classification task
 
+doParallel::registerDoParallel() # used parallel cores to run the computation
 
 # tune the model, with the cross validation method defined, the grid and the metrics you set
 rf_tune <- initial_flow %>%
@@ -409,7 +416,7 @@ rf_fit_final %>%
 # NODE IMPORTANCE
 # You need to give up on partykit to get some info on variable importance, so we have to do it again
 
-rf_recipe <- recipe(target ~ ., data = train_df)  %>%
+rf_recipe <- recipe(target ~ ., data = tr)  %>%
   step_impute_knn(AffordCostBaseline,
                   NormsScore,
                   Taux.de.couv.global,
@@ -428,7 +435,7 @@ mod_rf <-rand_forest() %>%
              importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
              verbose = TRUE) %>% # keeps a lot of details for us
   set_mode("classification") %>%
-  set_args(trees = 50)#update here
+  set_args(trees = 50) #te here
 
 # Same steps again to fit the model
 # workflow
@@ -437,6 +444,7 @@ mod_rf <-rand_forest() %>%
 rf_flow <- workflow() %>% 
   add_model(mod_rf) %>% 
   add_recipe(rf_recipe)
+
 
 # With new code for using future
 library(future)
@@ -451,6 +459,29 @@ fit_rf <- fit_resamples(
                               save_pred = TRUE,
                               extract = function(x) x) # the function return the value of the prediction
 )
+
+# select the best parameters for the model the tuning found
+rf_best <- select_best(fit_rf)
+rf_best
+
+
+
+# Update the model with the best parameters found
+rf_updated <- finalize_model(rf_spec,
+                             rf_best) 
+
+# add this to the initial workflow
+workflow_new <- initial_flow %>%
+  update_model(rf_updated)
+
+# Fit the model on the training set
+rf_fit_final <- workflow_new %>%
+  fit(data = train_df)
+
+rf_fit_final %>%
+  predict(test_df) %>%
+  bind_cols(test_df) %>%
+  metrics(truth = target, estimate = .pred_class)
 
 library(forcats)
 library(tidyverse)
@@ -534,7 +565,6 @@ average_shapley <- shap %>%
 shap %>%
   group_by(variable) %>%
   mutate(mean_val = mean(contribution)) %>%
-  filtre
   ungroup() %>%
   mutate(variable = fct_reorder(variable, abs(mean_val))) %>% # reorder the variables according to their contribution in term of their absolute value
   ggplot(aes(contribution, variable, fill = mean_val > 0)) +
@@ -1230,7 +1260,8 @@ model_recipe_post <- recipe(target ~ ., data = lasso_train) %>%
 #evelInfoSubExPost             ) %>%
   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
     step_zv() %>%
-   step_impute_knn(all_numeric_predictors(), neighbors = 5)
+   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>% 
+  step_normalize(all_numeric_predictors()) 
 
 ## Post Lasso on training and test sets
 
@@ -2586,11 +2617,18 @@ Assignment) %>%
 ## RUN THE RANDOM FOREST
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
-rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = 50, # if I tune it, it takes forever to run
-                       min_n = tune()) %>%
-  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
-  set_engine("partykit")
+rf_spec <- rand_forest() %>% #rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+           #            trees = 50, # if I tune it, it takes forever to run
+            #           min_n = tune()) %>%
+    set_engine("ranger",
+             num.threads = parallel::detectCores(), # to do it in parallel 
+             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
+             verbose = TRUE) %>% # keeps a lot of details for us
+  set_mode("classification") %>% 
+    set_args(trees = 50)#update here
+
+ # IMPORTANT! It can also deal with classes and influence the loss function
+
 
 
 # Flooow: specify what transformations (recipe) will be done and what algo will be fitted in a first step
