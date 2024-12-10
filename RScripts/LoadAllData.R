@@ -17,7 +17,7 @@ BaselineFull<- BaselineFull[-c(1:2),]
 # Endline clean
 #PremiersPasWithoutIds <- read_csv(here("Data","PremiersPasWithoutIds.csv"))
 
-MainDB <- read_csv(here("Data","PremiersPasWithNonRespondents112024.csv")) %>%    
+MainDB <- read_csv(here("PremiersPasWithNonRespondents112024.csv")) %>%    
   mutate(Responded=ifelse(is.na(ECSApp),0,1), ResponseStatus=case_when(Responded==1~"Respondent",                                                                         Responded==2~"NonRespondent")) %>%
   group_by(strata,Which_wave) %>%  
   mutate(StrataWave=cur_group_id() %>% as.factor()) %>%   ungroup() %>%   

@@ -328,7 +328,7 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
 rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = tune() , # if I tune it, it takes forever to run
+                       trees = tune(), # if I tune it, it takes forever to run
                        min_n = tune()) %>%
   set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
   set_engine("partykit")
