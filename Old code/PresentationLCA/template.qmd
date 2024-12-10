@@ -1,0 +1,794 @@
+---
+title: "REGRESSION AS A MACHINE:"
+subtitle: "An Introduction to Supervised Machine Learning"
+author: "Marco R. Steenbergen"
+institute: "Institut für Politikwissenschaft"
+format:
+  revealjs:
+    self-contained: true
+    embed-resources: true
+    footer: "Lugano Summer School 2024"
+    transition: convex
+    background-transition: none
+    fig-format: retina
+    toc: true
+    toc-depth: 1
+    number-sections: false
+    toc-title: "In This Lecture"
+    theme: [default, "sydney.scss"]
+    code-line-numbers: true
+    html-math-method: mathjax
+    slide-number: c
+    scrollable: false
+    pdf-max-pages-per-slide: 6
+    history: false # don't add each slide to browser history
+# bibliography: /Users/poli-glot/Documents/Tools/references.bib
+csl: apa-old-doi-prefix.csl
+execute:
+  echo: true
+---
+
+## Libraries We Will Use
+
+-   `rio`
+
+-   `tidymodels`
+
+-   `tidyverse`
+
+# What Is Machine Learning?
+
+## Of Experiences, Tasks, and Performance
+
+> The design of algorithms that learn from data and are capable of improvement as new experiences emerge. Specifically, the algorithm "is said to learn from experience $E$ with respect to some task $T$ and performance measure $P$, if its performance at task $T$, as measured by $P$, improves with experience $E$" [@mitchell1997Machine, 2]
+
+::: notes
+Experience is data. Data, tasks, and performance metrics are the holy trilogy of machine learning.
+:::
+
+## Varieties of Machine Learning
+
+1.  **Unsupervised:**
+    -   Does not require labeled outcomes.
+2.  **Supervised:**
+    -   Requires labeled outcomes, which could be
+        -   Classes $\Rightarrow$ **classification tasks**
+        -   Numeric scores $\Rightarrow$ **regression tasks**
+3.  **Ensemble:**
+    -   Combines multiple base models to improve predictive performance.
+    -   Varieties include bagging, boosting, and stacking.
+
+## Machine Learning in the Social Sciences
+
+The main uses of machine learning in (applied) social science are the:
+
+1.  Automation of tedious, time-consuming, and error prone coding tasks.
+2.  Prediction of behavior.
+3.  Induction: Developing new theories from patterns in data [@breiman2001Statistical; also @korb2004Introduction].
+
+::: notes
+Controversy remains. In prediction, there have been various scandals (e.g., Dutch tax office). Inductive uses are often criticized, not least because of the Humean critique of this approach.
+:::
+
+# The Essentials of Supervised Machine Learning
+
+## A Different Style of Data Science
+
+-   The typical approach in the social sciences involves
+
+    -   Imposing a model on the data
+
+    -   Drawing inferences across the whole sample
+
+    -   A primary focus on interpretation
+
+-   Supervised machine learning entails
+
+    -   Learning a model from the data
+
+    -   Dividing the data into different subsets that serve different purposes
+
+    -   A primary focus on prediction
+
+::: notes
+\(1\) Although the primary focus in SML remains on prediction, there is growing awareness that interpretation is just as important. (2) Depending on whether the learning is done by statisticians or computer scientists, you may find that uncertainty and hypothesis testing play no role in SML, especially not with big data.
+:::
+
+## A Different Jargon
+
+::: columns
+::: {.column width="50%"}
+**Traditional**
+
+-   Data
+
+-   Unit
+
+-   Predictor
+
+-   Outcome
+:::
+
+::: {.column width="50%"}
+**Machine Learning**
+
+-   Set
+
+-   Sample, example, or instance
+
+-   Feature
+
+-   Target
+:::
+:::
+
+## The Generic Learning Problem
+
+::: callout-note
+## Model
+
+$$
+y_i = \phi \left(\boldsymbol{x}_i,\boldsymbol{\theta} \right) + \varepsilon_i
+$$ {#eq-task}
+:::
+
+-   $i$ is the sample.
+
+-   $y$ is the target (a class or a score).
+
+-   $\phi(.)$ is an unknown function.
+
+-   $\boldsymbol{x}$ is the vector of predictive features.
+
+-   $\boldsymbol{\theta}$ are the unknown (tuning) parameters.
+
+-   $\varepsilon$ is irreducible error.
+
+::: notes
+\(1\) The features can be in their raw form or engineered. (2) The parameters can be of the estimable type or tuning parameters that have to be set through cross-validation. Sometimes the outcome variable is transformed, e.g., class label to probability. I ignore that complexity here.
+:::
+
+## Exercise
+
+::: callout-tip
+## Your Turn
+
+Can you think of an example in your field where researchers have used machine learning to uncover the function $\phi(.)$?
+:::
+
+## The Generic Prediction Task
+
+::: callout-note
+## Prediction
+
+$$
+\hat{y}_i = f \left( \boldsymbol{x}_i^*, \hat{\boldsymbol{\theta}} \right)
+$$ {#eq-predict}
+:::
+
+-   $\hat{y}$ is the prediction of the target.
+
+-   $f(.)$ is the learnt functional form.
+
+-   $\boldsymbol{x}^*$ is the subset of relevant features (**feature selection**).
+
+-   $\hat{\boldsymbol{\theta}}$ contains the optimal parameter values.
+
+::: notes
+\(1\) We can make predictions in- and out-of-sample. The ability to make out-of-sample predictions is the key selling point of machine learning. (2) Another major selling point is the ability to learn which predictive features are relevant and which ones are not.
+:::
+
+## The Loss Function
+
+-   In statistics, loss = error.
+
+-   For at least one instance, $\hat{y}_i \neq y_i$.
+
+-   The **loss function** quantifies totality of error in the scalar $L \left( \hat{y}_i,y_i \right)$.
+
+-   This quantity plays a crucial role in the learning process, which selects $f(.)$ and $\hat{\boldsymbol{\theta}}$ in such a way that loss is **minimized**.
+
+## Performance
+
+-   Performance **metrics** measure how well the model accounts for the data and are given by $P \left( \hat{y}_i, y_i \right)$.
+
+-   In some cases, they are derived directly from the loss function; in other cases, they follow a different logic [see @japkowicz2011Evaluating].
+
+-   Regardless, our goal is to achieve *outstanding* predictive performance [but see @thomas2020Problem].
+
+::: notes
+Since prediction is the main focus of machine learning, we always look for outstanding performance metrics. Sometimes, we also generate a baseline to which the performance of a model can be compared.
+:::
+
+## A Division of Labor
+
+::: columns
+::: {.column width="60%"}
+-   Training = the process of learning the functional form, parameters, and relevant features.
+
+-   Evaluation = the process of assessing model performance.
+
+-   **Cardinal rule:** Never train and evaluate on the same data!
+
+-   Instead, we generate a
+
+    -   **Training set** for training purposes.
+
+    -   **Test set** for evaluation purposes
+:::
+
+::: {.column width="40%"}
+![The Yin and Yang of Machine Learning](Images/divlab.jpg){fig-align="center"}
+:::
+:::
+
+::: notes
+In some cases, we may also create a validation set. We discuss this further in the context of advanced machine learning algorithms.
+:::
+
+## A Simple Way of Generating Test and Training Sets
+
+::: columns
+::: {.column width="50%"}
+```{r}
+#| echo: false
+#| message: false
+library(tidyverse)
+
+# Sample data
+dummy <- data.frame(x = c(1), y = c(2))
+
+# Create the plot with colorblind-friendly colors
+ggplot(dummy) +
+  geom_rect(aes(xmin = 0, xmax = 1.5,
+                ymin = 0, ymax = 0.5),
+            fill = "#0072B2") +  # Blue
+  geom_rect(aes(xmin = 1.55, xmax = 2.35,
+                ymin = 0, ymax = 0.5),
+            fill = "#D55E00") +  # Orange
+  annotate("text",
+           x = 0.75,
+           y = 0.25,
+           label = "TRAINING \np",
+           color = "white",
+           size = 15) +
+  annotate("text",
+           x = 1.95,
+           y = 0.25,
+           label = "TESTING \n1 - p",
+           color = "white",
+           size = 15) +
+  labs(title = "Training and Testing Data Split",
+       subtitle = "Representation of Data Partitioning",
+       caption = "Blue: Training Data (p)\nOrange: Testing Data (1 - p)") +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
+    plot.caption = element_text(hjust = 0.5, size = 10)
+  )
+
+```
+:::
+
+::: {.column width="50%"}
+<br>
+
+-   If necessary randomize the data.
+
+-   Set aside a fraction of $p$ instances for training $\Rightarrow$ training set of size $n_1$.
+
+-   Set aside a fraction of $1-p$ instances for evaluation $\Rightarrow$ test set of size $n_2$.
+:::
+:::
+
+::: notes
+\(1\) Randomization of the data is not advisable if they form a time series. (2) note that $n_1 + n_2 = n$, the original sample size. (3) We can do both simple random sampling or stratified sampling. The latter preserves, for example, the outcome distribution.
+:::
+
+## The Machine Learning Workflow
+
+<br>
+
+![](Images/workflow.png){fig-align="center"}
+
+::: notes
+Putting it all together, a SML workflow starts with data preparation, followed by training on a training set, and evaluation on a test set. At this stage, improvements to the algorithm can be made through tuning, cycling once more through training and evaluation. If everything is OK, the algorithm can be deployed.
+:::
+
+## The Workflow in `tidymodels`
+
+[![](Images/tidymodels.jpg){fig-align="center"}](https://rpubs.com/chenx/tidymodels_tutorial)
+
+::: {style="font-size: 75%"}
+**Source:** [RPubs](https://rpubs.com/chenx/tidymodels_tutorial)
+:::
+
+::: notes
+\(1\) `rsample` takes care of creating split samples and of cross-validation; (2) `recipes` is in charge of pre-processing the data and of feature engineering; (3) `parsnip` is the model interface; (4) `yardstick` measures model performance; and (5) `tune` and `dials` are used for parameter tuning.
+:::
+
+# Theory of Regression
+
+## Preliminary Remarks
+
+The familiar regression model can be cast as a machine learning algorithm.
+
+-   It is limited to regression tasks.
+
+-   It is also somewhat atypical:
+
+    -   $\phi(.)$ is imposed instead of learnt
+
+    -   There are no tuning parameters
+
+    -   There is no feature selection
+
+-   Because of its simplicity, however, it is a useful didactic starting point.
+
+::: notes
+Because $\phi(.)$ is imposed, there is no automatic detection of non-linear relationships and/or interactions.
+:::
+
+## The Model
+
+::: callout-note
+## Model
+
+$$
+y_i = \alpha+ \sum_{j=1}^P \beta_j x_{ij} + \varepsilon_i = \alpha + \boldsymbol{x}_i^\top \boldsymbol{\beta} + \varepsilon_i
+$$ {#eq-reg1}
+:::
+
+-   $\alpha$ is the **bias**, a.k.a. constant or intercept.
+
+-   $\beta$ is the **weight**, a.k.a. partial slope coefficient.
+
+-   There are $P$ features.
+
+## Geometric Interpretation
+
+::: columns
+::: {.column width="50%"}
+**Hyperplane**
+
+```{r}
+#| echo: false
+library(scatterplot3d)
+data("iris")
+
+# Filter data for the versicolor species
+wh <- iris$Species == "versicolor"
+x1 <- iris$Sepal.Width[wh]
+x2 <- iris$Petal.Width[wh]
+y <- iris$Sepal.Length[wh]
+
+# Prepare data for linear model
+mreg_df <- data.frame(x1, x2, y)
+LM <- lm(y ~ x1 + x2, data = mreg_df)
+
+# Create the 3D scatter plot
+s3d <- scatterplot3d(x1, x2, y,
+                     pch = 19, type = "p", color = "#0072B2",  # Blue color
+                     grid = TRUE, box = FALSE,
+                     mar = c(2.5,2.5,2,1.5),
+                     angle = 55,
+                     main = "3D Scatter Plot of Iris Versicolor",
+                     xlab = "Sepal Width",
+                     ylab = "Petal Width",
+                     zlab = "Sepal Length")
+
+# Add the regression plane
+s3d$plane3d(LM, draw_polygon = TRUE, draw_lines = TRUE,
+            polygon_args = list(col = rgb(0.3, 0.6, 0.3, 0.5)))  # Green color with transparency
+
+# Highlight points with positive residuals
+wh_resid <- resid(LM) > 0
+s3d$points3d(x1[wh_resid], x2[wh_resid], y[wh_resid], pch = 20, color = "#D55E00")  # Orange color
+
+```
+:::
+
+::: {.column width="50%"}
+**Feature Space**
+
+```{r}
+#| echo: false
+#| message: false
+library(ggrepel)
+
+# Prepare the data
+wh <- iris$Species == "versicolor"
+x1 <- iris$Sepal.Width[wh]
+x2 <- iris$Petal.Width[wh]
+y <- iris$Sepal.Length[wh]
+mreg_df <- data.frame(x1, x2, y) %>%
+  mutate(name = as.character(y))
+
+# Create the plot
+ggplot(mreg_df, aes(x = x1, y = x2)) +
+  geom_point(size = 1.5, color = "#0072B2") +  # Blue color for points
+  geom_label_repel(aes(label = name),
+                   box.padding = 0.10, 
+                   point.padding = 0.15,
+                   label.size = 0.05,
+                   label.padding = 0.02,
+                   segment.color = 'grey65',
+                   max.overlaps = 15,
+                   fill = "#D55E00",  # Orange color for labels
+                   color = "white") +  # White text for readability
+  labs(title = "Scatter Plot of Sepal vs. Petal Width (Versicolor)",
+       subtitle = "Annotated with Sepal Length",
+       x = "Sepal Width",
+       y = "Petal Width") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
+  )
+
+```
+:::
+:::
+
+::: notes
+The regression surface takes the form of $\alpha + \sum_j \beta_j x$ and is a hyperplane, in this case in a 3-dimensional space spanned by the predictive features and the labels. In SML, we often project the labels onto a space made up of the predictive features. We call this the feature space. The surface can be projected as a line (or a lower-dimensional hyper-plane) separating out the labels.
+:::
+
+## Loss Function
+
+-   For regression tasks, several loss functions can be formulated.
+
+-   Two common functions are:
+
+    -   **Absolute loss:** A.k.a. the (squared) $L_1$-norm, the goal is to minimize $\sum_{i=1}^{n_1} \lvert \hat{y}_i - y_i \rvert$
+
+    -   **Quadratic loss:** A.k.a. the (squared) $L_2$-norm, the goal is to minimize $\sum_{i=1}^{n_1} \left( \hat{y}_i - y_i \right)^2$
+
+        ::: notes
+        Quadratic loss is the foundation of ordinary least squares, whereas absolute loss is used to minimize the impact of outliers.
+        :::
+
+## Performance
+
+For regression tasks, three metrics are commonly computed:
+
+1.  **Mean absolute error:** $\text{MAE} = \frac{1}{n_2} \sum_{i=1}^{n_2} \lvert \hat{y}_i - y_i \rvert$.
+2.  **Root mean squared error:** $\text{RMSE} = \sqrt{\frac{1}{n_2} \sum_{i=1}^{n_2} \left( \hat{y}_i - y_i \right)^2}$.
+3.  **R-Squared:** $R^2 = r_{\hat{y},y}^2$.
+
+::: notes
+\(1\) We can compute each performance metric for both the training and test sets, but ultimately we care most about the test set; (2) note that the computation of $R^2$ deviates from what you typically learn in econometrics; and (3) we want MAE and RMSE to be as small as possible (they are errors), whereas R-squared should be as high as possible.
+:::
+
+## Interpretation
+
+-   Interpretation is typically done while holding all else equal (*ceteris paribus*).
+
+-   In this case, $\beta_j$ is the change in the expectation over the target for a unit increase in $X_j$.
+
+::: notes
+\(1\) Holding this constant can be confusing because features are typically correlated. Data scientists have proposed new metrics such as accumulated local effects, but they are not (yet) widely used in the social sciences. (2) Do not mistake $\beta_j$ for an importance metric; this is an entirely different topic.
+:::
+
+# Practice of Regression as a Machine
+
+## Happiness around the Globe
+
+::: panel-tabset
+## Data
+
+-   2023 World Happiness Report [@helliwell2023World].
+
+-   Gallup World Poll data.
+
+-   Target: "Please imagine a ladder with steps numbered from 0 at the bottom to 10 at the top. The top of the ladder represents the best possible life for you and the bottom of the ladder represents the worst possible life for you. On which step of the ladder would you say you personally feel you stand at this time?"
+
+## Features
+
+-   Log per capita GDP.
+
+-   Social support from friends in troubled times.
+
+-   Healthy life expectancy.
+
+-   Freedom to make life choices.
+
+-   Generosity, i.e., charitable donations.
+
+-   Perceptions of corruption
+
+## Comment
+
+-   For now we will not do any pre-processing.
+
+-   We shall bring `recipes` into the picture at a later time.
+:::
+
+## Splitting the Sample Using `rsample`
+
+::: panel-tabset
+## Preparation
+
+```{r}
+#| message: false
+library(rio)
+library(tidyverse)
+happy_df <- import("Data/whr23.dta")
+clean_df <- happy_df %>%
+  select(happiness, logpercapgdp,socialsupport,healthylifeexpectancy,
+         freedom,generosity,perceptionsofcorruption) %>%
+  na.omit
+```
+
+## Setup
+
+```{r}
+#| message: false
+library(tidymodels)
+tidymodels_prefer()
+set.seed(1234)
+happy_split <- initial_split(
+  clean_df,
+  prop = 0.6,
+  strata = happiness
+)
+happy_split
+```
+
+## Execution
+
+```{r}
+training_df <- training(happy_split)
+test_df <- testing(happy_split)
+```
+
+## Checkup
+
+```{r}
+ks.test(training_df$happiness, test_df$happiness)
+```
+:::
+
+::: notes
+\(1\) For a simple learning task like regression, it suffices to set aside 60% of the data as a training set. However, for more complex problems, we should set prop to a higher value. (2) With a numeric label, stratification entails using quartiles.
+:::
+
+## Training Using `parsnip`
+
+::: panel-tabset
+## Comments
+
+-   We specify the algorithm, any tuning parameters, and the `mode` (i.e., task).
+
+-   We set the external learning engine (= implementation of the algorithm) using `set_engine`.
+
+-   We declare the model formula and training set using `fit`.
+
+-   Algorithms and engines can be found at [search parsnip models](https://www.tidymodels.org/find/parsnip/).
+
+## Syntax
+
+```{r}
+happy_fit <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm") %>%
+  fit(happiness ~ ., data = training_df)
+```
+
+## Inspect1
+
+```{r}
+tidy(happy_fit)
+```
+
+## Inspect2
+
+```{r}
+glance(happy_fit)
+```
+:::
+
+::: notes
+`tidymodels` builds on existing packages to implement algorithms. Often the same general algorithm has been implemented in different packages. The `set_engine` command controls which of those packages should be used. To get the estimates from the training, the `broom` package can be used. It has `tidy` and `glance` commands to portray the training results. The estimates shown using `tidy` will be applied to the test set.
+:::
+
+## Evaluation Using `yardstick`
+
+::: panel-tabset
+## Prediction
+
+```{r}
+happy_fit %>%
+  predict(test_df) %>%
+  bind_cols(test_df)
+```
+
+## Metrics
+
+```{r}
+happy_fit %>%
+  predict(test_df) %>%
+  bind_cols(test_df) %>%
+  metrics(truth = happiness, estimate = .pred)
+```
+:::
+
+## A Milestone
+
+-   We just completed our first machine learning project.
+
+-   However, we took a shortcut by dropping a large number of potential features.
+
+-   Our code was not optimal since we did not create a **work flow**.
+
+## The Whole of the Data
+
+::: panel-tabset
+## Data
+
+```{r}
+happy_df <- import("Data/whr23.dta")
+summary(happy_df)
+```
+
+## Comment
+
+Compared to the earlier example,
+
+-   There are missing data.
+
+-   We have a column `country` identifying the country, which is not a predictive feature.
+
+-   We have a column `stderr`, which is the standard error on the happiness scores and will be ignored.
+
+-   We have a column `continent`, which looks numeric but is a factor.
+
+-   We have a column `ISO3` that is fully redundant with `country`.
+
+## Next Steps
+
+-   Let us first,
+
+    -   Drop `ISO3` and `stderr`.
+
+    -   Turn `continent` into a proper factor
+
+    -   Drop missing values on the target.
+
+    -   Use imputation for healthy life expectancy.
+
+-   Next, we should create a recipe that
+
+    -   Creates dummies for `continent`, since that is what the regression needs.
+
+    -   Ensures that `country` will not be used as a predictor but remains available to flag instances.
+
+    -   Imputes missing values using $k$ nearest neighbors (kNN).
+:::
+
+::: notes
+\(1\) `tidymodels` has quite good imputation facilities for the predictive features. The problem that we have is that we also lack information about the labels. In that case, list-wise deletion is pretty much our only option. (2) `recipes` is a great way to specify operations that need to be recycled.
+:::
+
+## A Sidebar on Missing Values
+
+-   Missing values result in data loss in machine learning and can also introduce biases.
+
+-   We can impute missing values, i.e., come up with reasonable guesses under the assumption of **missingness at random**:
+
+    -   The likelihood of missing data on a variable depends on observed data but not on the missing values themselves.
+
+-   We typically do not impute the target.
+
+-   However, features are frequently imputed, unless they are completely missing for an instance.
+
+## Another Sidebar on kNN
+
+-   kNN is a lazy learner because it does not actually generate a model.
+
+-   $k$ nearest neighbors (in terms of features) are selected to predict a target, using:
+
+    -   A (weighted) mean for scores
+
+    -   The mode for classes
+
+-   Nearness is typically measured using a Euclidean distance function.
+
+    -   For this, the features need to have been normalized/standardized.
+
+-   We can use kNN to impute missing features from samples that are near in terms of non-missing features.
+
+## Building a Recipe
+
+::: panel-tabset
+## Preparation
+
+```{r}
+work_df <- happy_df %>%
+  mutate(continent = factor(continent,
+                            labels = c("Africa", "Americas",
+                                       "Asia", "Europe",
+                                       "Oceania"))) %>%
+  filter(!is.na(happiness)) %>%
+  select(-c(stderr, ISO3)) 
+```
+
+## Split Sample
+
+```{r}
+set.seed(1234)
+happy_split <- initial_split(work_df, prop = 0.6, strata = happiness)
+training_df <- training(happy_split)
+test_df <- testing(happy_split)
+```
+
+## Recipe
+
+```{r}
+happy_recipe <- 
+  recipe(happiness ~ ., data = training_df) %>%
+  update_role(country, new_role = "id") %>%
+  step_dummy(continent) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_impute_knn(neighbors = 5)
+tidy(happy_recipe)
+```
+:::
+
+::: notes
+Note that `recipes` carries out steps in the order they are listed. Importantly the model formula used to be part of `fit()` and has now been appropriated by `recipes`.
+:::
+
+## Building a Workflow
+
+-   Work flows are a very efficient way to build machine learning projects.
+
+-   They recognize that modeling is not just about fitting a model, but also about various pre- and post-processing steps.
+
+-   As such, work flows include elements from `parsnip`, `recipes`, and possibly other packages.
+
+## A Regression Workflow
+
+::: panel-tabset
+## Flow
+
+```{r}
+happy_model <-
+  linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+happy_flow <- 
+  workflow() %>%
+  add_model(happy_model) %>%
+  add_recipe(happy_recipe)
+```
+
+## Fit
+
+```{r}
+happy_fit <- fit(happy_flow, training_df)
+tidy(happy_fit)
+```
+
+## Metrics
+
+```{r}
+happy_fit %>%
+  predict(test_df) %>%
+  bind_cols(test_df) %>%
+  metrics(truth = happiness, estimate = .pred)
+```
+:::
+
+## Exercise
+
+::: callout-tip
+## Your Turn
+
+The features social support and perceptions of corruption have rather skewed distributions. Rewrite the recipe adding `step_YeoJohnson` to implement the normalizing transformation proposed by @yeo2000New. Then re-run the training and evaluation steps of the model. Do you see a difference?
+:::
+
+## References

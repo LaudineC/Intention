@@ -1,0 +1,168 @@
+---
+title: "Analyse en Composantes Principales"
+author: "Jeu de données factorsValues"
+output:
+  html_document: default
+---
+Ce jeu de données contient 1849 individus et 10 variables.
+
+- - -
+
+```{r, echo = FALSE}
+library(FactoMineR)
+load('G:/Mon Drive/Intervention/Arthur/Intend_to_use_Project/Workspace.RData')
+```
+### 1. Observation d'individus extrêmes
+L'analyse des graphes détecte des individus singuliers qui influencent très fortement les résultats observés. On soulignera dans un premier temps le caractère extrême de ces individus avant de les retirer pour procéder à la suite de l'analyse.
+En observant le graphe, on peut noter que 6 individus sont très particuliers et contribuent énormément à la construction du plan. Le cumul de leur contribution à la contruction du plan atteint **21%**.
+
+```{r, echo = FALSE, fig.align = 'center', fig.height = 3.5, fig.width = 5.5}
+drawn <-
+integer(0)
+par(mar = c(4.1, 4.1, 1.1, 2.1))
+plot.PCA(memory, choix = 'ind', invisible = c('var', 'quali'), select = drawn, title = '', cex = cex)
+```
+
+**Figure 1.1 - Graphe des individus (ACP) avant correction.** 
+*Mise en évidence de 6 individus singuliers.* 
+
+```{r, echo = FALSE, fig.align = 'center', fig.height = 3.5, fig.width = 5.5}
+drawn <-
+integer(0)
+par(mar = c(4.1, 4.1, 1.1, 2.1))
+plot.PCA(res, choix = 'ind', invisible = c('var', 'quali'), select = drawn, title = '', cex = cex)
+```
+
+**Figure 1.2 - Graphe des individus (ACP) après correction.** 
+*Mise en évidence de 6 individus singuliers.* 
+
+```{r, echo = FALSE, fig.align = 'center', fig.height = 3.5, fig.width = 5.5}
+drawn <-
+c("ValEducation", "ValIndependence", "ValImagination", "ValSocialisation"
+)
+par(mar = c(4.1, 4.1, 1.1, 2.1))
+plot.PCA(memory, choix = 'var', select = drawn, title = '', cex = cex)
+```
+
+**Figure 1.3 - Graphe des variables (ACP) avant correction**
+*Les variables libellées sont celles les mieux représentées sur le plan.*
+
+```{r, echo = FALSE, fig.align = 'center', fig.height = 3.5, fig.width = 5.5}
+drawn <-
+c("ValEducation", "ValIndependence", "ValImagination", "ValSocialisation"
+)
+par(mar = c(4.1, 4.1, 1.1, 2.1))
+plot.PCA(res, choix = 'var', select = drawn, title = '', cex = cex)
+```
+
+**Figure 1.3 - Graphe des variables (ACP) après correction**
+
+- - -
+
+**L'individu 223** :
+
+- prend de très fortes valeurs pour le(s) variable(s) :
+*ValNone* et *ValDK* (de la plus extrême à la moins extrême).
+
+- prend de très faibles valeurs pour les variables :
+**L'individu 613** :
+
+- prend de très fortes valeurs pour le(s) variable(s) :
+*ValNone* et *ValDK* (de la plus extrême à la moins extrême).
+
+- prend de très faibles valeurs pour les variables :
+**L'individu 984** :
+
+- prend de très fortes valeurs pour le(s) variable(s) :
+*ValNone*.
+
+- prend de très faibles valeurs pour les variables :
+**L'individu 1268** :
+
+- prend de très fortes valeurs pour le(s) variable(s) :
+*ValDK*.
+
+- prend de très faibles valeurs pour les variables :
+**L'individu 1411** :
+
+- prend de très fortes valeurs pour le(s) variable(s) :
+*ValNone* et *ValDK* (de la plus extrême à la moins extrême).
+
+- prend de très faibles valeurs pour les variables :
+**L'individu 1439** :
+
+- prend de très fortes valeurs pour le(s) variable(s) :
+*ValNone*.
+
+- prend de très faibles valeurs pour les variables :
+Après avoir éliminé ces individus singuliers, on peut explorer le reste des individus par une seconde analyse.
+
+- - -
+
+### 2. Distribution de l'inertie
+L'inertie des axes factoriels indique d'une part si les variables sont structurées et suggère d'autre part le nombre judicieux de composantes principales à étudier.
+
+Les 2 premiers axes de l' analyse expriment **34.24%** de l'inertie totale du jeu de données ; cela signifie que 34.24% de la variabilité totale du nuage des individus (ou des variables) est représentée dans ce plan.
+C'est un pourcentage relativement moyen, et le premier plan représente donc seulement une part de la variabilité contenue dans l'ensemble du jeu de données actif.
+Cette valeur est supérieure à la valeur référence de **22.39%**, la variabilité expliquée par ce plan est donc significative
+(cette intertie de référence est le quantile 0.95-quantile de la distribution des pourcentages d'inertie obtenue en simulant 7742 jeux de données aléatoires de dimensions comparables sur la base d'une distribution normale).
+
+Du fait de ces observations, il serait alors probablement nécessaire de considérer également les dimensions supérieures ou égales à la troisième dans l'analyse.
+
+```{r, echo = FALSE, fig.align = 'center', fig.height = 3.5, fig.width = 5.5}
+par(mar = c(2.6, 4.1, 1.1, 2.1))
+ggplot2::ggplot(cbind.data.frame(x=1:nrow(res$eig),y=res$eig[,2])) + ggplot2::aes(x=x, y=y)+ ggplot2::geom_col(fill="blue") + ggplot2::xlab("Dimension") + ggplot2::ylab("Pourcentage d'inertie") + ggplot2::ggtitle("Décomposition de l'inertie totale") + ggplot2::theme_light() + ggplot2::theme(plot.title = ggplot2::element_text(hjust =0.5)) + ggplot2::scale_x_continuous(breaks=1:nrow(res$eig))
+```
+
+**Figure 2 - Décomposition de l'inertie totale**
+
+Une estimation du nombre pertinent d'axes à interpréter suggère de restreindre l'analyse à la description des 7 premiers axes.
+Ces composantes révèlent un taux d'inertie supérieur à celle du quantile 0.95-quantile de distributions aléatoires (91.38% contre 72.96%).
+Cette observation suggère que seuls ces axes sont porteurs d'une véritable information.
+En conséquence, la description de l'analyse sera restreinte à ces seuls axes.
+
+- - -
+
+### 3. Description du plan 1:2
+
+```{r, echo = FALSE, fig.align = 'center', fig.height = 3.5, fig.width = 5.5}
+drawn <-
+integer(0)
+par(mar = c(4.1, 4.1, 1.1, 2.1))
+plot.PCA(res, select = drawn, axes = c(1,2), choix = 'ind', invisible = 'quali', title = '', cex = cex)
+```
+
+**Figure 3.1 - Graphe des individus (ACP)**
+*Les individus libellés sont ceux ayant la plus grande contribution à la construction du plan.*
+
+```{r, echo = FALSE, fig.align = 'center', fig.height = 3.5, fig.width = 5.5}
+drawn <-
+c("ValEducation", "ValIndependence", "ValImagination", "ValSocialisation"
+)
+par(mar = c(4.1, 4.1, 1.1, 2.1))
+plot.PCA(res, select = drawn, axes = 1:2, choix = 'var', title = '', cex = cex)
+```
+
+**Figure 3.2 - Graphe des variables (ACP)**
+*Les variables libellées sont celles les mieux représentées sur le plan.*
+
+* * *
+
+La **dimension 1** oppose des individus caractérisés par une coordonnée fortement positive sur l'axe (à droite du graphe)
+à des individus caractérisés par une coordonnée fortement négative sur l'axe (à gauche du graphe).
+
+Le groupe 1 (caractérisés par une coordonnée positive sur l'axe) partage :
+
+- de fortes valeurs pour les variables *ValImagination*, *KnownNbTypeECS*, *ValSocialisation*, *ValGenerosity* et *TAUXCOUV_COM* (de la plus extrême à la moins extrême).
+- de faibles valeurs pour les variables *ValIndependence*, *ValEducation* et *ValObedience* (de la plus extrême à la moins extrême).
+
+Le groupe 2 (caractérisés par une coordonnée positive sur l'axe) partage :
+
+- de fortes valeurs pour les variables *ValSocialisation*, *ValIndependence*, *KnownNbTypeECS* et *TAUXCOUV_COM* (de la plus extrême à la moins extrême).
+- de faibles valeurs pour les variables *ValEducation*, *ValImagination*, *ValGenerosity* et *ValObedience* (de la plus extrême à la moins extrême).
+
+Le groupe 3 (caractérisés par une coordonnées négative sur l'axe) partage :
+
+- de fortes valeurs pour les variables *ValEducation*, *ValObedience* et *ValGenerosity* (de la plus extrême à la moins extrême).
+- de faibles valeurs pour les variables *ValSocialisation*, *KnownNbTypeECS*, *TAUXCOUV_COM*, *ValImagination* et *ValIndependence* (de la plus extrême à la moins extrême).
+

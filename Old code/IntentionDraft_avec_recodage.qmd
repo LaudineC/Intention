@@ -291,9 +291,62 @@ modelsummary(list(
 
 library(rio)
 
-db_clean <- dbMachineLearning %>%
+db_clean <- MainDB %>%
   filter(!is.na(ECSPlanToBaseline)) %>%
-  mutate(target = as.numeric(ECSPlanToBaseline)) 
+  mutate(target = as.numeric(ECSPlanToBaseline)) %>% # specify the target
+  select(c(target, # we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
+           NormsOpposedN,
+           AffordCostBaseline, 
+           #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
+             #Educ3Dad, 
+           DiscountRate,
+     ComputerYN,
+     AffordSubsidiesBaseline,
+             AffordNMCostWBBaseline,
+             AffordOppCostBaseline,
+             AffordNMCostCareerBaseline,
+             DiscountRate,
+             AccessHoursBaseline, 
+   #  Primipare, #to check 
+    # BirthPlace3, 
+    # Active,  
+AccessInformalFullTime,
+#Age,
+#SingleMum, 
+#FmlyIncomeBaseline,
+ #               IncomeBaseline,
+                LikertReturnHKBaseline,
+                TrustCreche,
+TrustAssMat,
+                KnowsCreche,
+                KnowsAssMat, 
+     ComputerYN ,
+     HighLowECECBaseline ,
+            #     BreastFeedIntend,
+            #     BreastFeedLength, 
+Language3,
+                InformalReciprocity, # Do the parents already take care of the children of others
+                AffordCostDK, 
+                AffordCostBaseline,
+             #    AccessEasyBaseline,
+                 NormsBaseline,
+                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
+                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
+                 DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
+                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
+                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
+                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
+                DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
+#NumberChildren,
+                TrustFam,
+                TrustFriend,
+#   CoupleCohabiting,
+AccessEasy5, 
+NormsHouse, 
+NormsWork, 
+LevelInfoSubExPost
+)) %>%      mutate(across(where(is.logical), as.numeric)) 
+
 
 
 

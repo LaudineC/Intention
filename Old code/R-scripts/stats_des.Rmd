@@ -1,0 +1,196 @@
+---
+title: "stat_des"
+author: "Laudine Carbuccia"
+date: "2023-07-02"
+output: word_document
+---
+
+
+
+```
+
+## Part I: Brief description of the sample
+
+This first part is dedicated to a description of the sample.
+
+### Total sample
+
+`r data_tot_clean %>% nrow()` surveys have been completed overall.
+
+### Participants with at least one phone number
+
+Over the `r data_tot_clean %>% nrow()` participants,
+
+-   `r round(data_tot_clean %>% filter(EDUC == "Bac") %>% nrow()/data_tot_clean %>% nrow()*100, digit = 2)` % are Low-SES (i.e., no tertiary education) (N=`r data_tot_clean %>% filter(EDUC == "Bac") %>% nrow()`). In only nationally representative French cohort (ELFE), this proportion is 41.06%.
+
+
+-   `r round(data_tot_clean %>% filter(ECS_Used == "Non") %>% nrow()/data_tot_clean %>% nrow(), digit = 1)*100` % have never used ECS (N=`r data_tot_clean %>% filter(ECS_Used == "Non") %>% nrow()`)
+
+-   Single mothers: `r round(data_tot_clean %>% filter(PARTNER == "Non, et je ne suis pas en couple") %>% nrow()/data_tot_clean %>% nrow(), digit = 1)*100` % (N =`r data_tot_clean %>% filter(PARTNER == "Non, et je ne suis pas en couple") %>% nrow()`). Mothers were recruited between four and nine months of pregnancy.
+
+-   Primparae: `r round(data_tot_clean %>% filter(NBR_KIDS_4_TEXT == 0) %>% nrow()/data_tot_clean %>% nrow(), digit = 1)*100` % (N =`r data %>% filter(NBR_KIDS_4_TEXT == 0) %>% nrow()`)
+
+- Digital divide: More than a third (`r round((lowSES %>% filter(COMPUTERYN == "Non") %>% nrow()) / (lowSES %>% nrow())*100, 1)`%) of low-SES respondents don't have access to a computer compared to `r round((highSES %>% filter(COMPUTERYN == "Non") %>% nrow()) / (highSES %>% nrow())*100, 1)`% for High-SES respondents. Similarly, one third (`r round((migrants %>% filter(COMPUTERYN == "Non") %>% nrow()) / (migrants %>% nrow())*100, 1)`%) of mothers born abroad don't have access to a computer compared to `r round((nonmigrants %>% filter(COMPUTERYN == "Non") %>% nrow()) / (nonmigrants %>% nrow())*100, 1)`% for non-migrants.
+
+
+Over the `r data_tot_clean %>% nrow()` participants, `r data_full %>% nrow()` have left at least one phone number and were, therefore, included in the RCT.
+
+## Main variables
+
+### Age
+
+The age of the participants follow a normal distribution:
+
+```{r}
+data_tot_clean %>% summarize(mean = mean(AGE), median = median(AGE))
+
+MEAN_AGE = summarise(data_tot_clean, mean = mean(AGE))
+
+data_tot_clean %>% 
+ggplot(aes(AGE))+
+geom_density()+
+  geom_vline(data = MEAN_AGE, aes(xintercept=mean, color = "red"), show.legend = FALSE)+ scale_fill_discrete(guide="none")
+
+```
+
+## Level of education of the mothers
+
+`r round(data_tot_clean %>% filter(EDUC == "Bac") %>% nrow()/data_tot_clean %>% nrow()*100, digit = 2)` % of Low-SES (i.e., no tertiary education) (N=`r data_tot_clean %>% filter(EDUC == "Bac") %>% nrow()`).
+
+```{r, fig.width = 10, fig.height = 5}
+
+ggplot(data_tot_clean, aes(ordered_educ, fill = ordered_educ), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Level of education of the mother")+
+  labs(fill = "Mother's level of educ.", size = 20)
+```
+
+## Income range of the mothers
+
+A significant amount of mothers included in the sample earn less than 500€ per month: it is the case for `r round(data_tot_clean %>% filter(INCOME == "- 500") %>% nrow()/data_tot_clean %>% nrow()*100, digit = 2)` % of them. `r round(data_tot_clean %>% filter(INCOME == "- 500" & PARTNER == "Non, et je ne suis pas en couple") %>% nrow()/data_tot_clean %>% nrow()*100, digit = 2)` % of the total sample earn less than 500€ per month and are single mothers.
+
+```{r, fig.width = 10, fig.height =5}
+ggplot(data, aes(INCOME, fill = INCOME),  colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Income range of the mother")+
+  scale_x_discrete(labels=c('NSP', 'NVP', '-500', '500-700', "700-1K", 
+                            "1-1,5k", "1,5k, 2k", "2k-2,5k", "2,5k-3k", 
+                            "3k-4,5k", "4,5-5k", "5k-6k", "+6k"))+
+  labs(fill = "Mother's income (€)", size = 20)
+```
+
+## Income range of the family
+
+```{r, fig.width = 10, fig.height = 5}
+
+
+ggplot(data, aes(FMLYINCOME, fill = FMLYINCOME), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Income range of the family")+
+  scale_x_discrete(labels=c('NSP', 'NVP', '-500', '500-700', "700-1k", 
+                            "1-1,5k", "1,5k-2k", "2k--3k", 
+                            "3k-4,5k", "4,5-5k", "5k-6k", "6k-7k", 
+                            "7k-8k", "+8k"))+
+  labs(fill = "Family income (€)", size = 20)
+
+
+
+```
+
+## Occupation status of the mother
+
+A majority (`r round(data %>% filter(OCCUPATION == "Je travaille (y compris si congé maladie, maternité ou parental)") %>% nrow() / data %>% nrow(), digit = 1)*100`%) of mothers are employed at the date of the interview.
+
+```{r, fig.width = 30, fig.height = 10}
+
+data %>% 
+ggplot(aes(OCCUPATION, fill = OCCUPATION), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Occupation status of the mother", fill = "Mothers's occupation")+
+  scale_x_discrete(labels=c('Autre', 'Pension', 'Chômage', 'Etudiante', "Sans acitivté pro", 
+                            "Travaille", "NSP", "NVP"))+ theme(text=element_text(size=40))+
+  theme(text = element_text(size = 40),
+        legend.position = "bottom")  # Ajustement de la position de la légende
+
+#data %>% 
+#  group_by(OCCUPATION) %>% 
+#  mutate(Number_occ = n()) %>% 
+#  ungroup()%>% 
+    #ggplot(data, aes(OCCUPATION, fill = OCCUPATION), colour = cbPalette)+
+#  geom_bar()+
+ # labs( x = "Occupation status of the mother")+
+  #scale_x_discrete(labels=c('Autre', 'Pension', 'Chômage', 'Etudiante', "Sans activité pro", 
+ #                           "Travaille", "NSP", "NVP"))
+
+#+
+ #    geom_text(aes(label=Number_occ), position=position_dodge(width=0.9), vjust=-0.25)
+
+
+
+```
+
+## Migration status
+
+```{r}
+
+
+data %>% 
+ggplot(aes(FrenchYN, fill = FrenchYN), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Distribution of mothers born in a French territory", fill = "Nationality")
+
+
+```
+
+`r round(data %>% filter(FrenchYN == "Else") %>% nrow() / data %>% nrow(), digit = 2)*100`% of mothers are born abroad ('Else' in the figure).This may seem unrealistic, but it is actually quite close from the population data of Seine Saint Denis (93), Val de Marne (94) and Paris (75).
+
+### Place of birth of migrants mothers
+
+Most of the mothers born abroad come from Sub-Saharan Africa and MENA. The distribution of the birthplaces of participants is as follows:
+
+```{r}
+
+regulartable(data %>% group_by(BIRTHPLACE) %>% count(sort = TRUE)) %>% 
+  autofit()
+
+
+#TO DO: *compute date of arrival of the migrants*
+```
+
+```{r, echo = FALSE}
+data_tot_clean$DateArrival_16_TEXT = as.numeric(data_tot_clean$DateArrival_16_TEXT)
+
+# TO DO : ça ne marche pas 
+# Création des catégories en fonction des années d'arrivée
+data_tot_clean <- data_tot_clean %>%
+  mutate(YearArrival = as.integer(DateArrival_16_TEXT)) %>%
+  mutate(Category = case_when(
+    YearArrival >= 2013 & YearArrival <= 2003 ~ "Entre 10 et 20 ans",
+    YearArrival >= 2018 & YearArrival < 2013 ~ "Entre 5 et 10 ans",
+    YearArrival < 2003 ~ "Il y a plus de 20 ans",
+    YearArrival > 2018 ~ "Moins de 5 ans",
+    TRUE ~ NA_character_  # Garder les NAs pour les valeurs manquantes
+  ))
+data_tot_clean$Category = as.factor(data_tot_clean$Category)
+
+data_tot_clean <- data_tot_clean %>%
+  mutate(DateArrivalCat =
+           case_when(
+    !is.na(Category) ~ Category,
+    TRUE ~ as.character(DateArrival)  # Conservation des valeurs de "DateArrival"
+  ))
+data_tot_clean$DateArrivalCat = as.factor(data_tot_clean$DateArrivalCat)
+
+
+```
+
+## Geographical distribution of the participants
+
+```{r}
+
+regulartable(data_tot_clean %>% group_by(DEP) %>% count(sort = TRUE)) %>% 
+  autofit()
+
+```
+
+We have more people from 94 and 75 than from Seine Saint Denis. This is probably due to our recruitment strategy. One family that had two living places including 91 was included in the survey by one research assistant. We included it in these analyses but the household was excluded from the RCT.

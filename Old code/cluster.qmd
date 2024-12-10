@@ -1,0 +1,557 @@
+---
+title: "Cluster"
+format: docx
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(officedown)
+library(officer)
+library(pacman)
+p_load(here, 
+       tidyverse, # for data processing 
+       cluster, # functions for clustering 
+       NbClust, # to calculate indices and draw plot
+       hopkins, 
+       factoextra,  # for visualization
+       mclust,
+       fpc, # for plotclust
+       clustMixType , 
+       bestNormalize,
+       factoextra, 
+       fclust, 
+       poLCA
+)
+# 
+# fp <- fp_par(
+#   text.align = "center", 
+#   padding.bottom = 20, padding.top = 120, 
+#   border.bottom = fp_border())
+# 
+# ft <- fp_text(shading.color='#EFEFEF', bold = TRUE)
+
+knitr::opts_chunk$set(echo = FALSE,message=FALSE, warning=FALSE,fig.width = 8,fig.height = 5,fig.pos = "H" #, 
+#cache.lazy = FALSE)
+)
+
+
+
+```
+
+```{r LoadLibraries, include=FALSE}
+source(here("RScripts","LoadInstallPackages.R"), local = knitr::knit_global())
+```
+
+```{r LoadData, include=FALSE}
+source(here("RScripts","LoadAllData.R"), local = knitr::knit_global())
+data <- BaselineFull %>% filter(!is.na(ECSYN)) %>% mutate(Intention = ifelse(ECSYN == "Yes","Yes", "Non_NSP")) # the idea db we would be working with in the end
+```
+
+```{r}
+#| echo: false
+set.seed(666)
+dataset <- MainDB %>%
+  select(
+Intention,  # Dependent variable
+# Baseline characteristics
+Active,     # Active mother
+NumberChildren,
+BirthPlace3,
+AccessInformalFullTime,
+Age,
+Educ3,, 
+Educ3Dad,
+SingleMum,
+     CoupleCohabiting,
+     ComputerYN ,
+     HighLowECECBaseline ,
+                 Language3,
+                 SmokePreg,
+                 BreastFeedIntend,
+                 BreastFeedLength,
+                 FmlyIncomeBaseline,
+                 IncomeBaseline,
+                 ECSIdealAgeEntryBaseline,
+                 AffordSubsidiesBaseline,
+                 AffordNMCostWBBaseline,
+                 AffordOppCostBaseline,                                                                   # 
+                 AffordNMCostCareerBaseline,
+                 DiscountRate,
+                 AccessEasyBaseline,
+                 AccessHoursBaseline,
+                 NormsBaseline,
+                 NormsOpposedN,
+                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
+                LikertReturnHKBaseline,
+                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
+                TrustAssMat,
+                TrustCreche,
+TrustFam, 
+TrustFriend,
+                DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
+                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
+                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
+                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
+                DeprivHousing, # DEPRIVATION: do parents struggle to pay for housing?
+                InformalReciprocity, # Do the parents already take care of the children of others
+                AffordCostDK, 
+                AffordCostBaseline, 
+                Primipare ,
+                Age ,
+                AccessEasy5, 
+                KnowsCreche,
+                KnowsAssMat, 
+Educ
+
+) %>%
+  mutate(
+    NormsOpposedN = as.numeric(NormsOpposedN), 
+  #  KnowsCreche = as.factor(KnowsCreche),
+  #  KnowsAssMat = as.factor(KnowsAssMat), 
+    IdealEntryAge = as.factor(ifelse(ECSIdealAgeEntryBaseline == "Jamais", "Pendant ses trois premiers mois", as.character(ECSIdealAgeEntryBaseline))), # it causes prb and I am worried it is collinear with the DV. Most ppl that said no also reponded "jusqu'à la maternelle"
+    BirthPlace3 = as.factor(ifelse(BirthPlace3 == "Je ne souhaite pas répondre", "Else", as.character(BirthPlace3)))
+         ) %>%
+  mutate(across(where(is.logical), as.factor)) %>% 
+  mutate(across(where(is.character), as.factor))
+# Add knowledge variables
+```
+
+```{r subset, include=FALSE}
+
+# Removed because of NAs: Breastfeed variables (not mendatory and not that relevant), Trust Family and Friends (maybe not that much relevant anyway either)
+# Educ3
+# recode discount in "Present bias"
+# One possibility is to remove Income, that may have not random NAs and we have education anyways
+
+# One other possibility is to remove the perceived costs, because it would take a loooot of observations aways
+# Cleaning the data
+work_df <- dataset %>%
+  mutate(Intention = factor(Intention, labels = c("No", "Yes"))) %>% 
+  select(c(Intention, 
+           NormsOpposedN,
+         #  AffordCostBaseline, 
+           Educ3, 
+           DiscountRate,# to recode 
+     ComputerYN,
+             AffordSubsidiesBaseline, # Whether the person knows that chidlcare is subsidized
+             AffordNMCostWBBaseline,
+             AffordOppCostBaseline,
+             AffordNMCostCareerBaseline,
+             DiscountRate,
+             AccessHoursBaseline, 
+     Primipare, 
+     BirthPlace3, 
+     Active,  
+AccessInformalFullTime,
+Age,
+SingleMum, 
+#FmlyIncomeBaseline,
+                #IncomeBaseline,
+                LikertReturnHKBaseline,
+                TrustCreche,
+TrustAssMat,
+                KnowsCreche,
+                KnowsAssMat, 
+     ComputerYN ,
+     HighLowECECBaseline ,
+Language3,
+             #   AffordCostDK, 
+              #  AffordCostBaseline,
+#                 AccessEasyBaseline,    you have to remove it because you have it twice
+                 NormsBaseline,
+                LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
+                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
+       #          DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
+       #         DeprivFood, # DEPRIVATION: do parents struggle to buy food?
+       #         DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
+       #         DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
+       #         DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
+#NumberChildren,
+              #  TrustFam,
+              #  TrustFriend,
+    # CoupleCohabiting,
+AccessEasy5, 
+Educ
+)) %>% mutate(
+    Educ3 = factor(Educ3, levels = c("Bac or Less", "Undergrad", "Graduate"), ordered = TRUE), 
+    PresentOrientation = factor(ifelse(DiscountRate == "50€ dans 3 jours", "PresentOriented", "NotPresentOriented"), ordered = FALSE),
+    AffordNMCostWBBaseline = factor(AffordNMCostWBBaseline, levels = c("Positif", "Pas d'impact", "Je ne sais pas encore", "Négatif"), ordered = TRUE),
+    AffordOppCostBaseline = factor(AffordOppCostBaseline, levels = c("Positif", "Pas d'impact", "Je ne sais pas encore", "Négatif"), ordered = TRUE),
+    AffordNMCostCareerBaseline = factor(AffordNMCostCareerBaseline, levels = c("Positif", "Pas d'impact", "Je ne sais pas encore", "Négatif"), ordered = TRUE),
+    AccessHoursBaseline = factor(AccessHoursBaseline, levels = c("Non", "Je ne sais pas encore", "Non, mais on prendra un autre mode de garde en plus", "Oui"), ordered = TRUE),
+    TrustAssMat = factor(TrustAssMat, levels = c("Très en désaccord", "Assez en désaccord", "Je ne sais pas", "Assez d’accord","Très d’accord"), ordered = TRUE),
+    NormsBaseline = factor(NormsBaseline, levels = c("Aucune", "Une minorité", "Moitié moitié", "Ne sait pas", "La plupart", "Toutes"), ordered = TRUE),
+    LikertAccessSoc = factor(LikertAccessSoc, levels = c("Très en désaccord", "Assez en désaccord", "Je ne sais pas", "Assez d’accord", "Très d’accord"), ordered = TRUE),
+    LikertAccessInfoBaseline = factor(LikertAccessInfoBaseline, levels = c("Très en désaccord", "Assez en désaccord", "Je ne sais pas", "Assez d’accord", "Très d’accord" ), ordered = TRUE),
+    AccessEasy5 = factor(AccessEasy5, levels = c("Easy", "DontKnow", "Hard", "Impossible"), ordered = TRUE)
+    # Not sure about this one
+  ) %>% select(-DiscountRate) # we recoded it, we don't want to keep both 
+# Take a look at the data with skimr
+library(skimr)
+s <- skim(work_df)
+print(s, include_summary = FALSE)
+# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN, AffordCostBaseline, NumberChildren we may want to impute them
+
+
+
+```
+
+In the future, you should look at the 3 lacking obs of Primipare because I have this information. Also, I think I will have to create a knowledge score or use the subjective coding at the end of the survey, for which there should be no missing value. I should also decide whether I want to impute the missing perceived Most variables are not ordered and
+
+## Cluster processing
+
+In this chunk, we start by leaving the SES variables in the dataset to see what happens. Then, we will remove them to see how they predict the clusters.
+
+```{r}
+
+set.seed(666)
+
+# Cluster analsis do not work with NAs we decide to drop all Nas which is certainly not the best solution
+work_df_test <- work_df %>% 
+  drop_na() 
+  
+  
+
+# Take a look at the data with skimr
+library(skimr)
+s <- skim(work_df_test)
+print(s, include_summary = FALSE)
+
+
+# Calculate the dissimilarity matrix using gower distance because we have a mix of categorical and numerical variables
+# daisy
+
+D <- daisy(work_df_test, metric = "gower", stand = TRUE)
+
+# Use NbClust to determine the optimal number of clusters
+sil <- NbClust(diss = D, # calculated distance matrix with "gower" distances
+               distance = NULL, # NULL because we provide D
+               method = "mcquitty", # linkage method (closest to PEM)
+               min.nc = 2, # minimum number of clusters
+               max.nc = 10, # maximum number of clusters
+               index = "silhouette" ) 
+
+sil$Best.nc # best k according to silhouette index
+sil$All.index # all silhouette indices for all k's
+# The 3 clusters solution seems optimal here
+
+# Perform PAM clustering with k = 3
+kmed <- pam(D, 
+            k = 3, 
+            diss = TRUE # dissimilarity matrix 
+            )
+
+aggregate(x = .~ kmed$clustering, # cluster variable
+          data = work_df_test, 
+          FUN = mean )
+# Cluster 1: the average ones, Cluster 2: the less likely, Cluster 3: the certain ones.
+
+# Visualize the clusters using t-SNE
+library(Rtsne) # for performing low-dimensional embeddings of high-dimensional data
+tsne <- Rtsne(D, # distance matrix
+              is_distance = TRUE) # calculate solution based on our distance matrix
+tsne$Y |>
+  data.frame() |> # convert from matrix to data.frame class
+  setNames(c("X", "Y")) |> # naming variables
+  mutate(cluster =
+           factor(kmed$clustering)) |> # add/create variable with our clusters
+  ggplot(aes(x = X, y = Y)) + # use ggplot for plotting
+  geom_point(aes(color = cluster))
+
+
+
+
+```
+
+## Let's leave SES variables out to see how they predict
+
+```{r}
+
+work_df_cluster <- work_df %>% 
+  drop_na() %>% select(-c(Educ3, BirthPlace3, Language3, Educ, Age, Primipare, TrustAssMat, Active, SingleMum))  # should I remove activity?
+# Take a look at the data with skimr
+library(skimr)
+s <- skim(work_df_cluster)
+print(s, include_summary = FALSE)
+
+set.seed(1234)
+D <- daisy(work_df_cluster, metric = "gower", stand = TRUE)
+
+```
+
+## Hierarchical clustering
+
+```{r}
+set.seed(1234)
+# In this chunk, we perform hierarchical clustering using the agnes function from the cluster package.
+
+# We apply agnes to the dissimilarity matrix with Gower
+res.agnes <- agnes(D, diss = TRUE, method = "complete") # Diss = TRUE, indicates that we use a distance matrix 
+
+plot(res.agnes,hang = -0.1, which.plots = 2, main = "") # plot the dendrogram
+
+# Cut the dendrogram into 3 clusters, it seems to make sense based on the widest distance, but the 4 clusters solution could also make sense
+
+# With 3 clusters
+cluster.agnes <- cutree(res.agnes, k = 3) # cut the tree to four clusters
+
+# check frequency of clusters
+table(cluster.agnes)
+
+# calculate the means of our variables according to our clusters
+aggregate(x = .~ cluster.agnes, 
+          data = work_df_cluster,
+          FUN = mean ) 
+
+# We find the same pattern
+
+
+# With 4 clusters
+cluster.agnes4 <- cutree(res.agnes, k = 4) # cut the tree to four clusters
+
+# check frequency of clusters
+table(cluster.agnes4)
+
+# calculate the means of our variables according to our clusters
+aggregate(x = .~ cluster.agnes4, 
+          data = work_df_cluster,
+          FUN = mean ) 
+
+# there is one category, the last one that has an ok proba to want, but has low norms and do not know much, is more inactive and signle mum and realy believes in returns, has high trust, present oriented
+```
+
+### With PAM
+
+```{r}
+set.seed(110)
+
+sil <- NbClust(diss = D, # calculated distance matrix with "gower" distances
+               distance = NULL, # NULL because we provide D
+               method = "mcquitty", # linkage method (closest to PAM)
+               min.nc = 2, # minimum number of clusters
+               max.nc = 10, # maximum number of clusters
+               index = "silhouette" ) 
+
+sil$Best.nc # best k according to silhouette index
+sil$All.index # all silhouette indices for all k's
+# 2 medoids seem optimal
+# but we will use 3 because it is more interpretable
+
+kmed <- pam(D, 
+            k = 2, 
+            diss = TRUE # dissimilarity matrix 
+            )
+
+aggregate(x = .~ kmed$clustering, # cluster variable
+          data = work_df_cluster, 
+          FUN = mean )
+
+
+
+library(Rtsne) # for performing low-dimensional embeddings of high-dimensional data
+tsne <- Rtsne(D, # distance matrix
+              is_distance = TRUE) # calculate solution based on our distance matrix
+tsne$Y |>
+  data.frame() |> # convert from matrix to data.frame class
+  setNames(c("X", "Y")) |> # naming variables
+  mutate(cluster =
+           factor(kmed$clustering)) |> # add/create variable with our clusters
+  ggplot(aes(x = X, y = Y)) + # use ggplot for plotting
+  geom_point(aes(color = cluster))
+
+#adjustedRandIndex(kmed$clustering, res.fanny$clustering) # compare methods
+#res.fanny$clustering <- ifelse(res.fanny$clustering == 1, 2, 1)
+
+#table(kmed$clustering, res.fanny$clustering)
+
+
+
+# but we will use 3 because it is more interpretable
+
+kmed <- pam(D, 
+            k = 3, 
+            diss = TRUE # dissimilarity matrix 
+            )
+
+aggregate(x = .~ kmed$clustering, # cluster variable
+          data = work_df_cluster, 
+          FUN = mean )
+
+# do the graph
+
+library(Rtsne) # for performing low-dimensional embeddings of high-dimensional data
+tsne <- Rtsne(D, # distance matrix
+              is_distance = TRUE) # calculate solution based on our distance matrix
+tsne$Y |>
+  data.frame() |> # convert from matrix to data.frame class
+  setNames(c("X", "Y")) |> # naming variables
+  mutate(cluster =
+           factor(kmed$clustering)) |> # add/create variable with our clusters
+  ggplot(aes(x = X, y = Y)) + # use ggplot for plotting
+  geom_point(aes(color = cluster))
+
+#adjustedRandIndex(kmed$clustering, res.fanny$clustering)
+#res.fanny$clustering <- ifelse(res.fanny$clustering == 1, 2, 1)
+#
+#table(kmed$clustering, res.fanny$clustering)
+
+```
+
+### Fuzzy clustering
+
+```{r}
+set.seed(1245)
+# Perform fuzzy clustering with k = 2
+res.fanny2 <- fanny(x = D, # distance matrix
+                   k = 2, # number of clusters
+                   diss = TRUE, 
+                   memb.exp = 1.3) # use dissimilarity matrix
+
+
+# Calculate the average values of the variables for each cluster
+aggregate(x = .~res.fanny2$clustering, 
+          data = work_df_cluster, # data set
+          FUN = mean) # function to apply
+## We can interpret them as percentages because the variables are binary.
+
+
+# Perform fuzzy clustering with k = 3
+res.fanny <- fanny(x = D, # distance matrix
+                   k = 3, # number of clusters
+                   diss = TRUE, 
+                   memb.exp = 1.3) # use dissimilarity matrix
+
+
+# Calculate the average values of the variables for each cluster
+aggregate(x = .~res.fanny$clustering, 
+          data = work_df_cluster, # data set
+          FUN = mean) # function to apply
+## We can interpret them as percentages because the variables are binary.
+
+```
+
+# LCA
+
+```{r}
+
+# with most variables
+set.seed(1995)
+
+work_df_cluster_LCA <- work_df %>% 
+  drop_na() %>% mutate(NormsOpposedN = as.factor(case_when(
+    NormsOpposedN == 0 ~ "zero",
+    NormsOpposedN == 1 ~ "1",
+    NormsOpposedN == (2 | 3) ~ "2/3",
+    NormsOpposedN == 4 ~ "4/5",
+    NormsOpposedN > 5 ~ "more than 5")
+  ), 
+  KnowsCreche = KnowsCreche+1, 
+  KnowsAssMat = KnowsAssMat+1, 
+  Graduate = ifelse(Educ3 == "Graduate", 1, 0),
+  Undergrad = ifelse(Educ3 == "Undergrad", 1, 0)) %>% 
+  select(-c(Educ3, BirthPlace3, Language3, 
+                           Primipare,
+                          Active, Age)) # %>% # I keep single lù
+#  mutate(across(where(is.factor), as.numeric)) %>% 
+
+  # should I remove activity?
+# Take a look at the data with skimr
+library(skimr)
+s <- skim(work_df_cluster_LCA)
+print(s, include_summary = FALSE)
+
+f <- cbind(Intention, NormsOpposedN, AffordSubsidiesBaseline, AffordNMCostWBBaseline, AffordOppCostBaseline, AffordNMCostCareerBaseline, AccessHoursBaseline, AccessInformalFullTime, LikertReturnHKBaseline, TrustCreche, TrustAssMat, KnowsCreche, KnowsAssMat, HighLowECECBaseline, NormsBaseline, LikertAccessInfoBaseline, LikertAccessSoc, AccessEasy5, PresentOrientation, ComputerYN)~Graduate + Undergrad
+
+ch2 <- poLCA(f,work_df_cluster_LCA,nclass=2)
+plot(ch2) # educ is negatively associated with being in the dont't want
+# BIC 44377.12 // 43734.79
+
+ch3 <- poLCA(f,work_df_cluster_LCA,nclass=3)
+plot(ch3) # seems to be the best in terms of BIC
+# BIC 44260.21 //  43625.28
+
+ch4 <- poLCA(f,work_df_cluster_LCA,nclass=4)
+plot(ch4)
+# BIC(4): 44282.79 // BIC(4): 43556.85
+
+
+# Three clusters is lower BIC -- if we remove Single Mum, 4 clust is better
+# it is also interesting and looks like the HC
+```
+
+#### WHith a more simple model
+
+```{r}
+
+
+# select a few number of variables first
+set.seed(1510)
+
+work_df_cluster_LCA_small <- work_df %>% 
+  drop_na() %>% mutate(NormsOpposedN =case_when(
+    NormsOpposedN == 0 ~ "0",
+    NormsOpposedN == 1 ~ "1",
+  ( NormsOpposedN == 2 |  NormsOpposedN == 3) ~ "2/3",
+    NormsOpposedN == 4 ~ "4/5",
+    NormsOpposedN >= 5 ~ "more than 5"), 
+    NormsOpposedN = factor(NormsOpposedN, ordered = TRUE), 
+  KnowsCreche = KnowsCreche+1, 
+  KnowsAssMat = KnowsAssMat+1, 
+  Graduate = ifelse(Educ3 == "Graduate", 1, 0),
+  Undergrad = ifelse(Educ3 == "Undergrad", 1, 0)) %>% 
+  select(Intention,  NormsBaseline, TrustCreche,  AccessInformalFullTime, NormsOpposedN, PresentOrientation, KnowsAssMat, Graduate, Undergrad, LikertReturnHKBaseline)
+
+
+# Take a look at the data with skimr
+library(skimr)
+s <- skim(work_df_cluster_LCA_small)
+print(s, include_summary = FALSE)
+
+f <- cbind(Intention, NormsBaseline, TrustCreche,  AccessInformalFullTime, # NormsOpposedN
+           PresentOrientation, KnowsAssMat, LikertReturnHKBaseline)~ Undergrad + Graduate
+
+ch2 <- poLCA(f,work_df_cluster_LCA_small,nclass=2)
+# BIC(2): 14451.5
+
+
+ch3 <- poLCA(f,work_df_cluster_LCA_small,nclass=3, maxiter = 5000)
+# BIC(3): 14335.46
+plot(ch3)
+
+
+ch4 <- poLCA(f,work_df_cluster_LCA_small,nclass=4, maxiter = 5000)
+# BIC(3): 14335.46
+plot(ch4)
+
+# the difference in b
+```
+
+## With grouping
+
+```{r}
+p_load(glca)
+
+
+work_df_cluster_LCA_small_group <- work_df %>% 
+  drop_na() %>% mutate(NormsOpposedN =case_when(
+    NormsOpposedN == 0 ~ "0",
+    NormsOpposedN == 1 ~ "1",
+  ( NormsOpposedN == 2 |  NormsOpposedN == 3) ~ "2/3",
+    NormsOpposedN == 4 ~ "4/5",
+    NormsOpposedN >= 5 ~ "more than 5"), 
+    NormsOpposedN = factor(NormsOpposedN, ordered = TRUE), 
+  KnowsCreche = KnowsCreche+1, 
+  KnowsAssMat = KnowsAssMat+1) %>% 
+  select(Intention,  NormsBaseline, TrustCreche,  AccessInformalFullTime, NormsOpposedN, PresentOrientation, KnowsAssMat, Educ3, LikertReturnHKBaseline)
+
+
+
+mod <- glca(item(Intention, NormsBaseline, TrustCreche,  AccessInformalFullTime, # NormsOpposedN
+           PresentOrientation, KnowsAssMat, LikertReturnHKBaseline)~1, group = Educ3, data = work_df_cluster_LCA_small_group, nclass = 3, maxiter = 5000) 
+
+summary(mod)
+
+
+```

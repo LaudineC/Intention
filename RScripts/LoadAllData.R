@@ -17,7 +17,7 @@ BaselineFull<- BaselineFull[-c(1:2),]
 # Endline clean
 #PremiersPasWithoutIds <- read_csv(here("Data","PremiersPasWithoutIds.csv"))
 
-MainDB <- read_csv(here( "Data","PremiersPasWithNonRespondents112024.csv")) %>%    
+MainDB <- read_csv(here("Data","PremiersPasWithNonRespondents112024.csv")) %>%    
   mutate(Responded=ifelse(is.na(ECSApp),0,1), ResponseStatus=case_when(Responded==1~"Respondent",                                                                         Responded==2~"NonRespondent")) %>%
   group_by(strata,Which_wave) %>%  
   mutate(StrataWave=cur_group_id() %>% as.factor()) %>%   ungroup() %>%   
@@ -139,7 +139,18 @@ MainDB <- MainDB %>% mutate(BirthNotAsiaMENA = ifelse((as.character(BirthPlace) 
                               is.na(ECSType6Endline) == FALSE, as.character(ECSType6Endline),as.character(InformalCareType)), 
                             ChildcareTypeBaseline = ifelse(
                               is.na(ECSType7) == FALSE, as.character(ECSType7),"Maternal Care"
-                            )
+                            ), 
+                            NormsWork=factor(NormsWork,
+                                             levels=c("En désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","D’accord"), 
+                                             ordered = TRUE # how many mothers in their surroundings use childcare 
+                            ), 
+                            NormsHouse=factor(NormsHouse,
+                                             levels=c("En désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","D’accord"), 
+                                             ordered = TRUE # how many mothers in their surroundings use childcare 
+                            ), 
+                            NormsWorkNum = as.numeric(NormsWork),
+                            NormsHouseNum = as.numeric(NormsHouse),
+                            NormsScore = (NormsWorkNum + NormsHouseNum)/2,
                             )
 
 Control = MainDB %>% filter(Assignment == "Control")
@@ -349,20 +360,21 @@ rm(SocDemo, SocDemo.c, SocDemoId,
    Incomes, IncomesId, Incomes.c,
    Knows, KnowsId, Knows.c) 
 
-
+#---- 2_MainDBMachineLearning ----
 dbMachineLearning <- MainDB %>%# we select the variables that we want. Check that there are the same than below. Obsiouvly, there are several variables that were recoded, and we don't want to have both the recoded version and the original one as they are colinear. 
-  select(c(ECSPlanToBaseline, 
+  select(c(Intention, 
+           ECSApp, 
+           ECSUseYes,
            AffordCostBaseline, 
            #Educ3, # on laisse educ et educ dad mais je suis pas sûre que ce soit pertinent. Idem pour les variables de revenu
            #Educ3Dad, 
            NormsOpposedN,
            Discount501or0,
-           Discount801or0,
            ComputerYN,
            AffordSubsidiesBaseline,
            AffordNMCostWBNegativeBaseline,
            AffordOppCostNegativeBaseline,
-           AffordNMCostCareerBaseline,
+           AffordNMCostCareerNegativeBaseline,
            AccessHoursBaseline, 
            #  Primipare, #to check 
            # BirthPlace3, 
@@ -374,33 +386,249 @@ dbMachineLearning <- MainDB %>%# we select the variables that we want. Check tha
            #IncomeBaseline,
            LikertReturnHKBaseline,
            TrustCreche,
-           TrustAssMat,
-           KnowsCreche,
-           KnowsAssMat, 
+          # KnowsCreche,
            ComputerYN ,
-           HighLowECECBaseline ,
+         #  HighLowECECBaseline ,
            #     BreastFeedIntend,
            #     BreastFeedLength, 
-           Language3,
-           InformalReciprocity, # Do the parents already take care of the children of others
+           #Language3,
+          # InformalReciprocity, # Do the parents already take care of the children of others
            AffordCostDK, 
            AffordCostBaseline,
            #    AccessEasyBaseline,
            NormsBaseline,
-           LikertAccessInfoBaseline, # strongly disagree, disagree, don't know, agree, strongly agree
-           LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
-           DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-           DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-           DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-           DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-           DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
+           LikertAccessInfoBaseline, # FOR 4
+           LikertAccessSoc, # FOR 4
+          # DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
+          # DeprivFood, # DEPRIVATION: do parents struggle to buy food?
+          # DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
+          # DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
+          # DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
            #NumberChildren,
-           TrustFam,
-           TrustFriend,
+           #TrustFam,
+           #TrustFriend,
            #   CoupleCohabiting,
            AccessEasy5, 
-           NormsHouse, 
-           NormsWork, 
-           LevelInfoSubExPost
-  )) %>%      mutate(across(where(is.logical), as.numeric)) 
+          NormsScore,
+           LevelInfoSubExPost, 
+          KnownNbTypeECS, 
+          LevelComprehensionExPost, 
+          Assignment, 
+          ECSIdealAgeEntryBaseline, 
+          AccessHoursBaseline, 
+          Taux.de.couv.global,
+         MotherHealthIndex,
+         BabyHealthIndex
+  )) %>% # Recode the variables so that there are in the right format
+  mutate(
+    NormsOpposedN = as.numeric(NormsOpposedN), 
+  #  KnowsCreche = as.factor(KnowsCreche),
+   # KnowsAssMat = as.factor(KnowsAssMat), 
+    IdealEntryAge = as.factor(ifelse(ECSIdealAgeEntryBaseline == "Jamais", "Pendant ses trois premiers mois",
+                                     as.character(ECSIdealAgeEntryBaseline))), # too few observation in the Never categort # it causes prb and I am worried it is collinear with the DV. Most ppl that said no also reponded "jusqu'à la maternelle"
+   # BirthPlace3 = as.factor(ifelse(BirthPlace3 == "Je ne souhaite pas répondre", "Else", as.character(BirthPlace3))) # same too few Je ne souhaite pas répondre
+  AccessHoursBaselineNo = ifelse(AccessHoursBaseline == "Non", TRUE, FALSE), 
+  AccessHoursBaselineYes = ifelse((AccessHoursBaseline == "Oui" | AccessHoursBaseline == "Non, mais on prendra un autre mode de garde en plus"), 
+                                  TRUE, FALSE),
+  LevelComprehensionExPostGoodExcellent = ifelse(LevelComprehensionExPost == "pas de doutes sur la compréhension des questions",
+                                                 "Yes", "No" ),
+  LevelInfoSubExPost2 = ifelse((LevelInfoSubExPost == "Aucun ou très bas"|LevelInfoSubExPost == "Basique") , 
+                               "Low knowledge", "High knowledge"),
+  EntryAgeBeforeOne = ifelse((IdealEntryAge == "Pendant ses trois premiers mois" | IdealEntryAge == "Pendant ses six premiers mois" | 
+                                IdealEntryAge == "Pendant ses neuf premiers mois"), "Before One", "After One"),
+  LikertReturnHKBaseline = case_when(
+    LikertReturnHKBaseline == "Très en désaccord" ~ "Disagree",
+    LikertReturnHKBaseline == "Assez en désaccord" ~ "Disagree",
+    LikertReturnHKBaseline == "Je ne sais pas" ~ "Neutral",
+    LikertReturnHKBaseline == "Assez d’accord" ~ "Agree",
+    LikertReturnHKBaseline == "Très d’accord" ~ "Agree"
+  ),
+  NormsBaseline = case_when(
+    NormsBaseline == "Ne sait pas" ~ "Unknown",
+    NormsBaseline == "Aucune" ~ "A minority to none",
+    NormsBaseline == "Une minorité" ~ "A minority to none",
+    NormsBaseline == "Moitié moitié" ~ "Half-Half",
+    NormsBaseline == "La plupart" ~ "Most to All",
+    NormsBaseline == "Toutes" ~ "Most to All"
+  ), 
+  TrustCreche = case_when(
+    TrustCreche == "Très en désaccord" ~ "Disagree",
+    TrustCreche == "Assez en désaccord" ~ "Disagree",
+    TrustCreche == "Je ne sais pas" ~ "Neutral",
+    TrustCreche == "Assez d’accord" ~ "Agree",
+    TrustCreche == "Très d’accord" ~ "Agree"
+  )
+  
+  )%>%
+  select(-c(AccessHoursBaseline, LevelComprehensionExPost, ECSIdealAgeEntryBaseline, LevelInfoSubExPost, IdealEntryAge)) %>% # remove the original variables
+  mutate(across(where(is.logical), as.factor)) %>% 
+  mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
+# Add knowledge variables
 
+#----------------- For 3 Part I with all dummies except Numerics -----------------
+
+
+MLDummified <- dbMachineLearning %>% 
+  mutate(
+    TrustEarlyChildcareAgree = ifelse(TrustCreche == "Agree", "Yes", "No"), # the mother trust early childcare 
+    TrustEarlyChildcareAgree = ifelse(is.na(TrustEarlyChildcareAgree) == TRUE, "No", as.character(TrustEarlyChildcareAgree)), # the mother trust early childcare
+    NormsUseMostToAll = ifelse(NormsBaseline == "Most to All", "Yes", "No"), # Descriptive norms
+    ECBenefitChildrenAgree = ifelse(LikertReturnHKBaseline == "Agree", "Yes", "No"), # believe in EC returns
+    ECAccessHoursFit = ifelse(AccessHoursBaselineYes == TRUE, "Yes", "No"), # early childcare opening hours fit
+    LevelInformation = LevelInfoSubExPost2, # Level of knowledge
+    LevelComprehensionGoodExcellent = LevelComprehensionExPostGoodExcellent, # Level of comprehension French
+    NegativeImpactSalary = ifelse(AffordOppCostNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Salary
+    NegativeImpactCareer = ifelse(AffordNMCostCareerNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Career
+    NegativeImpactWellBeing = ifelse(AffordNMCostWBNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Well Being
+    Active = ifelse(Active == 'Active', "Yes", "No"), # The mother was active at baseline
+   # NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
+   # NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
+    PrescriptiveNorm = NormsOpposedN, # Prescriptive norms
+    PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
+    KnowsECIsSubsidized = ifelse(AffordSubsidiesBaseline == "Yes", "Yes", "No"), # knows that EC is subsidized
+    BelieveAccessingChildcareEasy = ifelse(AccessEasy5 == "Easy", "Yes", "No"), #Maybe check
+    DontKnowECCosts = ifelse(AffordCostDK == TRUE, "Yes", "No"), # Don't know EC costs
+    #ProgressiveNorms = ifelse(NormsScore < 2, "Yes", "No"), # Progressive norms: play with that a bit
+   # ThinkCostBelow500 = ifelse(AffordCostBaseline < 500, "Yes", "No"), # Think cost below 500
+    HasAccessToAComputer = ifelse(ComputerYN == "Oui", "Yes", "No"), # Has access to a computer
+  
+   ) %>% select(-c(TrustCreche, 
+                  NormsBaseline, 
+                  LikertReturnHKBaseline, 
+                  AccessHoursBaselineNo, 
+                  AccessHoursBaselineYes, 
+                  LevelInfoSubExPost2,
+                  LevelComprehensionExPostGoodExcellent,
+                  AffordOppCostNegativeBaseline, 
+                  AffordNMCostWBNegativeBaseline,
+                  AffordNMCostCareerNegativeBaseline,
+                  NormsOpposedN, 
+                  Discount501or0, 
+                  AffordCostDK, 
+                  AccessEasy5, 
+                  ComputerYN, 
+                 # AffordCostBaseline, 
+                #  NormsScore, 
+                  KnownNbTypeECS, 
+                AffordCostBaseline
+                  )) %>% 
+  mutate(across(where(is.logical), as.factor)) %>% 
+  mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
+
+# For now we keep Prohressive norms and ThinkCostBelow500 as numeric because a lot of nas otherwise
+
+#----------------- For 3 Part II with all dummies -----------------
+
+# With all in dummies, even numeric ones
+MLDummifiedALL <- dbMachineLearning %>% 
+  mutate(
+    TrustEarlyChildcareAgree = ifelse(TrustCreche == "Agree", "Yes", "No"), # the mother trust early childcare 
+    TrustEarlyChildcareAgree = ifelse(is.na(TrustEarlyChildcareAgree) == TRUE, "No", as.character(TrustEarlyChildcareAgree)), # the mother trust early childcare
+    NormsUseMostToAll = ifelse(NormsBaseline == "Most to All", "Yes", "No"), # Descriptive norms
+    ECBenefitChildrenAgree = ifelse(LikertReturnHKBaseline == "Agree", "Yes", "No"), # believe in EC returns
+    ECAccessHoursFit = ifelse(AccessHoursBaselineYes == TRUE, "Yes", "No"), # early childcare opening hours fit
+    LevelInformation = LevelInfoSubExPost2, # Level of knowledge
+    LevelComprehensionGoodExcellent = LevelComprehensionExPostGoodExcellent, # Level of comprehension French
+    NegativeImpactSalary = ifelse(AffordOppCostNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Salary
+    NegativeImpactCareer = ifelse(AffordNMCostCareerNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Career
+    NegativeImpactWellBeing = ifelse(AffordNMCostWBNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Well Being
+    Active = ifelse(Active == 'Active', "Yes", "No"), # The mother was active at baseline
+    NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
+    NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
+    PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
+    KnowsECIsSubsidized = ifelse(AffordSubsidiesBaseline == "Yes", "Yes", "No"), # knows that EC is subsidized
+    BelieveAccessingChildcareEasy = ifelse(AccessEasy5 == "Easy", "Yes", "No"), #Maybe check
+    DontKnowECCosts = ifelse(AffordCostDK == TRUE, "Yes", "No"), # Don't know EC costs
+    ProgressiveNorms = ifelse(NormsScore < 2, "Yes", "No"), # Progressive norms: play with that a bit
+    ThinkCostBelow500 = ifelse(AffordCostBaseline < 500, "Yes", "No"), # Think cost below 500
+    HasAccessToAComputer = ifelse(ComputerYN == "Oui", "Yes", "No"), # Has access to a computer
+    CoverageAboveAverage = ifelse(Taux.de.couv.global > 55, "Yes", "No"), # Coverage above average
+    CanAccessScoialResources = ifelse((LikertAccessSoc == "Assez d’accord" | LikertAccessSoc == "Très d’accord"), 
+                                      "Yes", "No"), # Can access social resources
+    CanAccessInformation = ifelse((LikertAccessInfoBaseline == "Assez d’accord" | LikertAccessInfoBaseline == "Très d’accord"),
+                                  "Yes", "No"), # Can access information
+    MotherHealthBelowAverage = ifelse(MotherHealthIndex < 83.6, "Yes", "No"), # Mother health below average
+    BabyHealthBelowAverage = ifelse(BabyHealthIndex < 88, "Yes", "No") # Baby health below average
+    ) %>% select(-c(TrustCreche, 
+                  NormsBaseline, 
+                  LikertReturnHKBaseline, 
+                  AccessHoursBaselineNo, 
+                  AccessHoursBaselineYes, 
+                  LevelInfoSubExPost2,
+                  LevelComprehensionExPostGoodExcellent,
+                  AffordOppCostNegativeBaseline, 
+                  AffordNMCostWBNegativeBaseline,
+                  AffordNMCostCareerNegativeBaseline,
+                  NormsOpposedN, 
+                  Discount501or0, 
+                  AffordCostDK, 
+                  AccessEasy5, 
+                  ComputerYN, 
+                  AffordCostBaseline, 
+                  NormsScore, 
+                  KnownNbTypeECS, 
+                  AffordSubsidiesBaseline, 
+                  Taux.de.couv.global, 
+                  AffordCostDK,
+                  AffordCostBaseline,
+                  MotherHealthIndex,
+                  BabyHealthIndex
+  )) %>% 
+  mutate(across(where(is.logical), as.factor)) %>% 
+  mutate(across(where(is.character), as.factor)) 
+
+
+#----- For 4 with social and informational ressources ----
+## TO DO BEFORE_GO TO 2 and selevt informational and social resources
+
+MLDummified <- dbMachineLearning %>% 
+  mutate(
+    TrustEarlyChildcareAgree = ifelse(TrustCreche == "Agree", "Yes", "No"), # the mother trust early childcare 
+    TrustEarlyChildcareAgree = ifelse(is.na(TrustEarlyChildcareAgree) == TRUE, "No", as.character(TrustEarlyChildcareAgree)), # the mother trust early childcare
+    NormsUseMostToAll = ifelse(NormsBaseline == "Most to All", "Yes", "No"), # Descriptive norms
+    ECBenefitChildrenAgree = ifelse(LikertReturnHKBaseline == "Agree", "Yes", "No"), # believe in EC returns
+    ECAccessHoursFit = ifelse(AccessHoursBaselineYes == TRUE, "Yes", "No"), # early childcare opening hours fit
+    LevelInformation = LevelInfoSubExPost2, # Level of knowledge
+    LevelComprehensionGoodExcellent = LevelComprehensionExPostGoodExcellent, # Level of comprehension French
+    NegativeImpactSalary = ifelse(AffordOppCostNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Salary
+    NegativeImpactCareer = ifelse(AffordNMCostCareerNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Career
+    NegativeImpactWellBeing = ifelse(AffordNMCostWBNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Well Being
+    Active = ifelse(Active == 'Active', "Yes", "No"), # The mother was active at baseline
+    # NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
+    # NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
+    PrescriptiveNorm = NormsOpposedN, # Prescriptive norms
+    PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
+    KnowsECIsSubsidized = ifelse(AffordSubsidiesBaseline == "Yes", "Yes", "No"), # knows that EC is subsidized
+    BelieveAccessingChildcareEasy = ifelse(AccessEasy5 == "Easy", "Yes", "No"), #Maybe check
+    DontKnowECCosts = ifelse(AffordCostDK == TRUE, "Yes", "No"), # Don't know EC costs
+    #ProgressiveNorms = ifelse(NormsScore < 2, "Yes", "No"), # Progressive norms: play with that a bit
+    # ThinkCostBelow500 = ifelse(AffordCostBaseline < 500, "Yes", "No"), # Think cost below 500
+    HasAccessToAComputer = ifelse(ComputerYN == "Oui", "Yes", "No"), # Has access to a computer
+    CanAccessScoialResources = ifelse((LikertAccessSoc == "Assez d’accord" | LikertAccessSoc == "Très d’accord"), 
+                                      "Yes", "No"), # Can access social resources
+    CanAccessInformation = ifelse((LikertAccessInfoBaseline == "Assez d’accord" | LikertAccessInfoBaseline == "Très d’accord"),
+                                  "Yes", "No") # Can access information
+    ) %>% select(-c(TrustCreche, 
+                  NormsBaseline, 
+                  LikertReturnHKBaseline, 
+                  AccessHoursBaselineNo, 
+                  AccessHoursBaselineYes, 
+                  LevelInfoSubExPost2,
+                  LevelComprehensionExPostGoodExcellent,
+                  AffordOppCostNegativeBaseline, 
+                  AffordNMCostWBNegativeBaseline,
+                  AffordNMCostCareerNegativeBaseline,
+                  NormsOpposedN, 
+                  Discount501or0, 
+                  AffordCostDK, 
+                  AccessEasy5, 
+                  ComputerYN, 
+                  #  NormsScore, 
+                  KnownNbTypeECS, 
+                  AffordSubsidiesBaseline,
+                  LikertAccessInfoBaseline, 
+                  LikertAccessSoc,
+                  #AffordCostBaseline
+  )) %>% 
+  mutate(across(where(is.logical), as.factor)) %>% 
+  mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
