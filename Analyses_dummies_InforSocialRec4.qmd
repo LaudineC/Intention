@@ -276,9 +276,9 @@ model_recipe <- recipe(target ~ ., data = train) %>%
 ```{r dataset}
 #| echo: false
 
-
 data <- MLDummified %>% filter(!is.na(Intention)) %>% 
-  mutate(target = factor(Intention, labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
+  mutate(target = factor(Intention, 
+labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
  select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne,BabyHealthIndex, MotherHealthIndex ))
 # Create a subset with the sociodemo and the predictors
 # Cleaning the data
@@ -321,6 +321,101 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
                   ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
 
 ## RUN THE RANDOM FOREST
+
+# In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
+rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+                       trees = 10, # if I tune it, it takes forever to run
+                       min_n = tune()) %>%
+  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
+  set_engine("partykit")
+
+
+# Flooow: specify what transformations (recipe) will be done and what algo will be fitted in a first step
+initial_flow <- workflow() %>% # create the initial workflow
+  add_recipe(rf_recipe) %>%
+  add_model(rf_spec)
+
+
+# The argument finalize is key because tidymodels needs to look
+# at the data to figure out how many features there are.
+
+# We need to tell tidymodels which parameters need to be tuned. It can conveniently be done with this chunk of code
+
+# In this version we are not tuning the number of trees, but we could.
+# We tune mtry and min_n the number of obs in each terminal leaves (you don't want one leaf == 1 obs that's overfitting)
+# mtry is the number of features that are randomly selected at each split. It is a good idea to tune it because it can have a big impact on the performance of the model
+# Doing this is an argument if I have a lot of predictors/features. At each round, it is only a subsample of predictors that is used. 
+rf_para <- extract_parameter_set_dials(rf_spec) %>% # extract the tuning parameters
+  finalize(train_df) # here we have only 2 because we set trees to 100 not tune()
+# finalize(train): we need to know the maximum number of features we could fit because it has not looked at the data yet
+# it tells tidymodel that he can look at the data quickly to see how many features there are in the data
+
+set.seed(20) # for reproducibility
+
+# Set the tuning grid
+# The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
+rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
+                                size = 50, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                variogram_range = 0.75, # explore the space of the hyperparameters
+
+                                original = TRUE)
+set.seed(30)
+cv_folds <- vfold_cv(train_df, v = 10, strata = target) # stratified CV
+
+doParallel::registerDoParallel() # used parallel cores to run the computation
+
+# tune the model, with the cross validation method defined, the grid and the metrics you set
+rf_tune <- initial_flow %>%
+  tune_grid(cv_folds, grid = rf_grid, metrics = rf_metrics)
+
+
+# select the best parameters for the model the tuning found
+rf_best <- select_best(rf_tune)
+rf_best# Trees again with X features at each time and X obs at terminal leaves
+# 34 features, and 19 obs in terminal leaves
+
+# Update the model with the best parameters found
+rf_updated <- finalize_model(rf_spec,
+                             rf_best) 
+
+# add this to the initial workflow
+workflow_new <- initial_flow %>%
+  update_model(rf_updated)
+
+# Fit the model on the training set
+rf_fit_final <- workflow_new %>%
+  fit(data = train_df) # fit on the training set
+
+# Fit the model on the test set to evaluate performance
+# Performance on the test set
+rf_fit_final %>%
+  predict(test_df) %>%
+  bind_cols(test_df) %>%
+  metrics(truth = target, estimate = .pred_class)
+# the accuracy is great but the kappa not that much (average)
+# see if tuning the trees improve this in the future
+
+
+
+```
+
+```{r NodeImportance}
+
+# NODE IMPORTANCE
+# You need to give up on partykit to get some info on variable importance, so we have to do it again
+
+rf_recipe <- recipe(target ~ ., data = tr)  %>%
+  step_impute_knn(AffordCostBaseline,
+                  NormsScore,
+                  Taux.de.couv.global,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(AffordCostBaseline,
+                  NormsScore,
+                  PrescriptiveNorm
+                  #BreastFeedLength,
+                  #NumberChildren
+                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
 rf_spec <- rand_forest() %>% #rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
@@ -406,132 +501,6 @@ rf_fit_final %>%
   metrics(truth = target, estimate = .pred_class)
 # the accuracy is great but the kappa not that much (average)
 # see if tuning the trees improve this in the future
-
-
-
-```
-
-```{r NodeImportance}
-
-# NODE IMPORTANCE
-# You need to give up on partykit to get some info on variable importance, so we have to do it again
-
-rf_recipe <- recipe(target ~ ., data = tr)  %>%
-  step_impute_knn(AffordCostBaseline,
-                  NormsScore,
-                  Taux.de.couv.global,
-                  PrescriptiveNorm,
-                  neighbors = 5) %>% 
-  step_YeoJohnson(AffordCostBaseline,
-                  NormsScore,
-                  PrescriptiveNorm
-                  #BreastFeedLength,
-                  #NumberChildren
-                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
-
-mod_rf <-rand_forest() %>%
-  set_engine("ranger",
-             num.threads = parallel::detectCores(), # to do it in parallel 
-             importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
-             verbose = TRUE) %>% # keeps a lot of details for us
-  set_mode("classification") %>%
-  set_args(trees = 50) #te here
-
-# Same steps again to fit the model
-# workflow
-
-# Reminder: even the prof could not explain this code 
-rf_flow <- workflow() %>% 
-  add_model(mod_rf) %>% 
-  add_recipe(rf_recipe)
-
-
-# With new code for using future
-library(future)
-set.seed(100)
-plan(multisession)
-
-fit_rf <- fit_resamples(
-  rf_flow,
-  cv_folds,
-  metrics = metric_set(accuracy),
-  control = control_resamples(verbose = TRUE,
-                              save_pred = TRUE,
-                              extract = function(x) x) # the function return the value of the prediction
-)
-
-# select the best parameters for the model the tuning found
-rf_best <- select_best(fit_rf)
-rf_best
-
-
-
-# Update the model with the best parameters found
-rf_updated <- finalize_model(rf_spec,
-                             rf_best) 
-
-# add this to the initial workflow
-workflow_new <- initial_flow %>%
-  update_model(rf_updated)
-
-# Fit the model on the training set
-rf_fit_final <- workflow_new %>%
-  fit(data = train_df)
-
-rf_fit_final %>%
-  predict(test_df) %>%
-  bind_cols(test_df) %>%
-  metrics(truth = target, estimate = .pred_class)
-
-library(forcats)
-library(tidyverse)
-# extract roots
-# code to extract the images
-rf_tree_roots <- function(x){
-  map_chr(1:50, # 50 trees
-          ~ranger::treeInfo(x, tree = .)[1, "splitvarName"]) # extract how we made the splits
-}
-
-rf_roots <- function(x){
-  x %>% 
-    select(.extracts) %>% 
-    unnest(cols = c(.extracts)) %>% 
-    mutate(fit = map(.extracts,
-                     ~.x$fit$fit$fit), # dig deep to find 
-           oob_rmse = map_dbl(fit,
-                              ~sqrt(.x$prediction.error)), # out of bag error: some items are left out of the training set during CV and we can see how well the model does on them 
-           roots = map(fit, 
-                       ~rf_tree_roots(.)) 
-    ) %>% 
-    select(roots) %>% 
-    unnest(cols = c(roots))
-}
-
-roots_data <- rf_roots(fit_rf)
-
-# Group the data by roots and count the occurrences of each root
-root_counts <- roots_data %>% 
-  group_by(roots) %>% 
-  count()
-
-# Filter out roots with counts greater than 75
-filtered_root_counts <- root_counts 
-#%>% 
-#  filter(n > 10) # you can modify it. The prof set 75 but with 75 on this one it removed everything. The number seems quite arbitrary
-
-# Arrange the data in descending order of counts
-sorted_root_counts <- filtered_root_counts %>% 
-  arrange(desc(n))
-
-# Create a bar plot
-plot <- ggplot(sorted_root_counts, aes(x = fct_reorder(roots, n), y = n)) +
-  geom_col() + 
-  coord_flip() + 
-  labs(x = "Root", y = "Count")
-
-# Display the plot
-print(plot)
-
 
 ```
 
