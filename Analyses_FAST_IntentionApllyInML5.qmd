@@ -12,7 +12,6 @@ editor_options:
 
 ```{r regression}
 
-library(rio)
 
 db_clean <- MLDummified %>%
   filter(!is.na(Intention)) %>%
@@ -27,7 +26,7 @@ print(s, include_summary = FALSE)
 
 # Preparation
 ## Split the sample
-library(tidymodels)
+
 tidymodels_prefer()
 set.seed(10)
 split <- initial_split(db_clean, prop = 0.8)
@@ -95,17 +94,13 @@ reg_fit %>%
 # Fitting the model to the whole data
 reg_fit <- fit(reg_flow, db_clean) # 
 
-
-library(broom)      # Pour tidy()
-library(knitr)      # Pour knitr::kable
-library(kableExtra) # Pour styliser les tableaux
+ # Pour styliser les tableaux
 
 #coefficients_table %>%
 #  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
 #        caption = "Tableau des coefficients du modèle Lasso") %>%
 #  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
 #
-library(modelsummary)
 
 # We want a nice table with ordered coefficents 
 # Sort  coefficients
@@ -131,7 +126,6 @@ modelsummary(reg_fit,
 ## Application
 
 ```{r regression}
-library(rio)  
 db_clean <- MLDummified %>%   
   filter(!is.na(ECSApp)) %>%
   mutate(target = as.numeric(ECSApp)) %>% 
@@ -141,7 +135,7 @@ s <- skim(db_clean)
 print(s, include_summary = FALSE)  
 # Preparation 
 ## Split the sample 
-library(tidymodels) 
+
 tidymodels_prefer()
 set.seed(10) 
 split <- initial_split(db_clean, prop = 0.8) 
@@ -1791,7 +1785,6 @@ modelsummary(post_lasso_model,
 ```
 
 # Elastic Nets
-
 
 ## Intention
 

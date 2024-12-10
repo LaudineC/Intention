@@ -23,7 +23,13 @@ p_load(here,
        fixest,
        glmnet, 
        skimr, 
-       bonsai)
+       bonsai, 
+       rio, 
+       broom, 
+       knitr,
+       kableExtra, # for nice tables
+       modelsummary
+       )
 #
 ## Packages for importing, storing and manipulating data
 #
