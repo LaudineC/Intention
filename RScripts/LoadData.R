@@ -17,7 +17,7 @@ BaselineFull<- BaselineFull[-c(1:2),]
 # Endline clean
 #PremiersPasWithoutIds <- read_csv(here("Data","PremiersPasWithoutIds.csv"))
 
-MainDB <- read_csv(here( "Data","PremiersPasWithNonRespondents112024.csv")) %>%    
+MainDB <- read_csv(here("Data","PremiersPasWithNonRespondents112024.csv")) %>%    
   mutate(Responded=ifelse(is.na(ECSApp),0,1), ResponseStatus=case_when(Responded==1~"Respondent",                                                                         Responded==2~"NonRespondent")) %>%
   group_by(strata,Which_wave) %>%  
   mutate(StrataWave=cur_group_id() %>% as.factor()) %>%   ungroup() %>%   
@@ -125,16 +125,16 @@ MainDB <- MainDB %>% mutate(BirthNotAsiaMENA = ifelse((as.character(BirthPlace) 
                             OrderedEduc = OrderedEduc.x, 
                             ECSNoChildcareType = as.factor(ECSNoChildcareType), 
                             InformalCareType =  case_when( str_detect(ECSNoChildcareType,  "vous-mêmes") == TRUE ~ "Maternal care",
-                                                   str_detect(ECSNoChildcareType, "grands-parents") == TRUE ~ "Grand-parents",
-                            (str_detect(ECSNoChildcareType, "conjoint") == TRUE | str_detect(ECSNoChildcareType_5_TEXT,"papa") == TRUE) ~ "Other parent", 
-                            (str_detect(ECSNoChildcareType,"voisin") == TRUE| str_detect(ECSNoChildcareType_5_TEXT, "ami") == TRUE |
-                               str_detect(ECSNoChildcareType_5_TEXT, "Nounou") == TRUE | 
-                               str_detect(ECSNoChildcareType_5_TEXT, "maternelle") == TRUE |
-                              str_detect(ECSNoChildcareType_5_TEXT, "Nourrice") == TRUE |
-                              str_detect(ECSNoChildcareType_5_TEXT, "Personne") == TRUE |
-                              str_detect(ECSNoChildcareType_5_TEXT, "Technicienne") == TRUE |
-                               str_detect(ECSNoChildcareType_5_TEXT, "répondre") == TRUE |
-                              str_detect(ECSNoChildcareType_5_TEXT, "cousine") == TRUE) ~ "Informal care" ),
+                                                           str_detect(ECSNoChildcareType, "grands-parents") == TRUE ~ "Grand-parents",
+                                                           (str_detect(ECSNoChildcareType, "conjoint") == TRUE | str_detect(ECSNoChildcareType_5_TEXT,"papa") == TRUE) ~ "Other parent", 
+                                                           (str_detect(ECSNoChildcareType,"voisin") == TRUE| str_detect(ECSNoChildcareType_5_TEXT, "ami") == TRUE |
+                                                              str_detect(ECSNoChildcareType_5_TEXT, "Nounou") == TRUE | 
+                                                              str_detect(ECSNoChildcareType_5_TEXT, "maternelle") == TRUE |
+                                                              str_detect(ECSNoChildcareType_5_TEXT, "Nourrice") == TRUE |
+                                                              str_detect(ECSNoChildcareType_5_TEXT, "Personne") == TRUE |
+                                                              str_detect(ECSNoChildcareType_5_TEXT, "Technicienne") == TRUE |
+                                                              str_detect(ECSNoChildcareType_5_TEXT, "répondre") == TRUE |
+                                                              str_detect(ECSNoChildcareType_5_TEXT, "cousine") == TRUE) ~ "Informal care" ),
                             ChildcareTypeEndline = ifelse(
                               is.na(ECSType6Endline) == FALSE, as.character(ECSType6Endline),as.character(InformalCareType)), 
                             ChildcareTypeBaseline = ifelse(
@@ -145,13 +145,13 @@ MainDB <- MainDB %>% mutate(BirthNotAsiaMENA = ifelse((as.character(BirthPlace) 
                                              ordered = TRUE # how many mothers in their surroundings use childcare 
                             ), 
                             NormsHouse=factor(NormsHouse,
-                                             levels=c("En désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","D’accord"), 
-                                             ordered = TRUE # how many mothers in their surroundings use childcare 
+                                              levels=c("En désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","D’accord"), 
+                                              ordered = TRUE # how many mothers in their surroundings use childcare 
                             ), 
                             NormsWorkNum = as.numeric(NormsWork),
                             NormsHouseNum = as.numeric(NormsHouse),
                             NormsScore = (NormsWorkNum + NormsHouseNum)/2,
-                            )
+)
 
 Control = MainDB %>% filter(Assignment == "Control")
 ## In the future, clean this import process to do just as in the Replication file
@@ -293,9 +293,9 @@ Knows.c <- Knows   %>% bind_cols(.,KnowsId %>% select(ResponseId)) %>%
 # Relationship LanguageBaseline, OrderedEduc, Act3, FrenchYNBaseline
 
 SocDemoId <- MainDB %>% select(ResponseId,
-                                  Relationship,LanguageBaseline, OrderedEduc, Act3, FrenchYNBaseline,Dep,
-                                  "WorkBefore","WorkPlanTo" ,
-                                  "WorkPlanNotTo","WorkNoPlan" 
+                               Relationship,LanguageBaseline, OrderedEduc, Act3, FrenchYNBaseline,Dep,
+                               "WorkBefore","WorkPlanTo" ,
+                               "WorkPlanNotTo","WorkNoPlan" 
 ) %>% mutate(Dep=as.factor(Dep))
 SocDemo <-  model.matrix(~0+.,SocDemoId %>% select(-c(ResponseId))) %>% as.data.frame() 
 SocDemo.c <- SocDemo %>% bind_cols(.,SocDemoId %>% select(ResponseId)) %>% 
@@ -304,19 +304,19 @@ SocDemo.c <- SocDemo %>% bind_cols(.,SocDemoId %>% select(ResponseId)) %>%
 # FmlyIncomeBaseline, IncomeBaseline
 
 IncomesId <- MainDB %>% select(ResponseId,
-                                  FmlyIncomeBaseline, IncomeBaseline) %>% 
+                               FmlyIncomeBaseline, IncomeBaseline) %>% 
   mutate_at(vars(FmlyIncomeBaseline, IncomeBaseline),~as.character(.)) %>% 
   replace_na(list(FmlyIncomeBaseline="NA", IncomeBaseline="NA"))
 
 Incomes <-   model.matrix(~0+.,IncomesId %>% select(-c(ResponseId))) %>% as.data.frame()
 
 Incomes.c <- Incomes %>% bind_cols(.,IncomesId %>%  select(ResponseId)) %>% 
-   mutate_at(all_of(names(Incomes)),~.x-mean(.))%>% ungroup()
+  mutate_at(all_of(names(Incomes)),~.x-mean(.))%>% ungroup()
 
 SubjectiveId <-  MainDB %>% select(ResponseId,
-                                      "AccessEasyBaseline", "AccessHoursBaseline" ,"AccessInformalCareBaseline",
-                                      "LikertReturnHKBaseline","LikertAccessInfoBaseline"  ,"LikertReturnHKBaseline",
-                                      "LikertAccessSoc","NormsBaseline" )
+                                   "AccessEasyBaseline", "AccessHoursBaseline" ,"AccessInformalCareBaseline",
+                                   "LikertReturnHKBaseline","LikertAccessInfoBaseline"  ,"LikertReturnHKBaseline",
+                                   "LikertAccessSoc","NormsBaseline" )
 
 Subjective <- model.matrix(~0+.,SubjectiveId %>% select(-c(ResponseId))) %>% as.data.frame()
 
@@ -325,16 +325,16 @@ Subjective.c <- Subjective %>% bind_cols(.,SubjectiveId %>%  select(ResponseId))
 
 
 Depriveid <- MainDB %>% select(ResponseId,
-                                  "DeprivClothesIrrelevant" ,"DeprivFoodIrrelevant"  ,
-                                  "DeprivBillsIrrelevant"   ,"DeprivHolidaysIrrelevant" ,
-                                  "DeprivHousingIrrelevant" ,"DeprivClothes" ,
-                                  "DeprivFood"              ,"DeprivBills"    ,
-                                  "DeprivHolidays"          ,"DeprivHousing"  ,"LevelComprehensionExPost"  ) %>% mutate_at(vars(DeprivClothesIrrelevant:LevelComprehensionExPost),~ifelse(is.na(.),"NA",.))
+                               "DeprivClothesIrrelevant" ,"DeprivFoodIrrelevant"  ,
+                               "DeprivBillsIrrelevant"   ,"DeprivHolidaysIrrelevant" ,
+                               "DeprivHousingIrrelevant" ,"DeprivClothes" ,
+                               "DeprivFood"              ,"DeprivBills"    ,
+                               "DeprivHolidays"          ,"DeprivHousing"  ,"LevelComprehensionExPost"  ) %>% mutate_at(vars(DeprivClothesIrrelevant:LevelComprehensionExPost),~ifelse(is.na(.),"NA",.))
 
 Deprive <- model.matrix(~0+.,Depriveid %>% select(-c(ResponseId))) %>% as.data.frame()
 
 Deprive.c <- Deprive %>% bind_cols(.,Depriveid %>%  select(ResponseId)) %>% 
- mutate_at(all_of(names(Deprive)),~.x-mean(.)) %>% ungroup()
+  mutate_at(all_of(names(Deprive)),~.x-mean(.)) %>% ungroup()
 
 
 # Vector of outcome names
@@ -386,79 +386,79 @@ dbMachineLearning <- MainDB %>%# we select the variables that we want. Check tha
            #IncomeBaseline,
            LikertReturnHKBaseline,
            TrustCreche,
-          # KnowsCreche,
+           # KnowsCreche,
            ComputerYN ,
-         #  HighLowECECBaseline ,
+           #  HighLowECECBaseline ,
            #     BreastFeedIntend,
            #     BreastFeedLength, 
            #Language3,
-          # InformalReciprocity, # Do the parents already take care of the children of others
+           # InformalReciprocity, # Do the parents already take care of the children of others
            AffordCostDK, 
            AffordCostBaseline,
            #    AccessEasyBaseline,
            NormsBaseline,
            LikertAccessInfoBaseline, # FOR 4
            LikertAccessSoc, # FOR 4
-          # DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
-          # DeprivFood, # DEPRIVATION: do parents struggle to buy food?
-          # DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
-          # DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
-          # DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
+           # DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
+           # DeprivFood, # DEPRIVATION: do parents struggle to buy food?
+           # DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
+           # DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
+           # DeprivHousing,# DEPRIVATION: do parents struggle to pay for housing?              
            #NumberChildren,
            #TrustFam,
            #TrustFriend,
            #   CoupleCohabiting,
            AccessEasy5, 
-          NormsScore,
+           NormsScore,
            LevelInfoSubExPost, 
-          KnownNbTypeECS, 
-          LevelComprehensionExPost, 
-          Assignment, 
-          ECSIdealAgeEntryBaseline, 
-          AccessHoursBaseline, 
-          Taux.de.couv.global,
-         MotherHealthIndex,
-         BabyHealthIndex
+           KnownNbTypeECS, 
+           LevelComprehensionExPost, 
+           Assignment, 
+           ECSIdealAgeEntryBaseline, 
+           AccessHoursBaseline, 
+           Taux.de.couv.global,
+           MotherHealthIndex,
+           BabyHealthIndex
   )) %>% # Recode the variables so that there are in the right format
   mutate(
     NormsOpposedN = as.numeric(NormsOpposedN), 
-  #  KnowsCreche = as.factor(KnowsCreche),
-   # KnowsAssMat = as.factor(KnowsAssMat), 
+    #  KnowsCreche = as.factor(KnowsCreche),
+    # KnowsAssMat = as.factor(KnowsAssMat), 
     IdealEntryAge = as.factor(ifelse(ECSIdealAgeEntryBaseline == "Jamais", "Pendant ses trois premiers mois",
                                      as.character(ECSIdealAgeEntryBaseline))), # too few observation in the Never categort # it causes prb and I am worried it is collinear with the DV. Most ppl that said no also reponded "jusqu'à la maternelle"
-   # BirthPlace3 = as.factor(ifelse(BirthPlace3 == "Je ne souhaite pas répondre", "Else", as.character(BirthPlace3))) # same too few Je ne souhaite pas répondre
-  AccessHoursBaselineNo = ifelse(AccessHoursBaseline == "Non", TRUE, FALSE), 
-  AccessHoursBaselineYes = ifelse((AccessHoursBaseline == "Oui" | AccessHoursBaseline == "Non, mais on prendra un autre mode de garde en plus"), 
-                                  TRUE, FALSE),
-  LevelComprehensionExPostGoodExcellent = ifelse(LevelComprehensionExPost == "pas de doutes sur la compréhension des questions",
-                                                 "Yes", "No" ),
-  LevelInfoSubExPost2 = ifelse((LevelInfoSubExPost == "Aucun ou très bas"|LevelInfoSubExPost == "Basique") , 
-                               "Low knowledge", "High knowledge"),
-  EntryAgeBeforeOne = ifelse((IdealEntryAge == "Pendant ses trois premiers mois" | IdealEntryAge == "Pendant ses six premiers mois" | 
-                                IdealEntryAge == "Pendant ses neuf premiers mois"), "Before One", "After One"),
-  LikertReturnHKBaseline = case_when(
-    LikertReturnHKBaseline == "Très en désaccord" ~ "Disagree",
-    LikertReturnHKBaseline == "Assez en désaccord" ~ "Disagree",
-    LikertReturnHKBaseline == "Je ne sais pas" ~ "Neutral",
-    LikertReturnHKBaseline == "Assez d’accord" ~ "Agree",
-    LikertReturnHKBaseline == "Très d’accord" ~ "Agree"
-  ),
-  NormsBaseline = case_when(
-    NormsBaseline == "Ne sait pas" ~ "Unknown",
-    NormsBaseline == "Aucune" ~ "A minority to none",
-    NormsBaseline == "Une minorité" ~ "A minority to none",
-    NormsBaseline == "Moitié moitié" ~ "Half-Half",
-    NormsBaseline == "La plupart" ~ "Most to All",
-    NormsBaseline == "Toutes" ~ "Most to All"
-  ), 
-  TrustCreche = case_when(
-    TrustCreche == "Très en désaccord" ~ "Disagree",
-    TrustCreche == "Assez en désaccord" ~ "Disagree",
-    TrustCreche == "Je ne sais pas" ~ "Neutral",
-    TrustCreche == "Assez d’accord" ~ "Agree",
-    TrustCreche == "Très d’accord" ~ "Agree"
-  )
-  
+    # BirthPlace3 = as.factor(ifelse(BirthPlace3 == "Je ne souhaite pas répondre", "Else", as.character(BirthPlace3))) # same too few Je ne souhaite pas répondre
+    AccessHoursBaselineNo = ifelse(AccessHoursBaseline == "Non", TRUE, FALSE), 
+    AccessHoursBaselineYes = ifelse((AccessHoursBaseline == "Oui" | AccessHoursBaseline == "Non, mais on prendra un autre mode de garde en plus"), 
+                                    TRUE, FALSE),
+    LevelComprehensionExPostGoodExcellent = ifelse(LevelComprehensionExPost == "pas de doutes sur la compréhension des questions",
+                                                   "Yes", "No" ),
+    LevelInfoSubExPost2 = ifelse((LevelInfoSubExPost == "Aucun ou très bas"|LevelInfoSubExPost == "Basique") , 
+                                 "Low knowledge", "High knowledge"),
+    EntryAgeBeforeOne = ifelse((IdealEntryAge == "Pendant ses trois premiers mois" | IdealEntryAge == "Pendant ses six premiers mois" | 
+                                  IdealEntryAge == "Pendant ses neuf premiers mois"), "Before One", "After One"),
+    LikertReturnHKBaseline = case_when(
+      LikertReturnHKBaseline == "Très en désaccord" ~ "Disagree",
+      LikertReturnHKBaseline == "Assez en désaccord" ~ "Disagree",
+      LikertReturnHKBaseline == "Je ne sais pas" ~ "Neutral",
+      LikertReturnHKBaseline == "Assez d’accord" ~ "Agree",
+      LikertReturnHKBaseline == "Très d’accord" ~ "Agree"
+    ),
+    NormsBaseline = case_when(
+      NormsBaseline == "Ne sait pas" ~ "Unknown",
+      NormsBaseline == "Aucune" ~ "A minority to none",
+      NormsBaseline == "Une minorité" ~ "A minority to none",
+      NormsBaseline == "Moitié moitié" ~ "Half-Half",
+      NormsBaseline == "La plupart" ~ "Most to All",
+      NormsBaseline == "Toutes" ~ "Most to All"
+    ), 
+    TrustCreche = case_when(
+      TrustCreche == "Très en désaccord" ~ "Disagree",
+      TrustCreche == "Assez en désaccord" ~ "Disagree",
+      TrustCreche == "Je ne sais pas" ~ "Neutral",
+      TrustCreche == "Assez d’accord" ~ "Agree",
+      TrustCreche == "Très d’accord" ~ "Agree"
+    )
+    
   )%>%
   select(-c(AccessHoursBaseline, LevelComprehensionExPost, ECSIdealAgeEntryBaseline, LevelInfoSubExPost, IdealEntryAge)) %>% # remove the original variables
   mutate(across(where(is.logical), as.factor)) %>% 
@@ -481,18 +481,18 @@ MLDummified <- dbMachineLearning %>%
     NegativeImpactCareer = ifelse(AffordNMCostCareerNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Career
     NegativeImpactWellBeing = ifelse(AffordNMCostWBNegativeBaseline == TRUE, "Yes", "No"), # Negative Impact Well Being
     Active = ifelse(Active == 'Active', "Yes", "No"), # The mother was active at baseline
-   # NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
-   # NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
+    # NobodyOpposed = ifelse(NormsOpposedN == 0, "Yes", "No"), # Nobody opposed to the mother using childcare
+    # NobodyOpposed = ifelse(is.na(NobodyOpposed) == TRUE, "No", as.character(NobodyOpposed)), # Nobody opposed to the mother using childcare
     PrescriptiveNorm = NormsOpposedN, # Prescriptive norms
     PresentOriented = ifelse(Discount501or0 == 1, "Yes", "No"), # Present oriented
     KnowsECIsSubsidized = ifelse(AffordSubsidiesBaseline == "Yes", "Yes", "No"), # knows that EC is subsidized
     BelieveAccessingChildcareEasy = ifelse(AccessEasy5 == "Easy", "Yes", "No"), #Maybe check
     DontKnowECCosts = ifelse(AffordCostDK == TRUE, "Yes", "No"), # Don't know EC costs
     #ProgressiveNorms = ifelse(NormsScore < 2, "Yes", "No"), # Progressive norms: play with that a bit
-   # ThinkCostBelow500 = ifelse(AffordCostBaseline < 500, "Yes", "No"), # Think cost below 500
+    # ThinkCostBelow500 = ifelse(AffordCostBaseline < 500, "Yes", "No"), # Think cost below 500
     HasAccessToAComputer = ifelse(ComputerYN == "Oui", "Yes", "No"), # Has access to a computer
-  
-   ) %>% select(-c(TrustCreche, 
+    
+  ) %>% select(-c(TrustCreche, 
                   NormsBaseline, 
                   LikertReturnHKBaseline, 
                   AccessHoursBaselineNo, 
@@ -507,11 +507,11 @@ MLDummified <- dbMachineLearning %>%
                   AffordCostDK, 
                   AccessEasy5, 
                   ComputerYN, 
-                 # AffordCostBaseline, 
-                #  NormsScore, 
+                  # AffordCostBaseline, 
+                  #  NormsScore, 
                   KnownNbTypeECS, 
-                AffordCostBaseline
-                  )) %>% 
+                  AffordCostBaseline
+  )) %>% 
   mutate(across(where(is.logical), as.factor)) %>% 
   mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
 
@@ -549,7 +549,7 @@ MLDummifiedALL <- dbMachineLearning %>%
                                   "Yes", "No"), # Can access information
     MotherHealthBelowAverage = ifelse(MotherHealthIndex < 83.6, "Yes", "No"), # Mother health below average
     BabyHealthBelowAverage = ifelse(BabyHealthIndex < 88, "Yes", "No") # Baby health below average
-    ) %>% select(-c(TrustCreche, 
+  ) %>% select(-c(TrustCreche, 
                   NormsBaseline, 
                   LikertReturnHKBaseline, 
                   AccessHoursBaselineNo, 
@@ -608,7 +608,7 @@ MLDummified <- dbMachineLearning %>%
                                       "Yes", "No"), # Can access social resources
     CanAccessInformation = ifelse((LikertAccessInfoBaseline == "Assez d’accord" | LikertAccessInfoBaseline == "Très d’accord"),
                                   "Yes", "No") # Can access information
-    ) %>% select(-c(TrustCreche, 
+  ) %>% select(-c(TrustCreche, 
                   NormsBaseline, 
                   LikertReturnHKBaseline, 
                   AccessHoursBaselineNo, 
