@@ -138,3 +138,49 @@ modelsummary(
 ) |> autofit()
 
 ```
+
+## With migration background
+
+
+```{r logit}
+cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the mother: High-SES', "ECSApp"= "Applied")
+
+logit1 <- glm(AccessInformalFullTime ~ Educ +  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit2 <- glm(i(LevelInformation, ref = "Low knowledge")~ Educ+  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit3 <- glm(TrustEarlyChildcareAgree ~ Educ+  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit4 <- glm(ECAccessHoursFit ~ Educ+  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit5 <- glm(NegativeImpactSalary ~ Educ+  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit6 <- glm(Active ~ Educ+  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit7 <- glm(ProgressiveNorms ~ Educ +  Migration4,data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit8 <- glm(NegativeImpactWellBeing ~ Educ+  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit9 <- glm(NegativeImpactCareer ~ Educ +  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit10 <- glm(NormsUseMostToAll ~ Educ +  Migration4, data = DummiesSocioDemo, family = binomial(link = "logit"))
+
+modelsummary(
+  list(
+    "Access to Informal Care" = logit1,
+    "Level of Information" = logit2,
+    "Trust in Early Childcare facilities" = logit3,
+    "Opening hours fit" = logit4,
+    "Negative perceived impact on salary" = logit5,
+    "Active" = logit6,
+    "Adherence to progressive norms" = logit7,
+    "Negative perceived impact on well-being" = logit8,
+    "Negative perceived impact on career" = logit9,
+    "Norms: Use most to all" = logit10
+  ), 
+  statistic = "{std.error} ({p.value})",
+  estimate = "{estimate}{stars}  [{conf.low}, {conf.high}]",
+  gof_map = c("r.squared" ,"adj.r.squared", "aic", "bic", "nobs"),
+  stars = c("***" = .01, "**" = .05, "*" = .1),
+  title = "Probability to be satisfied with the current childcare solution according to education level and ECEC used",
+  notes = list(
+    "",
+    "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis"
+  ),
+  exponentiate = TRUE,
+  output = 'flextable',
+  escape = TRUE
+) |> autofit()
+
+```
