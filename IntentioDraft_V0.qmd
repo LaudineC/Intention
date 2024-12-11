@@ -1,0 +1,134 @@
+---
+title: "IntentionDraft_V0"
+format: docx
+editor: visual
+---
+
+# Descriptive statistics
+
+Table 1. Socio-demographic descriptive statistics.
+
+```{r}
+# table showing N and % by migration backgroundn, ECEC coverage (Low Medium High), Income (Low Medium High), Education Low Medium High, Age (4 cat), Parity (First brn vs subsequent), HH structure, working full time
+
+
+CompareSamples <-MainDB %>%
+  mutate(
+    Control = ifelse(Assignment == "Control", 1, 0),
+    SingleMum1or0 = ifelse(SingleMum == TRUE, 1, 0),
+    Active1or0 = ifelse(Act3 == "Active", 1, 0),
+    Educ1or0  = ifelse(Educ == "Sup", 1, 0),
+    BornFr1or0  = ifelse(FrenchYNBaseline == "France", 1, 0),
+    EverUsedECS1or0  = ifelse(UsedECEC == "Oui", 1, 0),
+    PlanToUseECS1or0 = ifelse(ECSPlanToBaseline == TRUE, 1, 0),
+    ComputerYes1or0 = ifelse(ComputerYN == "Oui", 1, 0),
+    HighECSCov1or0 = ifelse(HighLowECECBaseline == "High ECEC covering", 1, 0), 
+    DepParis1or0  = ifelse(Dep == "75", 1, 0),
+    KnowsCrecheOnly1or0  = ifelse(KnowsCrecheOnly == TRUE, 1, 0),
+    Primipare1or0 = ifelse(Primipare == TRUE, 1, 0), 
+    WorkPlanTo1or0 = ifelse(WorkPlanTo == TRUE, 1, 0), 
+    DeprivHolidays1or0 = ifelse(DeprivHolidays != "Pas du tout", 1, 0), NumberChildren = as.numeric(NumberChildren), 
+    BabyFemale = ifelse(BabyFemale == TRUE, 1, 0)
+  ) %>%
+  select(Educ2,
+    "Single parent family" = SingleMum1or0,
+    #  "Couple cohabiting" = CoupleCohabiting1or0,
+    "Age of the mother" = Age,
+    "Number of children" = NumberChildren,
+    "Parity (first born vs subsequent)" = Primipare1or0,
+    "Mother is born in France" = BornFr1or0,
+
+    #  "The mothers is not born in MENAnorAsia" = BirthNotAsiaMENA1or0,
+    "The mother is active at baseline" = Active1or0,
+    "Household earns less than €2,500 per month" = FmilyEarnLessThan2500,
+    #  "The family couldn't afford holidays" = DeprivHolidays1or0,
+    #  "Has a computer" = ComputerYes1or0,
+    "Mother is present oriented" = Discount501or0,
+    "Mother wants to work after maternity leaves" = WorkPlanTo1or0,
+    #"The mother did not smoke" = DidNotSmoke1or0,
+    #"The mother wants to breastfeed" = BreastFeedIntend1or0, 
+    "Household has ever used early childcare" = EverUsedECS1or0,                  # Used: yes/no/ don't wanna answer
+   # "Household can access a computer" = ComputerYN,
+    "Mother wants to use early childcare" = PlanToUseECS1or0,                 # Intend to use, block variable
+    #  "Knows early childcare is subsidised" = AffordSubsidies1or0,
+    #  "Knows only daycare" = KnowsCrecheOnly1or0,
+    #    "Value socialization" = ValSocialisation,
+    #"Believe in returns to early childcare" = LikertReturnHK1or0,
+    #"The mother trusts early childcare" = TrustCreche1or0,
+    "Mother lives in Paris" = DepParis1or0,
+    "Early childcare coverage is high" = HighECSCov1or0,
+    "Child is a girl" = BabyFemale
+  )
+
+
+# Create balance table using tbl_summary
+summary_baseline_variables_endline <- CompareSamples %>%
+  tbl_summary(
+    by = Educ2,  # Comparison by baseline and endline
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{p}% ({n})"
+    ),
+    digits = all_continuous() ~ 2,
+    missing = "no"
+  ) %>%
+  add_overall() %>%
+  add_p(pvalue_fun = ~ style_pvalue(.x, digits = 3)) %>% 
+  add_q(method = "fdr", pvalue_fun = ~ style_pvalue(.x, digits = 3)) %>% 
+  add_significance_stars(thresholds = c(0.01, 0.05, 0.1)) %>%
+  modify_header(label ~ "**Variable**", stat_0 ~ "Overall", stat_1 ~ "High-SES", stat_2 ~ "Low-SES") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Sample**")
+
+# Convert to a flextable for formatting
+summary_baseline_variables_endline %>%
+  as_flex_table() %>%
+  merge_v(part = "header", j = 1) %>%
+  merge_h(part = "header", i = 1) %>%
+  italic(j = 1, part = "body") |>  
+  width(j = c(1), unit = "cm", width = 3) |>
+  width(j = c(2:5), unit = "cm", width = 2) |>
+  set_caption(caption = "Distribution of characteristics across high- and low-SES samples") %>%
+  add_footer_lines(
+    "Proportions and number of observations in parentheses for categorical and dichotomous variables. 
+    Averages and standard deviations in parentheses for continuous variables. 
+    Q-value control for the false discovery rate using FDR correction."
+  ) %>%
+  fontsize(i = 1, size = 10, part = "footer")
+
+
+```
+
+# The social stratification of intention, application and access
+
+```{r}
+library(fixest)
+library(modelsummary)
+cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the mother: High-SES', "ECSApp"= "Applied")
+lm1 <- feols(ECSPlanToBaseline~ Educ , data = MainDB, cluster = ~blocksMatWave)
+
+lm2 <- feols(ECSApp~  Educ, data = Control, cluster = ~blocksMatWave)
+lm3 <- feols(ECSUseYes~  Educ, data = Control, cluster = ~blocksMatWave)
+lm4 <- feols(ECSUseYes~  Educ + ECSApp, data = Control, cluster = ~blocksMatWave)
+
+
+
+modelsummary(list(
+"Intention" = lm1,    
+"Application" = lm2, 
+"Access" = lm3, 
+"Access Apply" = lm4
+
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: blocksMatWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Probability to be satisfied with the current childcare solution according to education level and ECEC used",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE, coef_map = cm)|>
+  autofit()
+
+
+
+
+```

@@ -1,0 +1,93 @@
+---
+title: "SupplementaryMaterials"
+format: docx
+editor: visual
+---
+
+# Link between baseline intention and endline outcome: Alluvial plot on all
+
+```{r}
+
+
+library(ggalluvial)
+
+
+# Ensure your data is in the correct format for ggalluvial
+alluvial_data <- MainDB %>%
+  dplyr::select(ChildcareTypeEndline, ChildcareTypeBaseline, Assignment) %>%
+  dplyr::filter(!is.na(ChildcareTypeBaseline) & !is.na(ChildcareTypeEndline))
+
+# Create the alluvial plot
+ggplot(alluvial_data,
+       aes(axis1 = ChildcareTypeBaseline, axis2 = ChildcareTypeEndline)) +
+  geom_alluvium(aes(fill = ChildcareTypeBaseline), width = 1/12) +
+  geom_stratum(width = 1/12, fill = "gray") +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
+  scale_x_discrete(limits = c("Desired Care (During Pregnancy)", "Actual Care (Endline)"),
+                   expand = c(0.15, 0.15)) +
+  theme_minimal() 
+```
+
+On controls only with applications
+
+```{r}
+
+# Ensure your data is in the correct format for ggalluvial
+alluvial_data_Controls <- Control %>%
+  dplyr::select(ChildcareTypeEndline, ChildcareTypeBaseline, ECSApp) %>%
+  dplyr::filter(!is.na(ChildcareTypeBaseline) & !is.na(ChildcareTypeEndline)) %>% 
+  mutate(ECSApp = ifelse(ECSApp == 1, "Applied", "Did not apply"))
+
+# Create the alluvial plot
+ggplot(alluvial_data_Controls,
+       aes(axis1 = ChildcareTypeBaseline, axis2 = ECSApp, axis3 =  ChildcareTypeEndline)) +
+  geom_alluvium(aes(fill = ChildcareTypeBaseline), width = 1/12) +
+  geom_stratum(width = 1/12, fill = "gray") +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
+  scale_x_discrete(limits = c("Desired Care (During Pregnancy)", "Actual Care (Endline)"),
+                   expand = c(0.15, 0.15)) +
+  theme_minimal() +
+  labs(title = "Flow of Early Childcare Preferences to Actual Care",
+       x = "Stages",
+       y = "Number of Families")
+       
+
+```
+
+Low-SES vs High SES
+
+1\) High-SES
+
+```{r}
+# Ensure your data is in the correct format for ggalluvial
+alluvial_data_Controls_HighSES <- Control %>% filter(Educ == "Sup") %>% 
+  dplyr::select(ChildcareTypeEndline, ChildcareTypeBaseline, ECSApp) %>%
+  dplyr::filter(!is.na(ChildcareTypeBaseline) & !is.na(ChildcareTypeEndline)) %>% 
+  mutate(ECSApp = ifelse(ECSApp == 1, "Applied", "Did not apply"))
+
+# Create the alluvial plot
+ggplot(alluvial_data_Controls_HighSES,
+       aes(axis1 = ChildcareTypeBaseline, axis2 = ECSApp, axis3 =  ChildcareTypeEndline)) +
+  geom_alluvium(aes(fill = ChildcareTypeBaseline), width = 1/12) +
+  geom_stratum(width = 1/12, fill = "gray") +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
+  scale_x_discrete(limits = c("Desired Care (During Pregnancy)", "Actual Care (Endline)"),
+                   expand = c(0.15, 0.15)) +
+  theme_minimal() +
+  labs(title = "Flow of Early Childcare Preferences to Actual Care",
+       x = "Stages",
+       y = "Number of Families")
+
+```
+
+1\) High-SES
+
+```{r}
+
+# Ensure your data is in the correct format for ggalluvial
+alluvial_data_Controls_LowSES <- Control %>% filter(Educ == "Bac") %>%    dplyr::select(ChildcareTypeEndline, ChildcareTypeBaseline, ECSApp) %>%   dplyr::filter(!is.na(ChildcareTypeBaseline) & !is.na(ChildcareTypeEndline)) %>%    mutate(ECSApp = ifelse(ECSApp == 1, "Applied", "Did not apply"))  
+
+# Create the alluvial plot 
+ggplot(alluvial_data_Controls_LowSES,        aes(axis1 = ChildcareTypeBaseline, axis2 = ECSApp, axis3 =  ChildcareTypeEndline)) +   geom_alluvium(aes(fill = ChildcareTypeBaseline), width = 1/12) +   geom_stratum(width = 1/12, fill = "gray") +   geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +   scale_x_discrete(limits = c("Desired Care (During Pregnancy)", "Actual Care (Endline)"),                    expand = c(0.15, 0.15)) +   theme_minimal() +   labs(title = "Flow of Early Childcare Preferences to Actual Care",        x = "Stages",        y = "Number of Families")
+
+```
