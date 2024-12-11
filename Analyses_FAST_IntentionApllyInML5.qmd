@@ -432,7 +432,10 @@ mod_rf <-rand_forest() %>%
              importance = "permutation", # different way of assessing importance: to avoid that one variable always arrives after another one
              verbose = TRUE) %>% # keeps a lot of details for us
   set_mode("classification") %>%
-  set_args(trees = 4000)#update here
+  set_args(trees = 1636, 
+           mtry = 4,
+           min_n = 93
+           )#update here
 
 # Same steps again to fit the model
 # workflow
