@@ -1,0 +1,2599 @@
+---
+title: "Temptative Analyses"
+author: "Laudine Carbuccia"
+date: "2023-07-21"
+documentclass: report
+output:
+  bookdown::word_document2: 
+      reference_docx: "../StyleReliance.docx"
+      fig_caption: yes
+      toc: yes
+      toc_depth: 2
+  bookdown::pdf_book: 
+    latex_engine: pdflatex
+    fig_height: 6
+    fontsize: 12
+    fig_caption: yes
+    toc: yes
+    toc_depth: 4
+    keep_tex: yes
+    highlight: pygments
+    number_sections: yes
+  output: 
+---
+
+```{=html}
+<style>
+body {
+text-align: justify}
+</style>
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message=FALSE, warning=FALSE,fig.width = 8,fig.height = 5,fig.align = 'center',fig.pos = "H" #, 
+#cache.lazy = FALSE)
+)
+doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
+
+
+
+```
+
+```{r cran_packages, include=FALSE,eval=TRUE}
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
+##### load or install libraries %%%%%%%%%%%##
+#####%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%##
+
+rm(list=ls())
+
+#Create a vector of the package you need
+list.of.packages <- c("devtools", 
+                      "formatR", "latex2exp",#to knit documents with R and LaTeX (or Markdown), formatR makes code nice in outputs
+                      "tidyverse",'data.table', #many important package for data manipulation
+                      "lubridate", # to work with dates
+                      "readr","readxl",'haven', #to import and read data from R, Excel, CSV, STATA, SAS, SPSS
+                      "doParallel", 'parallel', # for parallel computing
+                      "modelsummary","ggh4x", #to make nice tables and also plots
+                      'interactions',
+                      "ggplot2","ggExtra","ggthemes","cowplot", "corrplot", "naniar", "rpart", "rpart.plot", 
+                       "viridis","RColorBrewer", ## for plots, with nice colors and themes
+                      "DeclareDesign",'randomizr','jtools','lfe',"fixest", "ivdesc","qte", #Package for estimation and other research design
+                    #  "ggmap","googleway", # for maps
+                      "hdm","did","DRDID", # for dif in dif and lasso
+                      "magick", "pdftools", #for tikz
+                      "equatiomatic", "flextable", "officer","htmltools",
+                                            "multcomp" ,           # for joint hypothesis testing
+                    "eeptools"           # to compute ages
+                      )
+
+#Check if they are all installed on your computer
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+#If they are not installed, then I'll download them from CRAN and install them.
+if(length(new.packages)) install.packages(new.packages, repos = "http://cran.us.r-project.org")
+
+#Install them
+invisible(lapply(list.of.packages, library, character.only = TRUE))
+
+#devtools::install_github("kupietz/kableExtra")
+
+library("kableExtra")
+
+#Some package have conflicting commands sometimes so I make sure I have the one I want
+select <- dplyr::select
+summarize <- dplyr::summarize
+
+# I choose to use colorblind friendly colors, I encourage you to do so .
+# The palette with grey:
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# The palette with black:
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+#GGplot default them : black and white.
+    theme_set(theme_bw())
+
+
+    
+```
+
+```{r dataset}
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#######-##-
+##### Import and clean the raw survey database %%%%%%%%%%%##
+#####%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#######-###-
+
+##Import data_full, the baseline dataset
+data_full <- read_csv("../Data/BaselinePremiersPas.csv")
+
+
+##Import data_tot_clean with excluded participants (the ones that were undocumented or did not leave their phone number)
+data_tot_clean <- read_csv("../Data/Full_dataset_PremiersPas_with_undocumented.csv") 
+
+
+
+#convert relevant VARIABLES INTO FACTORS
+##NB: pour ajouter les stats sur les heures, prendre le dataset du 24/10 et ajouter "'HOUR_1','HOUR_2','HOUR_3','HOUR_4',"
+names <- c("ResponseId", "SurveyorId", "MaternityWard", "Dep", "CodePostal", "DateArrival",
+           "DateArrival2", "SansPapier", "Relationship", "Language", "Preg7Less", "SmokePreg", 
+           "BreastFeedIntend", "OrderedEduc", "Educ", "Act3", "FmlyIncome", "Income", "ECSType7", "FrenchYN", 
+           "Intention.x", "ECSUsed", "ECSNeed", "ECSIdealAgeEntry", "AffordSubsidies", "AffordNMCostWB", "AffordOppCost", 
+           "AffordNMCostCareer", "DiscountRate", "AccessEasy", "AccessHours", "AccessInformalCare", "Norms", "NormsOpposedDK",
+           "LikertAccessInfo", "LikertReturnHK", "LikertAccessSoc", "TrustFam", "TrustFriend", "TrustAssMat", "TrustCreche", 
+           "DeprivClothes", "DeprivFood", "DeprivBills", "DeprivHolidays", "DeprivHousing", "InformalReciprocity", 
+           "LevelComprehensionExPost", "LevelExpressionExPost", "LevelInfoSubExPost", "LevelPartnerAnsweredExPost", 
+           "ComputerYN", "AgeSup32", "BirthPlace", "BirthPlace2", "OrderedEduc2", "Occupation", "Occupation2", 
+           "AfterBirthOccupation", "NUMCOM", "COM", "REG", "HighLowECEC", "Educ2", "Intention.y", "UsedECEC", "IntendUse",
+           "Assignment", "Which_wave", "labels", "blocksMatWaveStrata", "blocksMatWave", "code_commune", "code_departement"
+           
+)
+
+data_full[,names] <- lapply(data_full[,names] , factor)
+
+#convert relevant VARIABLES INTO numerical ones
+
+
+names_numerical <- c("AgeChild1", "AgeChild2", "AgeChild3", "AgeChild4", "AgeChild5", "AgeChild6", "AgeChild7", "AgeChild8",
+                     "Age", "KnowsCreche", "KnowsCrecheA", "KnowsCrechePub", "KnowsAssMat", "KnowsNotYet", "KnowsJE", "KnowsAutre",
+                     "KnowsPartage", "KnowsHG", "KnowsNounou", "KnowsNothing", "WantCreche", "WantCrecheA", "WantAssMat", "WantJE", 
+                     "WantAutre", "WantPartage", "WantHG", "WantNounou", "KnownNbTypeECS", "PregMonth", "BreastFeedLength",
+                     "BreastFeedIntend1or0", "AffordSubsidies1or0", "NormsOpposedN", "LikertReturnHK1or0", "TrustCreche1or0",
+                     "AffordCost", "NumberChildren", "AccessImpossible", "AccessHard", "AccessHardtoImpossible", "AccessEasy1or0", 
+                     "AccessEasyDK", "AccessNotHours", "AccessNotInformalCare", "AccessInformalCareAMAP", "ValGenerosity", 
+                     "ValIndependence", "ValSocialisation", "ValObedience", "ValEducation", "ValDK", "ValImagination", "ValNone", 
+                     "WorkBefore", "FmilyEarnLessThan2500", "EarnLessThan1500", "Intention1or0", "CODDEP", "CODREG", "PTOT", 
+                     "TAUXCOUV_COM", "TAUXCOUV_EPCI", "TAUXCOUV_DEP", "TAUXCOUV_NAT", "n", "strata", "group_id", "prixMoyen", 
+                     "PrixMedian", "surfaceReelleBati", "PrixMoyenM2Bati")
+data_full[,names_numerical] <- lapply(data_full[,names_numerical] , as.numeric)
+
+# Order relevant variables
+
+
+data_full <- data_full %>%  mutate(
+         OrderedEduc=factor(OrderedEduc, levels =
+             c("No school", "9-11", "Brevet", "CAP", "Bac", "Bac +2", "Bac + 3", "Bac + 4/5", "+ Bac+5"), ordered = TRUE),
+         Income = factor(Income, 
+                         levels = c("NSP","- 500","500-700", "1000-1500", 
+                                    "1500-2000", "2000-2500", "2500-3000", "3000-4500", "4500-5000",  "5000-6000", "Ne veut pas répondre" ), ordered = TRUE),
+         FmlyIncome = factor(FmlyIncome, 
+                             levels =c("NSP", "- 500", "500-700", "700-1000", "1000-1500", 
+                                       "1500-2000", "2000-2500", "2500-3000", "3000-4500", "4500-5000",
+                                       "5000-6000", "6000-7000", "7000-8000", "+8000", "Ne veut pas répondre"), ordered = TRUE),
+          AffordNMCostWBOrdered=factor(AffordNMCostWB,
+                               levels=c("Négatif",  "Je ne sais pas encore","Pas d'impact","Positif"), ordered = TRUE # would staying at home have a positive, 
+         ),                                                                   # negative or null impact on mother's well being
+         AffordOppCost=factor(AffordOppCost,
+                              levels=c("Négatif",  "Je ne sais pas encore", "Pas d'impact", "Positif"), ordered = TRUE # would staying at home have a positive, 
+         ),                                                                   # negative or null impact on household's income
+         AffordNMCostCareer=factor(AffordNMCostCareer, # would staying at home have a positive, 
+                                   levels=c("Négatif", "Pas d'impact", "Je ne sais pas encore","Positif"), ordered = TRUE # negative or null impact on mother's career
+         ),
+         AccessEasy=factor(AccessEasy,levels =c("impossible","quasiment impossible", # Whether accessing a slot in ECS is seen as easy
+                                                   "très difficile","assez difficile",
+                                                   "je ne sais pas","assez facile",
+                                                   "très facile"),ordered = TRUE), 
+         AccessHours=factor(AccessHours,levels =c("Oui", # Whether ECS opening hours fit parents working hours
+                                                     "Non, mais on prendra un autre mode de garde en plus","Je ne sais pas encore",
+                                                     "Non"),ordered = TRUE),
+         AccessInformalCare=factor(AccessInformalCare,levels =c("Oui, autant que nécessaire", # Whether accessing informal care is feasible
+                                                          "Oui, de temps en temps","Oui, pour dépanner / très ponctuellement",
+                                                          "Je ne sais pas encore",
+                                                          "Non"),ordered = TRUE),
+         Norms=factor(Norms,
+                      levels=c("Ne sait pas","Aucune","Une minorité","Moitié moitié","La plupart","Toutes"), ordered = TRUE # how many mothers in their surroundings use childcare 
+         ),
+     LikertAccessInfo=factor(LikertAccessInfo, # Is it feasible to access information about childcare
+                            levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE), # strongly disagree, disagree, don't know, agree, strongly agree
+    LikertReturnHK=factor(LikertReturnHK, # believe in childcare returns on investment: is a child that attended childcare better developed in preschool?
+                          levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord") , ordered = TRUE), # strongly disagree, disagree, don't know, agree, strongly agree
+    LikertAccessSoc=factor(LikertAccessSoc, # Does the mother have someone that can help with paperwork if needed
+                           levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE), # strongly disagree, disagree, don't know, agree, strongly agree
+    TrustFam=factor(TrustFam, # TRUST: Do the parents trust their close family (parents, brother, sister, etc.) to take care of the baby
+                    levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"),  ordered = TRUE
+    ),
+    TrustFriend=factor(TrustFriend, # TRUST: Do the parents trust their friends to take care of the baby
+                       levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE
+    ),
+    TrustAssMat=factor(TrustAssMat, # TRUST: Do the parents trust a private childminder to take care of the baby
+                       levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE
+    ),
+    TrustCreche=factor(TrustCreche, # TRUST: Do the parents trust their family to take care of the baby
+                       levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE
+    ),
+    DeprivClothes =factor(DeprivClothes,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to buy clothes?
+    DeprivFood    =factor(DeprivFood,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to buy food?
+    DeprivBills   =factor(DeprivBills,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to pay for the bills?
+    DeprivHolidays=factor(DeprivHolidays,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to go in holidays?
+    DeprivHousing =factor(DeprivHousing,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to pay for housing?
+    InformalReciprocity = factor(InformalReciprocity, 
+                                 levels = c( "Non", " Je ne souhaite pas répondre", "Oui, pour dépanner / très ponctuellement",
+                                              "Oui, de temps en temps", " Oui, très souvent"), ordered = TRUE), # Do the parents already take care of the children of others
+OrderedEduc2=factor(OrderedEduc2, levels  = c(
+  "No school", "9-11", "Brevet", "CAP", "Bac", "Bac +2", "Bac + 3", "Bac + 4/5", "+ Bac+5","Missing","No Partner"), ordered = TRUE),
+ECSIdealAgeEntry = factor(ECSIdealAgeEntry, 
+                          levels = c( "Ne sait pas", "Jamais", "Pendant ses trois premiers mois", "Pendant ses six premiers mois", "Pendant ses neuf premiers mois", "Pendant la première année", "Jusqu’à l’entrée à la maternelle" ) , ordered = TRUE), 
+Active = ifelse(as.character(Act3) == "NSP", "Inactive", as.character(Act3)), 
+Active = relevel(as.factor(Active), ref = "Inactive"), 
+Active1or0 = ifelse(as.character(Active) == "Inactive", 0, 1),
+Educ3 = fct_collapse(OrderedEduc, "Bac or Less" = c("No school", "9-11", "Brevet", "CAP", "Bac"), 
+                    "Undergrad" = c("Bac + 3", "Bac +2"), 
+                    "Graduate" = c("Bac + 4/5", "+ Bac+5") ), 
+Educ3Dad = fct_collapse(OrderedEduc2, "Bac or Less" = c("No school", "9-11", "Brevet", "CAP", "Bac"), 
+                    "Undergrad" = c("Bac + 3", "Bac +2"), 
+                    "Graduate" = c("Bac + 4/5", "+ Bac+5"), "Missing" = c("Missing", "No Partner" )), 
+Intention1or0 = ifelse(as.character(Intention.x) == "No", 0, 1)
+
+)
+
+
+#data_full$Edu3 = relevel(factor(data_full$Educ3), ref = "Bac or Less" )
+
+
+
+```
+
+# Part {-}: Brief description of the sample
+
+This first part is dedicated to a description of the sample.
+
+## Main characteristics of the dataset
+
+### Total sample
+
+`r data_tot_clean %>% nrow()` surveys have been completed overall. Responses with no contact information or from undocumented mothers were excluded, for ethical reasons for the latter.
+
+## Brief description of the participants included
+
+Over the `r data_full %>% nrow()` remaining participants,
+
+-   `r round(data_full %>% filter(Educ == "Bac") %>% nrow()/data_full %>% nrow()*100, digit = 2)` % are Low-SES (i.e., no tertiary education) (N=`r data_full %>% filter(Educ == "Bac") %>% nrow()`).
+
+-   `r round(data_full %>% filter(ECSUsed == "Non") %>% nrow()/data_full %>% nrow(), digit = 1)*100` % have never used ECS (N=`r data_full %>% filter(ECSUsed == "Non") %>% nrow()`)
+
+-   Single mothers: `r round(data_full %>% filter(SingleMum == TRUE) %>% nrow()/data_full %>% nrow(), digit = 1)*100` % (N =`r data_full %>% filter(SingleMum == TRUE) %>% nrow()`). Mothers were recruited between their fourth and ninth months of pregnancy.
+
+-   Primparae: `r round(data_full %>% filter(Primipare == TRUE) %>% nrow()/data_full %>% nrow(), digit = 1)*100` % (N =`r data_full %>% filter(Primipare == TRUE) %>% nrow()`)
+
+-   Digital divide: More than a third (`r round((data_full %>% filter(Educ == "Bac" & ComputerYN == "Non") %>% nrow()) / (data_full %>% filter(Educ == "Bac") %>% nrow())*100, 1)`%) of low-SES respondents don't have access to a computer compared to `r round((data_full %>% filter(Educ == "Sup" & ComputerYN == "Non") %>% nrow()) / (data_full %>% filter(Educ == "Sup") %>% nrow())*100, 1)`% for High-SES respondents. Similarly, one third (`r round((data_full %>% filter(FrenchYN == "Else" & ComputerYN == "Non") %>% nrow()) / (data_full %>% filter(FrenchYN == "Else") %>% nrow())*100, 1)`%) of mothers born abroad don't have access to a computer compared to `r round((data_full %>% filter(FrenchYN == "French" & ComputerYN == "Non") %>% nrow()) / (data_full %>% filter(FrenchYN == "French") %>% nrow())*100, 1)`% for non-migrants.
+
+## Main variables
+
+### Age
+
+The age of the participants follows a normal distribution:
+
+```{r Age, fig.cap= "Median and Mean Age of mothers in the sample (mean in red on the figure)"}
+MeanAge = data_full %>% summarize(mean = mean(Age), median = median(Age))
+
+regulartable(data_full %>% summarize(Mean = round(mean(Age), 1), Median = median(Age))) %>% 
+  autofit()
+
+
+data_full %>% 
+ggplot(aes(Age))+
+geom_density()+
+  geom_vline(data = MeanAge, aes(xintercept=mean, color = "red"), show.legend = FALSE)+ scale_fill_discrete(guide="none")
+
+```
+
+### Level of education of the mothers
+
+`r round(data_full %>% filter(Educ == "Bac") %>% nrow()/data_full %>% nrow()*100, digit = 2)` % of Low-SES (i.e., no tertiary education) (N=`r data_full %>% filter(Educ == "Bac") %>% nrow()`).
+
+```{r education, fig.width = 10, fig.height = 5, fig.cap= "Distribution of the level of education of mothers in the sample"}
+
+ggplot(data_full, aes(OrderedEduc, fill = OrderedEduc), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Level of education of the mother")+
+  labs(fill = "Mother's level of educ.", size = 20)
+```
+
+### Income range of the mothers
+
+A significant number of mothers included in the sample earn less than 500€ per month: it is the case for `r round(data_full %>% filter(Income == "- 500") %>% nrow()/data_full %>% nrow()*100, digit = 2)` % of them. `r round(data_full %>% filter(Income == "- 500" & SingleMum == TRUE) %>% nrow()/data_full %>% nrow()*100, digit = 2)` % of the total sample earn less than 500€ per month and are single mothers.
+
+```{r Income_mother, fig.width = 10, fig.height =5, fig.cap= "Distribution of the level of income of mothers in the sample" }
+data_full %>% 
+  filter(Income != "NSP" &  Income != "Ne veut pas répondre") %>% 
+ggplot( aes(Income, fill = Income),  colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Income range of the mother")+
+  scale_x_discrete(labels=c( '-500', '500-1000', 
+                            "1-1,5k", "1,5k, 2k", "2k-2,5k", "2,5k-3k", 
+                            "3k-4,5k", "4,5-5k", "5k-6k"))+
+  labs(fill = "Mother's income (€)", size = 20)
+```
+
+### Income range of the family
+
+```{r IncomeFamily , fig.width = 10, fig.height = 5, fig.cap= "Distribution of the level of income of families in the sample"}
+
+
+ggplot(data_full, aes(FmlyIncome, fill = FmlyIncome), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Income range of the family")+
+  scale_x_discrete(labels=c('NSP',  '-500', '500-1000', 
+                            "1-1,5k", "1,5k-2k", "2k-3k", 
+                            "3k-4,5k", "4,5-5k", "5k-6k", "6k-7k", 
+                            "7k-8k", "+8k", 'NVP'))+
+  labs(fill = "Family income (€)", size = 20)
+
+
+
+```
+
+### Occupation of the mother
+
+A majority (`r round(data_full %>% filter(Occupation == "Je travaille (y compris si congé maladie, maternité ou parental)") %>% nrow() / data_full %>% nrow(), digit = 1)*100`%) of mothers are employed at the date of the interview.
+
+```{r MomOccupationGraph, fig.width= 10, fig.cap= "Distribution of the occupation of mothers in the sample"}
+
+data_full %>% 
+ggplot(aes(Occupation, fill = Occupation), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Occupation status of the mother", fill = "Mothers's occupation")+
+  scale_x_discrete(labels=c('Autre', 'Chômage', 'Etudiante', "Sans acitivté pro", 
+                            "Travaille"))
+
+
+#data %>% 
+#  group_by(Occupation) %>% 
+#  mutate(Number_occ = n()) %>% 
+#  ungroup()%>% 
+    #ggplot(data, aes(Occupation, fill = Occupation), colour = cbPalette)+
+#  geom_bar()+
+ # labs( x = "Occupation status of the mother")+
+  #scale_x_discrete(labels=c('Autre', 'Pension', 'Chômage', 'Etudiante', "Sans activité pro", 
+ #                           "Travaille", "NSP", "NVP"))
+
+#+
+ #    geom_text(aes(label=Number_occ), position=position_dodge(width=0.9), vjust=-0.25)
+
+
+
+```
+
+### Migration status
+
+```{r MigrationGraph, fig.cap= "Distribution of the migration background of mothers in the sample"}
+
+
+data_full %>% 
+ggplot(aes(FrenchYN, fill = FrenchYN), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Distribution of mothers born in a French territory", fill = "Born in a French territory")
+
+
+```
+
+`r round(data_full %>% filter(FrenchYN == "Else") %>% nrow() / data_full %>% nrow(), digit = 2)*100`% of mothers are born abroad ('Else' in the figure). It should actually be quite close from the population data of Seine Saint Denis (93), Val de Marne (94) and Paris (75).
+
+#### Place of birth of migrant mothers
+
+Most of the mothers born abroad come from Sub-Saharan Africa and Middle East and North African section (MENA). The distribution of the birthplaces of participants is as follows:
+
+```{r tableMigration}
+
+regulartable(data_full %>% group_by(BirthPlace) %>% count(sort = TRUE)) %>% 
+  autofit() %>% 
+  set_caption(caption = "Place of birth of mothers in the sample")
+
+
+#TO DO: *compute date of arrival of the migrants*
+```
+
+Their date of arrival in France is as such:
+
+```{r tableArrivalDate, echo = FALSE}
+
+regulartable(data_full %>% filter(FrenchYN == "Else" & !is.na(DateArrival)) %>% group_by(DateArrival) %>% count(sort = TRUE)) %>%  autofit() %>% 
+  set_caption(caption = "Date of arrival of migrant mothers")
+
+
+```
+
+### Geographical distribution of the participants
+
+```{r tableDepartement}
+
+regulartable(data_full %>% group_by("Departement" = Dep) %>% count(sort = TRUE)) %>% 
+  autofit() %>% 
+  set_caption(caption = "Geographical distribution of the participants")
+
+
+```
+
+We have more people from 94 and 75 than from Seine Saint Denis. This is probably due to our recruitment strategy.
+
+# Part {-}: Childcare related outcomes
+
+## Childcare plans after birth
+
+Parents wanting to use an ECS are over-represented in the sample: `r round(data_full %>% filter(ECSPlanTo == TRUE) %>% nrow() / data_full %>% nrow(), digit = 1)*100` % want to use them.
+
+```{r GraphMig, fig.cap= "Childcare plan after birth of mothers in the sample"}
+data_full %>% 
+ggplot(aes(ECSPlanTo, fill = ECSPlanTo), colour = cbPalette)+
+  geom_bar()+
+  scale_x_discrete(labels=c("No", "Yes"))+
+  labs( x = "Want to use ECS", fill = "Want to use ECS")+scale_fill_manual(values = cbPalette, labels = c( "No", "Yes"))
+
+
+```
+
+### Analysis for low-SES
+
+Among low-SES parents, parents wanting to use an ECS are still over-represented in the sample: `r round(data_full %>% filter(Educ == "Bac" & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(Educ == "Bac") %>%  nrow(), digit = 1)*100` % want to use them compared to `r round(data_full %>% filter(Educ == "Sup" & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(Educ == "Sup") %>%  nrow(), digit = 1)*100` % for the high-SES parents The same holds for migrant families: `r round(data_full %>% filter(FrenchYN == "Else" & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(FrenchYN == "Else") %>%  nrow(), digit = 1)*100` % want to use ECS among them. Even more interestingly, even among inactive parents, parents wanting to use an ECS are still over-represented in the sample: `r round(data_full %>% filter(Act3 == "Inactive" & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(Act3 == "Inactive") %>%  nrow(), digit = 1)*100` % of inactive mothers want to use ECS.
+
+## Sensitivity analyses: robustness across several definitions of Socio-Economic Status
+
+### Education level of the mother
+
+Mothers with tertiary education are more likely to want ECS from about 14 percentage points.
+
+```{r IntentionBinaryEduc, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by binary level of education of the mother"}
+
+data_full%>%
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = Educ, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Level of education of the mother (Bac = no tertiary education)") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+```
+
+Here is the table for three simple regression models:
+
+1.  the first one estimates probability to intend to use ECS by mothers' level of education as a binary outcome (having a tertiary education or not).
+
+2.  the second one is the same model, but with strata fixed effects (MaternityWardXWave)
+
+3.  the third one is the same as 2., but controlling with a dummy for whether mothers are active (i.e. employed, student, etc.) or not.
+
+```{r ModelEducIntention, echo = FALSE,message=FALSE}
+
+
+IntentionSES        <- feols(Intention1or0 ~ Educ , data = data_full) 
+IntentionSESFE      <- feols(Intention1or0 ~ Educ | blocksMatWave, data = data_full, cluster = ~blocksMatWave) 
+IntentionSESActFE   <- feols(Intention1or0 ~ Educ + Active | blocksMatWave, data = data_full, cluster = ~blocksMatWave)  
+ 
+
+ modelsummary(list(
+"Intention to use ECS by education level (dummy no tertiary education)"      = IntentionSES, 
+"Intention to use ECS by education level (dummy no tertiary education) with Fixed Effects (MaternityWard^Wave)"      = IntentionSESFE, 
+"Intention to use ECS by education level and Activity with Fixed Effects (MaternityWard^Wave)"      = IntentionSESActFE
+
+
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave"),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Intention to use ECS by Education level binary",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+```
+
+There is still an effect of the level of education after controlling for whether the mother is currently active, but most of the effect of the level of education seem to go through the activity status of the mother.The R2 of the simple model with no control is quite low, but double by including mothers' activity status.
+
+For a more fine-grained analysis, we can break down the level of education of mothers in the sample in smaller categories:
+
+```{r graphEducDetailedIntention, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by binary level of education of the mother"}
+
+
+data_full%>%
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=OrderedEduc),position="stack",alpha=.2)+
+  stat_summary(aes(x = OrderedEduc, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Level of education of the mother ") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+```
+
+The 9-11 category's unexpected boost might be explained by the fact that these mothers are nearly exclusively from Sub-Saharan Africa and thus very favorable to ECS (see below, to be explored in more details).
+
+The coefficient table of the linear regression with the detailed level of education is currently hard to interpret:
+
+```{r ModelEducOrderedIntention, echo = FALSE,message=FALSE}
+
+#library(sjlabelled)
+
+# Assuming "OrderedEduc" is already a factor variable
+# If not, you can convert it to a factor as mentioned in the previous response
+#labels <- c("No school", "9-11", "Brevet", "CAP", "Bac", "Bac +2", "Bac + 3", "Bac + 4/5", "+ Bac+5")
+#data_full$OrderedEduc <- set_labels(data_full$OrderedEduc, labels = labels)
+#
+#data_full$OrderedEduc <- relevel(data_full$OrderedEduc, levels = c("No school", "9-11", "Brevet", "CAP", "Bac", #"Bac +2", "Bac + 3", "Bac + 4/5", "+ Bac+5"), ref ="Bac", ordered = TRUE)
+
+
+# Run regression analyses with explicit level labels
+IntentionEduc        <- feols(Intention1or0 ~ OrderedEduc, data = data_full) 
+IntentionEducFE      <- feols(Intention1or0 ~ OrderedEduc | blocksMatWave, data = data_full, cluster = ~blocksMatWave) 
+IntentionEducActFE   <- feols(Intention1or0 ~ OrderedEduc + Active | blocksMatWave, data = data_full, cluster = ~blocksMatWave)
+IntentionEduc3FE      <- feols(Intention1or0 ~ Educ3 | blocksMatWave, data = data_full, cluster = ~blocksMatWave) 
+
+
+
+# The rest of your code...
+modelsummary(list(
+  "Intention to use ECS by education level" = IntentionEduc, 
+  "Intention to use ECS by education level with Fixed Effects (MaternityWard^Wave)" = IntentionEducFE, 
+  "Intention to use ECS by education level and Activity with Fixed Effects (MaternityWard^Wave)" = IntentionEducFE
+), statistic = "{std.error} ({p.value})",
+   estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+   gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave"),
+   stars = c("***"=.01,"**"=.05,"*"=.1),
+   title="Intention to use ECS by Education level ordered",
+   notes=list("",
+              "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis"),
+   output = 'flextable',
+   escape = TRUE
+)
+
+
+
+
+
+```
+
+We can thus break the level of education in fewer categories such as "No tertiary degree", "Undergraduate", "Graduate".
+
+```{r graphEduc3Intention, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by level of education of the mother (3 categories)"}
+
+
+data_full%>%
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Educ3),position="stack",alpha=.2)+
+  stat_summary(aes(x = Educ3, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Level of education of the mother ") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+```
+
+```{r ModelEducOrdered3catIntention, echo = FALSE,message=FALSE}
+
+#library(sjlabelled)
+
+# Assuming "OrderedEduc" is already a factor variable
+# If not, you can convert it to a factor as mentioned in the previous response
+#labels <- c("No school", "9-11", "Brevet", "CAP", "Bac", "Bac +2", "Bac + 3", "Bac + 4/5", "+ Bac+5")
+#data_full$OrderedEduc <- set_labels(data_full$OrderedEduc, labels = labels)
+#
+#data_full$OrderedEduc <- level(data_full$OrderedEduc, levels = c("No school", "9-11", "Brevet", "CAP", "Bac", #"Bac +2", "Bac + 3", "Bac + 4/5", "+ Bac+5"), ref ="Bac", ordered = TRUE)
+
+
+# Run regression analyses with explicit level labels
+
+IntentionEduc3      <- feols(Intention1or0 ~ Educ3 , data = data_full) 
+IntentionEduc3FE    <- feols(Intention1or0 ~ Educ3 | blocksMatWave, data = data_full, cluster = ~blocksMatWave) 
+IntentionEducActFE  <- feols(Intention1or0 ~ Educ3 + Active | blocksMatWave, data = data_full, cluster = ~blocksMatWave) 
+
+
+
+# The rest of your code...
+modelsummary(list(
+  "Intention to use ECS by education level" = IntentionEduc3, 
+  "Intention to use ECS by education level with Fixed Effects (MaternityWard^Wave)" = IntentionEduc3FE, 
+  "Intention to use ECS by education level and Activity with Fixed Effects (MaternityWard^Wave)" = IntentionEducActFE
+), statistic = "{std.error} ({p.value})",
+   estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+   gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave"),
+   stars = c("***"=.01,"**"=.05,"*"=.1),
+   title="Intention to use ECS by Education level in 3 levels",
+   notes=list("",
+              "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis"),
+   output = 'flextable',
+   escape = TRUE
+)
+
+
+
+
+
+```
+
+The pattern is quite similar if we take the level of education of the *father* instead (with an reversed pattern for the 9-11 category):
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by binary level of education of the father"}
+
+
+data_full%>% filter(OrderedEduc2 != "Missing" & OrderedEduc2 != "No Partner"  ) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=OrderedEduc2),position="stack",alpha=.2)+
+  stat_summary(aes(x = OrderedEduc2, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Level of education of the father ") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+```
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by binary level of education of the father (in 3 categories)"}
+
+
+data_full%>% filter(Educ3Dad != "Missing") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Educ3Dad),position="stack",alpha=.2)+
+  stat_summary(aes(x = Educ3Dad, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Level of education of the father ") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+```
+
+### Migration background of the mother
+
+Mothers that are born is France are slightly more likely to want ECS compared to mothers born abroad. However, the difference is very small. Interestingly, there seems to be an interaction between the level of education and the migration background of the mother that will be explored in subsequent analyses.
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by binary migration background of the mother"}
+
+
+data_full%>%
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=FrenchYN),position="stack",alpha=.2)+
+  stat_summary(aes(x = FrenchYN, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+    stat_summary(aes(x = FrenchYN, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975))) +
+xlab("Migration background of the mother") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+```
+
+Here is the table for first three simple regression models:
+
+1.  the first one estimates probability to intend to use ECS by mothers' migration background as a binary outcome (being born in a French territory or not).
+
+2.  the second one is the same model, but with strata fixed effects (MaternityWardXWave).
+
+3.  the third model is the same as 2., but controlling for mothers' activity at the time of the interview.
+
+```{r ModelMigIntention, echo = FALSE,message=FALSE}
+
+IntentionMig                <- feols(Intention1or0 ~ FrenchYN , data = data_full) 
+IntentionMigFE              <- feols(Intention1or0 ~ FrenchYN | blocksMatWave, data = data_full, cluster = ~blocksMatWave) 
+IntentionMigActFE              <- feols(Intention1or0 ~ FrenchYN + Active| blocksMatWave, data = data_full, cluster = ~blocksMatWave) 
+ 
+
+ modelsummary(list(
+  "Intention to use ECS by migration background"      = IntentionMig, 
+  "Intention to use ECS by migration with Fixed Effects (MaternityWard^Wave)"      = IntentionMigFE, 
+  "Intention to use ECS by migration and activity with Fixed Effects (MaternityWard^Wave)"      = IntentionMigActFE
+
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave"),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Number of ECS Known (KnownNbTypeECS)",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+```
+
+We can see than the difference between mothers born in France and others is very small (less than 1 percentage point), but significant. However, when we introduce mothers' activity at the time of the interview, the effect of migration background disappears. The R2 of this simple model is even smaller than the one for the level of education.
+
+We can break down the migration background into more meaningful categories: birth regions.
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by region of origin of the mother"}
+
+  data_full%>% filter(BirthPlace != "Je ne souhaite pas répondre" & BirthPlace != "Autre"  ) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=BirthPlace),position="stack",alpha=.2)+
+  stat_summary(aes(x = BirthPlace, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Birth region of the mother ") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))+scale_x_discrete(labels=c( 'Subsaharan Afr.', 'South-America', 'Asia', "DOM-TOM", "Metr. France", "Europe", "MENA" ))
+
+  
+
+```
+
+Mothers from two world regions seems to be less likely to want to use ECS: mothers from Asia and mothers from Middle East and North Africa regions (MENA).
+
+The pattern seems quite similar if we look at fathers' region of birth instead:
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by region of origin of the father"}
+
+  data_full%>% filter(BirthPlace2 != is.na(BirthPlace2) ) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=BirthPlace2),position="stack",alpha=.2)+
+  stat_summary(aes(x = BirthPlace2, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Birth region of the father ") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))+scale_x_discrete(labels=c( 'Subsaharan Afr.', 'South-America', 'Asia', "DOM-TOM", "Metr. France", "Europe", "MENA" ))
+  
+
+
+```
+
+### Interaction between education level and migration background of the mother.
+
+In this paragraph, we dig deeper into the interaction between education level and migration background of the mother.
+
+```{r, echo = FALSE,message=FALSE}
+
+IntentionEducMig    <- feols( Intention1or0 ~ Educ + FrenchYN, data = data_full) 
+IntentionEducMigFE  <- feols( Intention1or0 ~ Educ + FrenchYN| blocksMatWave, data = data_full,cluster = ~blocksMatWave) 
+IntentionEducMigActFE  <- feols( Intention1or0 ~ Educ + FrenchYN + Active | blocksMatWave, data = data_full,cluster = ~blocksMatWave) 
+IntentionEducXMig   <- feols( Intention1or0 ~ Educ + FrenchYN + Educ*FrenchYN, data = data_full)
+IntentionEducXMigFE <- feols( Intention1or0 ~ Educ + FrenchYN + Educ*FrenchYN| blocksMatWave, data = data_full,cluster = ~blocksMatWave)  
+IntentionEducXMigActFE <- feols( Intention1or0 ~ Educ + FrenchYN + Active + Educ*FrenchYN| blocksMatWave, data = data_full,cluster = ~blocksMatWave)  
+ 
+
+ modelsummary(list(
+"Intention to use ECS by education level (dummy no tertiary education) and migration background of the mother" = IntentionEducMig, 
+"Intention to use ECS by education level (dummy no tertiary education) and migration background of the mother with FE"= IntentionEducMigFE,
+"Intention to use ECS by education level (dummy no tertiary education) and migration background of the mother controlling for activity with FE"= IntentionEducMigActFE,
+#"Intention to use ECS by Income level of the mother with Fixed Effects (MaternityWard^Wave)"      = IntentionIncome,
+#"Intention to use ECS by households income with Fixed Effects (MaternityWard^Wave)"      = IntentionIncomeFm,
+#"Intention to use ECS by education level (ordered) with Fixed Effects (MaternityWard^Wave)"      = IntentionEduc  ,
+"Intention to use ECS with interaction EducXMig"      = IntentionEducXMig,
+"Intention to use ECS with interaction EducXMig with Fixed Effects (MaternityWard^Wave)"      = IntentionEducXMigFE, 
+"Intention to use ECS with interaction EducXMig controlling for activity with Fixed Effects (MaternityWard^Wave)"      = IntentionEducXMigActFE
+
+   ), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave"),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Intention to use ECS, education level, and migration background",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+```
+
+There is still an effect of the level of education, even when controlling for migration background. The interaction between mothers' level of education and migration background is significant. However, when we control for whether the mother is active, the effect of migration background disappears. When we both introduce the interaction term and activity, it is the effect of education level that disappears (*how to interpret that?*).
+
+```{r, fig.cap="Interaction plot between Education level and migration background of the mother"}
+
+fittedmod <- glm(as.numeric(Intention1or0 ) ~ Educ*FrenchYN, data = data_full)
+
+cat_plot(fittedmod, pred = Educ, modx = FrenchYN, geom = "line")
+
+```
+
+```{r, fig.cap="Interaction plot between Education level and migration background of the mother controlling for activity"}
+
+fittedmod <- glm(as.numeric(Intention1or0 ) ~ Educ*FrenchYN + Active, data = data_full)
+
+cat_plot(fittedmod, pred = Educ, modx = FrenchYN, geom = "line")
+
+```
+
+### Level of income
+
+We nearly have a linear relationship between income during pregnancy and intention to use ECS after birth:
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by income of the mother"}
+
+  data_full%>% filter(Income != "NSP" & Income != "Ne veut pas répondre" & Income != is.na(Income)) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Income),position="stack",alpha=.2)+
+  stat_summary(aes(x = Income, y = Intention1or0*1000), 
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Maternal income (in €)") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+  
+
+
+```
+
+This relationship is not exactly the same for family income as there seems to be more a U shaped story: when family income is very low, mothers are incentivized to work and thus want to use ECS. It is not the same for household around minimum wage that may be more in a position to afford a traditional family model.
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by family income"}
+
+  data_full%>% filter(FmlyIncome != "NSP" & FmlyIncome != "Ne veut pas répondre" & FmlyIncome != is.na(Income)) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=FmlyIncome),position="stack",alpha=.2)+
+  stat_summary(aes(x = FmlyIncome, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Family income (in €)") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+  
+
+
+```
+
+### Occupation at the time of the interview
+
+Unemployed mothers (femme au foyer) are significantly less likely to want to use ECS.
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by activity of the mother"}
+
+  data_full%>% filter(Occupation != "NSP") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Occupation),position="stack",alpha=.2)+
+  stat_summary(aes(x = Occupation, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Occupation of the mother") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+
+  scale_x_discrete(labels=c( 'Other', 'Job seeker', 'Student', "Unemployed", "Employed"))
+
+
+
+```
+
+No significant difference is observed according to fathers' occupation.
+
+```{r, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by occupation of the father"}
+
+  data_full%>% filter(Occupation2 != "No Partner") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Occupation2),position="stack",alpha=.2)+
+  stat_summary(aes(x = Occupation2, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Occupation status of the mother") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+
+  scale_x_discrete(labels=c( 'Other', 'Job seeker', 'Student', "Unemployed", "Employed"))
+  
+
+
+```
+
+```{r, echo = FALSE,message=FALSE}
+
+IntentionOccup   <- feols( Intention1or0 ~ Occupation, data = data_full) 
+IntentionOccupFE  <- feols( Intention1or0 ~ Occupation| blocksMatWave, data = data_full,cluster = ~blocksMatWave) 
+IntentionOccupFatherFE  <- feols( Intention1or0 ~ Occupation2 | blocksMatWave, data = data_full,cluster = ~blocksMatWave) 
+ 
+
+ modelsummary(list(
+"Intention to use ECS by mothers' occupation" = IntentionOccup, 
+"Intention to use ECS by mothers' occupation with FE"= IntentionOccupFE,
+"Intention to use ECS by fathers' occupation with FE"= IntentionOccupFatherFE
+   ), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave"),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Intention to use ECS, occupation of the mother, occupation of the father",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+```
+
+Education level seems to play a role only when the mother is active:
+
+```{r GraphActiveIntentionEduc, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by occupation of the father"}
+
+  data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Active),position="stack",alpha=.2)+
+  stat_summary(aes(x = Active, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("The mother is...") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+
+```
+
+While migration background does not really seem to play any role at all:
+
+```{r GraphIntentionActivityMig, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by occupation of the father"}
+
+  data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Active),position="stack",alpha=.2)+
+  stat_summary(aes(x = Active, y = Intention1or0*1000, color = FrenchYN),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Occupation status of the mother") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+  
+
+
+```
+
+This raises the question of whether mothers' activity is predicted by level of education and migration. The results of the OLS indicates that mothers' level of education and migration background both predict whether mothers are active or not, but the interaction between the two is not significant.
+
+```{r ModActive, echo = FALSE,message=FALSE}
+
+ActiveEduc         <- feols( Active1or0 ~ Educ , data = data_full) 
+ActiveEducFE       <- feols( Active1or0 ~ Educ | blocksMatWave, data = data_full,cluster = ~blocksMatWave) 
+ActiveMig          <- feols( Active1or0 ~  FrenchYN , data = data_full)
+ActiveMigFE        <- feols( Active1or0 ~  FrenchYN | blocksMatWave, data = data_full,cluster = ~blocksMatWave)  
+ActiveEducXMigFE   <- feols( Active1or0 ~ Educ + FrenchYN +  Educ*FrenchYN| blocksMatWave, data = data_full,cluster = ~blocksMatWave)  
+ 
+
+ modelsummary(list(
+"Predicted activity by Educ level"                                                = ActiveEduc, 
+"Predicted activity by Educ level with FE"                                        = ActiveEducFE,
+"Predicted activity by Migrant background"                                        = ActiveMig,
+"Predicted activity by Migrant background with FE"                                = ActiveMigFE,
+"Activity with interaction EducXMig with Fixed Effects (MaternityWard^Wave)"      = ActiveEducXMigFE
+
+   ), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave"),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Activity, education level, and migration background",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+```
+
+## Timing of ECS wanted
+
+```{r }
+
+library(data.table)
+
+# Convert data_full to a data.table
+setDT(data_full)
+
+# Create an empty binary variable
+data_full[, ECSDateBinary := NA_character_]
+
+# Define the cutoff date
+cutoff_date <- as.Date("2023-09-02")
+
+# Set values for ECS dates before and after the cutoff
+data_full[ECSDate < cutoff_date, ECSDateBinary := "Before 09.2023"]
+data_full[ECSDate >= cutoff_date, ECSDateBinary := "After 09.2023"]
+
+
+chisq.test(data_full$Educ, data_full$ECSDateBinary)
+
+
+```
+
+High-SES mothers tend to put their child significantly earlier in ECS (X-squared = 16.377, df = 1, p-value = 5.191e-05). For instance, `r round(data_full %>% filter(Educ == "Sup" & ECSDateBinary == "Before 09.2023") %>% nrow() / data_full %>% filter(Educ == "Sup") %>% nrow(), digit = 1)*100`% of high-SES mothers want to put their child in ECS in September 2023 or before, while it is the case for only `r round(data_full %>% filter(Educ == "Bac" & ECSDateBinary == "Before 09.2023") %>% nrow() / data_full %>% filter(Educ == "Bac") %>% nrow(), digit = 1)*100`% low-SES mothers. Of course, this decision is likely to have heavy consequences for an effective access to ECS as most of the places are allocated around June for September.
+
+## Type of childcare wanted
+
+Among parents wanting to use an ECS, those wanting *crèches* (daycare centers) are over-represented: `r round(data_full %>% filter(ECSPlanTo == TRUE & WantCreche == TRUE) %>% nrow() / data_full %>% filter(ECSPlanTo == TRUE) %>%  nrow(), digit = 1)*100` % want to use them (`r round(data_full %>% filter( WantCreche == TRUE) %>% nrow() / data_full %>%  nrow(), digit = 1)*100` % on the general population).
+
+```{r}
+   
+
+data_full %>% 
+  filter(ECSPlanTo == TRUE) %>% 
+ggplot(aes(ECSType7, fill = ECSType7), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Type of early childcare wanted for the child", fill = "")+
+coord_flip()
+
+
+```
+
+### Analysis for low-SES
+
+Again, the pattern is quite similar if we restrict the analyses to low-SES mothers: `r round(data_full %>% filter(Educ == "Bac" &  WantCreche == TRUE & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(Educ == "Bac" & ECSPlanTo == TRUE ) %>%  nrow(), digit = 1)*100` % want to use daycare. The same holds for migrant families: `r round(data_full %>% filter(FrenchYN == "Else" &  WantCreche == TRUE & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(FrenchYN == "Else" & ECSPlanTo == TRUE ) %>%  nrow(), digit = 1)*100` % want to use them. Even more interestingly, even among inactive parents, the proportion wanting to use daycare is still quite high and the pattern is the same: `r  round(data_full %>% filter(Act3 == "Inactive" &  WantCreche == TRUE & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(Act3 == "Inactive" & ECSPlanTo == TRUE ) %>%  nrow(), digit = 1)*100` %. Only the drop-in daycare (halte-garderies) has a slightly higher proportion compared to the general population, but the increase is very modest: `r round((data_full %>% filter(Act3 == "Inactive" & WantHG == TRUE & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(Act3 == "Inactive" & ECSPlanTo == TRUE) %>% nrow() *100 ) - (data_full %>% filter(WantHG == TRUE & ECSPlanTo == TRUE) %>% nrow() / data_full %>% filter(ECSPlanTo == TRUE) %>% nrow()*100), digit = 1)` percentage points.
+
+```{r, fig.width = 40, fig.height = 30}
+
+   
+data_full %>% filter(Act3 == "Inactive") %>% 
+ggplot(aes(ECSType7, fill = ECSType7), colour = cbPalette)+
+  geom_bar()+
+  labs( x = "Type of early childcare wanted for the child for inactive mothers", fill = "", size = 20)+ theme(text=element_text(size=50))
+
+
+```
+
+This raises the question of the types of ECS than are known by mothers. Maybe crèches is the only structure they know of.
+
+# Part {-}: Information dynamics
+
+## Number of ECS known
+
+```{r, echo = FALSE}
+# Mean number of ECS known for the general population 
+ meanECSKnownTotalPop = round(mean(data_full$KnownNbTypeECS), 2)
+
+# Mean for high-SES
+meanECSKnownHighSES = round(data_full %>% filter(Educ == "Sup") %>%  summarize( MeanECSKnownLowSES = mean(KnownNbTypeECS)), 1) 
+
+# Mean for low-SES
+meanECSKnownLowSES = round(data_full %>% filter(Educ == "Bac") %>%  summarize( MeanECSKnownLowSES = mean(KnownNbTypeECS)), 1) 
+
+
+# Mean for migrant
+meanECSKnownMigrant = round(data_full %>% filter(FrenchYN == "Else") %>%  summarize( MeanECSKnownMig = mean(KnownNbTypeECS)), 1)
+
+# Mean for Non Mig
+meanECSKnownNonMig = round(data_full %>% filter(FrenchYN == "French") %>%  summarize( MeanECSKnownNonMigr = mean(KnownNbTypeECS)),1)
+
+
+# Mean for inactive
+meanECSKnownInactive = round(data_full %>% filter(Act3 == "Inactive") %>%  summarize( MeanECSKnownInactive = mean(KnownNbTypeECS)),1)
+
+# Mean for Active mothers
+meanECSKnownActive = round(data_full %>% filter(Act3 == "Active") %>%  summarize( MeanECSKnownActiv = mean(KnownNbTypeECS)), 1)
+
+
+
+```
+
+First, low-SES mothers knew on average significantly less ECS types than their more affluent counterparts. When asked to tell us all the ECS type they knew, mothers knew `r meanECSKnownTotalPop` ECS types on average. But while high-SES mothers knew on average `r meanECSKnownHighSES` ECS types, low-SES mothers knew on average `r meanECSKnownLowSES` of them (t = -13.2, p-value \< 2.2e-16).
+
+This is even more true for migrants mothers that knew `r meanECSKnownMigrant` ECS types on average regardless of their socio-economic background (t = -18.845, p-value \< 2.2e-16) and for inactive mothers (M inactive = `r meanECSKnownInactive`). This effect is still significant after controlling for activity and education level. Therefore, while migration background doesn't seem to affect ECS intention much, it may play a significant role in information dynamics.
+
+```{r tbleNumberECSKnownSES, echo = FALSE,message=FALSE}
+
+# Regressions Number of ECS Known (KnownNbTypeECS)
+
+NumberECSKnownEduc          <- feols(KnownNbTypeECS ~ Educ, data = data_full) 
+NumberECSKnownEducFE        <- feols(KnownNbTypeECS ~ Educ | blocksMatWave, data = data_full, cluster = ~blocksMatWave) 
+NumberECSKnownMigFE         <- feols(KnownNbTypeECS ~ FrenchYN | blocksMatWave, data = data_full,cluster = ~blocksMatWave)
+NumberECSKnownActivityFE    <- feols(KnownNbTypeECS ~ Active | blocksMatWave, data = data_full,cluster = ~blocksMatWave)
+NumberECSKnownEducMigFE     <- feols(KnownNbTypeECS ~ Educ + FrenchYN| blocksMatWave, data = data_full,cluster = ~blocksMatWave)
+NumberECSKnownEducMigActFE  <- feols(KnownNbTypeECS ~ Educ + FrenchYN + Active| blocksMatWave, data = data_full,cluster = ~blocksMatWave) 
+NumberECSKnownEducXMigFE    <- feols( KnownNbTypeECS ~ Educ + FrenchYN + Educ*FrenchYN| blocksMatWave, data = data_full,cluster = ~blocksMatWave) 
+NumberECSKnownEducXMigActFE <- feols( KnownNbTypeECS ~ Educ + FrenchYN + Active + Educ*FrenchYN| blocksMatWave, data = data_full,cluster = ~blocksMatWave) 
+
+
+ modelsummary(list(
+   "Number of ECS Known by education level "                                        = NumberECSKnownEduc,
+   "Number of ECS Known by education level with Fixed Effects (MaternityWard^Wave)" = NumberECSKnownEducFE, 
+   "Number of ECS Known by migration status with FE"                                = NumberECSKnownMigFE, 
+   "Number of ECS Known by mother's activity status with FE"                        = NumberECSKnownActivityFE, 
+   "Number of ECS Known by educ and mig with FE"                                    = NumberECSKnownEducMigFE,
+   "Number of ECS Known by educ and mig and activity with FE"                       = NumberECSKnownEducMigActFE,
+   "Number of ECS Known with interaction EducXMig and FE"                           = NumberECSKnownEducXMigFE,
+   "Number of ECS Known with interaction EducXMig controlling for Activity with FE" = NumberECSKnownEducXMigActFE
+   ), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave"),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Number of ECS Known (KnownNbTypeECS)",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+```
+
+### Relationship between ECS known and intention
+
+There is an upward slopping trend between the number of ECS known and intention: the more ECS are known by mother, the more likely they are to want to use ECS.
+
+```{r GraphIntentionNbrECSKEduc, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by number of ECS known"}
+
+  data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=KnownNbTypeECS),position="stack",alpha=.2)+
+  stat_summary(aes(x = KnownNbTypeECS, y = Intention1or0*1000) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+  stat_summary(aes(x = KnownNbTypeECS, y = Intention1or0*1000, color = Educ) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Number of ECS known") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+  
+
+
+```
+
+(see \@ref(Appendix 1) for the detailed regression table)
+
+## Types of ECS known
+
+```{r, echo = FALSE,message=FALSE}
+# Proportion of low SES that know only creche
+PropKnowOnlyCrecheLowSES = round((data_full %>% filter(Educ == "Bac" & KnowsCrecheOnly == TRUE ) %>% nrow()/ data_full %>% filter(Educ == "Bac") %>% nrow())*100, 1)
+
+# Proportion of high SES that know only creche
+PropKnowOnlyCrecheHighSES = round((data_full %>% filter(Educ == "Sup" & KnowsCrecheOnly == TRUE ) %>% nrow()/ data_full %>% filter(Educ == "Sup") %>% nrow())*100, 1)
+
+# Proportion of migrant that know only creche
+PropKnowOnlyCrecheMig = round(data_full %>% filter(FrenchYN == "Else" & KnowsCrecheOnly == TRUE ) %>% nrow()/ data_full %>% filter(FrenchYN == "Else") %>% nrow(), 2)
+
+# Proportion of non migrant that know only creche
+PropKnowOnlyCrecheNonMig = round((data_full %>% filter(FrenchYN == "French"& KnowsCrecheOnly == TRUE ) %>% nrow()/ data_full %>% filter(FrenchYN == "French") %>% nrow())*100, 1)
+
+
+# Proportion of active mothers that know only creche
+PropKnowOnlyCrecheActive = round((data_full %>% filter(Act3 == "Active" & KnowsCrecheOnly == TRUE ) %>% nrow()/ data_full %>% filter(Act3 == "Active") %>% nrow())*100, 1)
+
+# Proportion of inactive mothers that know only creche
+PropKnowOnlyCrecheInactive = round((data_full %>% filter(Act3 != "Active" & KnowsCrecheOnly == TRUE ) %>% nrow()/ data_full %>% filter(Act3 !="Active") %>% nrow())*100, 1)
+
+```
+
+
+
+```{r, echo = FALSE,message=FALSE}
+
+# Probability to know only crèche
+
+
+CrecheOEduc             <- feols(KnowsCrecheOnly ~ Educ, data = data_full)
+CrecheOEducFE           <- feols(KnowsCrecheOnly ~ Educ | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+CrecheOMig              <- feols(KnowsCrecheOnly ~ FrenchYN, data = data_full)
+CrecheOMigFE            <- feols(KnowsCrecheOnly ~ FrenchYN | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+CrecheOMigEducMatFE     <- feols(KnowsCrecheOnly ~ Educ + FrenchYN | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+CrecheOMigEducMatActFE  <- feols(KnowsCrecheOnly ~ Educ + FrenchYN + Active | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+CrecheOMigXEducFE       <- feols( KnowsCrecheOnly ~ Educ + FrenchYN + Educ*FrenchYN | blocksMatWave, data = data_full,cluster = ~ blocksMatWave)
+CrecheOMigXEducActFE    <- feols( KnowsCrecheOnly ~ Educ + FrenchYN + Educ*FrenchYN + Active| blocksMatWave, data = data_full,cluster = ~ blocksMatWave )
+
+
+
+modelsummary(list(
+"Knows Only Crèche by Educ level" = CrecheOEduc,
+"Knows Only Crèche by Educ level with Fixed Effects" = CrecheOEducFE,
+"Knows Only Crèche by Migration status " = CrecheOMig,     
+"Knows Only Crèche by Migration status with Fixed Effects " = CrecheOMigFE,     
+"Knows Only Crèche by Educ level control Mig with Fixed Effects" = CrecheOMigEducMatFE,
+"Knows Only Crèche by Educ level control Mig and activity with Fixed Effects" = CrecheOMigEducMatActFE,
+"Knows Only Crèche intrection MigxEduc with Fixed Effects" = CrecheOMigXEducFE, 
+"Knows Only Crèche intrection MigxEduc controlling for Activity with Fixed Effects" = CrecheOMigXEducActFE 
+
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs",  "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Probability to know only crèche",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+# Proportion of active mothers that know only creche
+PropKnowHGActive = round(data_full %>% filter(Act3 == "Active" & KnowsHG == TRUE ) %>% nrow()/ data_full %>% filter(Act3 == "Active") %>% nrow(), 2)
+
+# Proportion of inactive mothers that know only creche
+PropKnowHGInactive = round(data_full %>% filter(Act3 != "Active" & KnowsHG == TRUE ) %>% nrow()/ data_full %>% filter(Act3 !="Active") %>% nrow(), 2)
+                                                                                                                      
+
+```
+
+The interaction between the level of education and migration background is significant, along with all the other variables of the regressions.
+
+### Relationship between knowing only crèches and intention
+
+Knowing only crèche does not seem to contribute much to the intention to use ECS (see \@ref(Appendix 2) for the detailed regression table). If anything, mothers born in France are slightly less likely to want to use ECS if they know only crèche (the interaction is significant, p = 0.004).
+
+```{r GraphIntentionKOnlyCrecgeEduc, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by number of ECS known"}
+
+  data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=KnowsCrecheOnly),position="stack",alpha=.2)+
+  stat_summary(aes(x = KnowsCrecheOnly, y = Intention1or0*1000) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+  stat_summary(aes(x = KnowsCrecheOnly, y = Intention1or0*1000, color = Educ) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Knows only crèche") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+  
+
+
+```
+
+```{r GraphIntentionKOnlyCrecheMig, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by number of ECS known"}
+
+  data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=KnowsCrecheOnly),position="stack",alpha=.2)+
+  stat_summary(aes(x = KnowsCrecheOnly, y = Intention1or0*1000) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+  stat_summary(aes(x = KnowsCrecheOnly, y = Intention1or0*1000, color = FrenchYN) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Knows only crèche") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+  
+
+
+```
+
+## Cost of crèche
+
+```{r, echo = FALSE}
+
+# Proportion of ppl not knowing at all the cost of ECS (= answering "don't know" when asked) on the general population   
+CostNSP = round((data_full %>% filter(AffordCostDK == TRUE) %>% nrow()) / (data_full %>% nrow())*100, 1)
+
+# Proportion of ppl not knowing at all the cost of ECS (= answering "don't know" when asked) among ppl that have never used ECS
+CostNSPNU = round((data_full %>% filter(ECSUsed == "Non" & AffordCostDK == TRUE) %>% nrow()) / (data_full %>% filter(ECSUsed == "Non") %>%  nrow())*100, 1)
+
+
+# Proportion of Low-SES ppl not knowing at all the cost of ECS (= answering "don't know" when asked) among ppl that have never used ECS
+PropNSPCostLow = round((data_full %>% filter(Educ == "Bac" & ECSUsed == "Non" & AffordCostDK == TRUE) %>% nrow()) / (data_full %>%  filter(Educ == "Bac" & ECSUsed == "Non") %>% nrow())*100, 1)
+
+# Proportion of High-SES ppl not knowing at all the cost of ECS (= answering "don't know" when asked) among ppl that have never used ECS
+PropNSPCostHigh =round((data_full %>% filter(Educ == "Sup" & ECSUsed == "Non" & AffordCostDK == TRUE) %>% nrow()) / (data_full %>%  filter(Educ == "Sup" & ECSUsed == "Non") %>% nrow())*100, 1)
+
+
+
+```
+
+Relatively few people had an idea of what the cost of childcare is (regardless of whether this idea is accurate or not): `` `r CostNSP` ``% of parents couldn't tell us anything about the price of childcare (`` `r CostNSPNU` ``% of parents that have never used ECS). Low-SES mothers were significantly less likely to have an idea of the costs of a place, even if we restrict the analyses only to the ones that have never used ECS: the proportion were `` `r PropNSPCostLow` ``% for low-SES mothers, compared to `` `r PropNSPCostHigh` ``% for high-SES mothers.
+
+```{r, echo = FALSE}
+# Do the linear models
+
+# Do the linear models
+
+
+AffordCostDKEduc                    <- feols(AffordCostDK ~ Educ, data = data_full)
+AffordCostDKEducFE                  <- feols(AffordCostDK ~ Educ | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)    
+AffordCostDKMig                     <- feols(AffordCostDK ~ FrenchYN, data = data_full)
+AffordCostDKMigFE                   <- feols(AffordCostDK ~ FrenchYN | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)    
+AffordCostDKEducMigFE               <- feols(AffordCostDK ~ Educ + FrenchYN | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+AffordCostDKEducEveruUsedECSFE      <- feols(AffordCostDK ~ Educ + ECSUsed | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+AffordCostDKMigEveruUsedECSFE       <- feols(AffordCostDK ~ FrenchYN + ECSUsed | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+AffordCostDKEveruUsedECSMigXEducFE  <-  feols( AffordCostDK ~ Educ + FrenchYN + ECSUsed+ Educ*FrenchYN | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+
+
+
+modelsummary(list(
+#"Have no idea of the price by education level"                              = AffordCostDKEduc,                  
+"Have no idea of the price by education level with FE"                      = AffordCostDKEducFE,                
+#"Have no idea of the price by migration status"                             = AffordCostDKMig,                   
+"Have no idea of the price by migration status with FE"                     = AffordCostDKMigFE,              
+"Have no idea of the price by Educ control for migration status with FE"    = AffordCostDKEducMigFE,            
+"Have no idea of the price by Educ controlling for use with FE"             = AffordCostDKEducEveruUsedECSFE,    
+"Have no idea of the price by migration status controlling for use with FE" = AffordCostDKMigEveruUsedECSFE,     
+"Have no idea of the price interaction Migration and Educ with FE"          = AffordCostDKEveruUsedECSMigXEducFE 
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Probability to have no idea of the cost of a place in crèche",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+
+
+```
+
+### Relationship between having no idea of ECS costs and intention to use ECS
+
+Going back to our qualitative evidence, we saw that not knowing the cost of childcare can have asymmetrical consequences depending on socioeconomic status. While high-SES families are confident they can afford the cost, no matter what it is (or nearly), low-SES families will be more reluctant to apply because they "cannot end up with another bill they cannot pay".
+
+Running the regressions (see \@ref(Appendix 3) for the detailed regression table), we see that there is a significant negative impact of no knowing the costs on ECS intention (p\< 0.0005), even after controlling for Education level, Migration background, and Activity. As expected given the figures below, none of the interactions with migration background nor education level is significant.
+
+```{r GraphIntentionAffordDKEduc, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by number of ECS known"}
+
+  data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=AffordCostDK),position="stack",alpha=.2)+
+  stat_summary(aes(x = AffordCostDK, y = Intention1or0*1000) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+  stat_summary(aes(x = AffordCostDK, y = Intention1or0*1000, color = Educ) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Have no idea of ECS costs") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+  
+
+
+```
+
+```{r GraphIntentionAffordMig, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by number of ECS known"}
+
+  data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=AffordCostDK),position="stack",alpha=.2)+
+  stat_summary(aes(x = AffordCostDK, y = Intention1or0*1000) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+  stat_summary(aes(x = AffordCostDK, y = Intention1or0*1000, color = FrenchYN) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Have no idea of ECS costs") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+  
+
+
+```
+
+## Subsidies
+
+```{r, desc subsidies,  echo = FALSE}
+
+KnowsSubGen = round((data_full %>% filter(AffordSubsidies == "Yes") %>% nrow()) / (data_full %>%  
+  filter() %>% nrow())*100, 1)
+
+KnowsSubNU = round((data_full %>% filter(ECSUsed == "Non" & AffordSubsidies == "Yes") %>% nrow()) / (data_full %>%  
+  filter(ECSUsed == "Non") %>% nrow())*100, 1)
+
+  
+KnowsSubNULow = round((data_full %>% filter(ECSUsed == "Non" & Educ == "Bac" & AffordSubsidies == "Yes") %>% nrow()) / (data_full %>% filter(ECSUsed == "Non" & Educ == "Bac" ) %>% nrow())*100, 1)
+
+KnowsSubNUHigh = round((data_full %>% filter(ECSUsed == "Non" & Educ == "Sup" & AffordSubsidies == "Yes") %>% nrow()) / (data_full %>% filter(ECSUsed == "Non" & Educ == "Sup" ) %>% nrow())*100, 1)
+
+  
+Prop_NSP_sub_High = round((data_full %>% filter(AffordSubsidies == "Yes"  & Educ == "Sup") %>% nrow()) / (data_full %>% filter( Educ == "Sup") %>% nrow())*100, 2)
+
+Prop_NSP_sub_low = round((data_full %>% filter(AffordSubsidies == "Yes"  & Educ == "Bac") %>% nrow()) / (data_full %>% filter( Educ == "Bac") %>% nrow())*100, 2)
+
+
+```
+
+Relatedly, low-SES mothers were also significantly less likely to know the ECS costs are reduced by subsidies, even after controlling for past ECS use (% low-SES = `r KnowsSubNULow`, % high-SES = `r KnowsSubNUHigh`, p\<0.001)
+
+```{r,  LinearSubsidies,echo = FALSE}
+# Do the linear models
+
+KnowsSubsidiesEduc    <-feols(AffordSubsidies1or0 ~ Educ, data = data_full) 
+KnowsSubsidiesEducFE    <-feols(AffordSubsidies1or0 ~ Educ | blocksMatWave, data = data_full, cluster = ~ blocksMatWave) 
+KnowsSubsidiesMig     <-feols(AffordSubsidies1or0 ~ FrenchYN | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+KnowsSubsidiesEducMig <-feols(AffordSubsidies1or0 ~ Educ + FrenchYN| blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+KnowsSubsidiesEducUsed<-feols(AffordSubsidies1or0 ~ Educ + ECSUsed | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+KnowsSubsidiesMigUsed <-feols(AffordSubsidies1or0 ~ FrenchYN + ECSUsed | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+KnowsSubsidiesEducXMig<-feols(AffordSubsidies1or0 ~ Educ + FrenchYN + Educ*FrenchYN| blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+
+
+modelsummary(list(
+"Knows that the price is reduce through subsidies by Educ" = KnowsSubsidiesEduc,  
+"Knows that the price is reduce through subsidies by Educ with FE" = KnowsSubsidiesEducFE,  
+"Knows that the price is reduce through subsidies by Mig" = KnowsSubsidiesMig,   
+"Knows that the price is reduce through subsidies by Educ and Mig" = KnowsSubsidiesEducMig, 
+"Knows that the price is reduce through subsidies by Educ and ever used" = KnowsSubsidiesEducUsed,
+"Knows that the price is reduce through subsidies by mig and ever used " = KnowsSubsidiesMigUsed, 
+"Knows that the price is reduce through subsidies EducXMig " = KnowsSubsidiesEducXMig
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Probability to know that the price of crèche is reduced through subsidies",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+
+```
+
+### Relationship between knowing that ECS cost is reduced through subsidies and intention to use ECS
+
+Running the regressions (see \@ref(Appendix 4) for the detailed regression table), we see that there is a significant negative impact of not knowing that ECS cost is reduced through subsidies on ECS intention (p\< 0.0005), even after controlling for Education level, Migration background, and Activity. While the interaction between not knowing about the subsidies and migration background is not significant, the one with education level is.
+
+```{r GraphIntentionSubsidiesEduc, echo = FALSE,message=FALSE, fig.cap="Intention to use ECS by number of ECS known"}
+
+  data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=as.factor(AffordSubsidies1or0)),position="stack",alpha=.2)+
+  stat_summary(aes(x = as.factor(AffordSubsidies1or0), y = Intention1or0*1000) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+  stat_summary(aes(x = as.factor(AffordSubsidies1or0), y = Intention1or0*1000, color = Educ) ,
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Knows that ECS cost is reduced through subsidies") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+
+  scale_x_discrete(labels = c("No", "Yes"))
+  
+
+
+```
+
+# Parents's perceptions and their relationship to ECS use intentions
+
+## Accessibility
+
+```{r accessibility, fig.cap="Intention to use ECS by perceived accessibility"}
+
+
+
+data_full%>% filter(AccessEasy != "je ne sais pas") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=AccessEasy ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = AccessEasy, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Perceived diffculty of accessing a place") + ylab("Pr (Intention)")+
+  stat_summary(aes(x = AccessEasy, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Perceived diffculty of accessing a place") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+
+  scale_x_discrete(labels = c("impossible", "nearly impossible", "very hard", "hard", "easy", "very easy"))
+
+
+
+```
+
+Perceived access.... has no effect see app 5
+
+```{r accessibility hours}
+data_full %>% filter(AccessHours != "Je ne sais pas encore") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=AccessHours ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = AccessHours, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Perceived mismatch between ECS opening hours and work schedule") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+```
+
+## Norms
+
+```{r norms}
+
+
+
+data_full %>% filter(Norms != "Ne sait pas") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=Norms ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = Norms, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Perceived proportion of family member and friends using childcare around") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+
+
+data_full %>% 
+ggplot(aes(NormsOpposedN, as.numeric(Intention1or0), color = Educ))+
+  stat_smooth(method="glm", formula=y~x,
+alpha=0.2, size=2) +
+xlab("Perceived number of family members and friends opposed to ECS use (over the 10 closest)") + ylab("Pr (Intention)")
+
+data_full %>% 
+ggplot(aes(NormsOpposedN, as.numeric(Intention1or0)))+
+  stat_smooth(method="glm", formula=y~x,
+alpha=0.2, size=2) +
+xlab("Perceived number of family members and friends opposed to ECS use (over the 10 closest)") + ylab("Pr (Intention)")
+
+
+data_full %>% 
+ggplot(aes(as.numeric(LikertReturnHK), as.numeric(Intention1or0), color = Educ))+
+  stat_smooth(method="glm", formula=y~x,
+alpha=0.2, size=2, aes(fill = Educ)) +
+xlab("Belief in childcare returns") + ylab("Pr (Intention)")
+
+
+
+data_full %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=LikertReturnHK),position="stack",alpha=.2)+
+  stat_summary(aes(x = LikertReturnHK, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Belief in childcare returns") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+data_full %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=LikertReturnHK ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = LikertReturnHK, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Belief in childcare returns") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+
+
+```
+
+## Perceived monetary and non monetary costs of using childcare versus staying at home
+
+```{r Opportunitycost}
+
+data_full %>% 
+ggplot(aes(as.numeric(AffordCost), as.numeric(Intention1or0), color = Educ))+
+  stat_smooth(method="glm", formula=y~x,
+alpha=0.2, size=2, aes(fill = Educ)) +
+xlab("Perceived cost of childcare") + ylab("Pr (Intention)")
+
+
+data_full %>%
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=AffordOppCost ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = AffordOppCost, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Perceived cost of earnings of staying at home (Negative - Don't know yet - No impact - Positive)") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+data_full %>%
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=AffordNMCostWB ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = AffordNMCostWB, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Perceived cost on well being of staying at home (Negative - Don't know yet - No impact - Positive)") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+data_full %>%
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=AffordNMCostCareer,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = AffordNMCostCareer, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+  xlab("Perceived cost of staying at home on the career (Negative - Don't know yet - No impact - Positive)") + 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+```
+
+## Trust in Early Childcare Services
+
+```{r Trust}
+
+data_full%>%
+  filter(!is.na(TrustCreche)) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=TrustCreche ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = TrustCreche, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Trust in crèche to take care of one's child") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+
+data_full %>%
+  filter(!is.na(TrustAssMat)) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=TrustAssMat ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = TrustAssMat, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Trust in assmat to take care of one's child") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+data_full %>%
+  filter(!is.na(TrustFam)) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=TrustFam ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = TrustFam, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Trust in relatives to take care of one's child") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+data_full %>%
+  filter(!is.na(TrustFriend)) %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=TrustFriend ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = TrustFriend, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Trust in friends to take care of one's child") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+
+
+```
+
+## Percived Intensity of ECS Needed
+
+```{r ECS_Need}
+
+data_full%>%
+  filter(!is.na(ECSNeed) & ECSNeed != "Ne sait pas encore") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=ECSNeed ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = ECSNeed, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Intensity of ECS needed") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))
+
+
+
+```
+
+## ECS Ideal Entry Adre and Intention to Use ECS
+
+```{r IdealEntryAge}
+
+data_full%>%
+  filter(!is.na(ECSIdealAgeEntry) & ECSIdealAgeEntry != "Ne sait pas") %>% 
+  mutate(ECSIdealAgeEntry = ifelse(as.character(ECSIdealAgeEntry) == "Jamais", "Pendant ses trois premiers mois", as.character(ECSIdealAgeEntry)), 
+         Intention1or0 = as.numeric(Intention1or0), 
+         ECSIdealAgeEntry = as.factor(ECSIdealAgeEntry)) %>% 
+  ggplot() +
+  geom_bar(aes(x=ECSIdealAgeEntry,fill=Educ),position="stack",alpha=.2)+
+xlab("Ideal onset of ECS use") + 
+  ylab("Number of observations")+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))+facet_grid(.~Educ)
+
+
+
+data_full%>%
+  filter(!is.na(ECSIdealAgeEntry) & ECSIdealAgeEntry != "Ne sait pas") %>% 
+  mutate(ECSIdealAgeEntry = ifelse(as.character(ECSIdealAgeEntry) == "Jamais", "Pendant ses trois premiers mois", as.character(ECSIdealAgeEntry)), 
+         Intention1or0 = as.numeric(Intention1or0), 
+         ECSIdealAgeEntry = as.factor(ECSIdealAgeEntry)) %>% 
+  ggplot() +
+  geom_bar(aes(x=ECSIdealAgeEntry ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = ECSIdealAgeEntry, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Ideal onset of ECS use") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+### TO DO 
+## Step 1: Calculate relative proportions
+#test <- data_full %>%
+#  filter(!is.na(ECSIdealAgeEntry) & ECSIdealAgeEntry != "Ne sait pas") %>% 
+#  mutate(ECSIdealAgeEntry = ifelse(as.character(ECSIdealAgeEntry) == "Jamais", "Pendant ses trois premiers mois", #as.character(ECSIdealAgeEntry)), 
+#         ECSIdealAgeEntry = as.factor(ECSIdealAgeEntry)) %>%
+#  group_by(Educ) %>%
+#  mutate(count_Educ = n()) %>%
+# ungroup() %>% 
+#  group_by(ECSIdealAgeEntry, Educ) %>%
+#  mutate(count_Entry = n(), relative_proportion = count_Entry / count_Educ *100) %>% 
+#  select(count_Educ, count_Entry, relative_proportion)
+#
+#  
+## Step 4: Plot the bar plots
+#ggplot(test, aes(x = relative_proportion, fill = Educ)) +
+#  geom_bar() +
+#  xlab("Ideal onset of ECS use") +
+#  ylab("Relative Proportion") +
+#  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+#  facet_wrap(~ Educ, scales = "free") 
+
+
+
+ECSIdealAgeEntryEduc     <- feols(as.numeric(ECSIdealAgeEntry)  ~ Educ | blocksMatWave, data = data_full, cluster = ~ blocksMatWave) 
+ECSIdealAgeEntryMig      <- feols(as.numeric(ECSIdealAgeEntry) ~ FrenchYN | blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+ECSIdealAgeEntryEducMig  <- feols(as.numeric(ECSIdealAgeEntry) ~ Educ + FrenchYN| blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+ECSIdealAgeEntryEducXMig <- feols(as.numeric(ECSIdealAgeEntry) ~ Educ + FrenchYN + Educ*FrenchYN| blocksMatWave, data = data_full, cluster = ~ blocksMatWave)
+Intention                <- feols(as.numeric(Intention1or0) ~ ECSIdealAgeEntry | blocksMatWave, data = data_full, cluster = ~ blocksMatWave) 
+
+
+
+
+modelsummary(list(
+"Ideal Age Entry by Educ" = ECSIdealAgeEntryEduc,  
+"Ideal Age Entry by Mig" = ECSIdealAgeEntryMig,  
+"Ideal Age Entry by Educ and Mig" = ECSIdealAgeEntryEducMig,  
+"Ideal Age Entry by Educ X Mig" = ECSIdealAgeEntryEducXMig,  
+"Intention by Ideal Age Entry by Educ" = Intention  
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Ideal entry age, Education and migration background, and ECS intention",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+
+```
+
+# Resources
+
+## Informal care available
+
+```{r InformalCare}
+
+data_full%>%
+  filter(!is.na(AccessInformalCare) & AccessInformalCare != "Je ne sais pas encore") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=AccessInformalCare ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = AccessInformalCare, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("Intensity of ECS needed") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+
+
+```
+
+## Informational resources
+
+```{r InformalResources}
+
+data_full%>%
+  filter(LikertAccessInfo != "Je ne sais pas") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=LikertAccessInfo),position="stack",alpha=.2)+
+  stat_summary(aes(x = LikertAccessInfo, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("The mother already takes care of children of others") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+data_full%>%
+  filter(LikertAccessInfo != "Je ne sais pas") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=LikertAccessInfo ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = LikertAccessInfo, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("The mother already takes care of children of others") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+
+
+```
+
+## Social resources
+
+```{r socialResources}
+
+data_full%>%
+  filter(LikertAccessSoc != "Je ne sais pas") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=LikertAccessSoc),position="stack",alpha=.2)+
+  stat_summary(aes(x = LikertAccessSoc, y = Intention1or0*1000),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("The mother already takes care of children of others") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+data_full %>%
+  filter(LikertAccessSoc != "Je ne sais pas") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=LikertAccessSoc ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = LikertAccessSoc, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("The mother already takes care of children of others") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+
+
+```
+
+## Informal reciprocity
+
+We find no effect of informal reciprocity effect on ECS intention: Mothers that already take care of children of others are not less likey to want to use ECS.
+
+```{r InformalReciprocity}
+
+data_full%>%
+  filter(!is.na(InformalReciprocity) & AccessInformalCare != "Je ne souhaite pas répondre") %>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=InformalReciprocity ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = InformalReciprocity, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975)),
+                position = position_dodge(width = 0.9)) +
+xlab("The mother already takes care of children of others") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+
+
+```
+
+## Structural factors
+
+```{r structuralfactors}
+
+data_full %>% 
+ggplot(aes(TAUXCOUV_COM, as.numeric(Intention1or0), color = Educ))+
+  stat_smooth(method="glm", formula=y~x,
+alpha=0.2, size=2) +
+xlab("Intention to use ECS accroding to coverage rates") + ylab("Pr (Intention)")
+
+
+
+```
+
+# Months of pregnancy
+
+```{r MonthsPregnancy}
+
+data_full%>% 
+  mutate(Intention1or0 = as.numeric(Intention1or0)) %>%
+  ggplot() +
+  geom_bar(aes(x=PregMonth ,fill=Educ),position="stack",alpha=.2)+
+  stat_summary(aes(x = PregMonth, y = Intention1or0*1000, color = Educ),
+               fun.data = "mean_se",
+               fun.args = list(mult = qnorm(0.975))) +
+xlab("Months of pregnancy") + ylab("Pr (Intention)")+ 
+  ylab("Number of observations")+
+  scale_y_continuous(sec.axis = sec_axis(~ . / 1000, name = "Pr (Intention)"))+theme(axis.text.x = element_text(angle =45 , hjust = 1, vjust = 1))
+
+
+
+
+```
+
+\newpage
+
+# Treatment
+
+T1 corresponds to the information treatment and T2 corresponds to the treatment that contains both Information and administrative support to apply to ECS.
+
+The distribution of the participants within the treatment arms is as follows:
+
+```{r}
+flextable(data_full %>% group_by(Assignment) %>% count(sort = TRUE))%>% 
+  autofit()
+
+```
+
+```{r tabDepVar, echo=FALSE, cache=TRUE}
+# to do: recode in 0 and 1
+
+tabVar <- data_full  %>% 
+   mutate(
+     SingleMum1or0 = ifelse(SingleMum == TRUE, 1, 0),
+     CoupleCohabiting1or0 = ifelse(CoupleCohabiting == TRUE, 1, 0),
+     AgeSup321or0 = ifelse(AgeSup32 == "Yes", 1, 0),
+     Active1or0 = ifelse(Act3 == "Active", 1, 0),
+     Educ1or0  = ifelse(Educ == "Sup", 1, 0),
+     BornFr1or0  = ifelse(FrenchYN == "French", 1, 0),
+     EverUsedECS1or0  = ifelse(UsedECEC == "Oui", 1, 0),
+     PlanToUseECS1or0 = ifelse(ECSPlanTo == TRUE, 1, 0),
+     ComputerYes1or0 = ifelse(ComputerYN == "Oui", 1, 0),
+     HighECSCov1or0 = ifelse(HighLowECEC == "High ECEC covering", 1, 0), 
+     
+                                ) %>% 
+  select(
+    "Assignment" = Assignment,
+    "Single mother" = SingleMum1or0,
+    "Couple cohabiting" = CoupleCohabiting1or0,
+    "Age of the mother is over 32" = AgeSup321or0,
+    "Number of children" = NumberChildren,
+    "Mother was born in France" = BornFr1or0,
+    "The mother is active" = Active1or0,
+    "The mother has a post-secondary education" = Educ1or0,  # Strata: Educ: ≤ Bac or higher                   
+    "Has ever used ECS" = EverUsedECS1or0,                  # Used: yes/no/ don't wanna answer
+    "Want to use ECS" = PlanToUseECS1or0,                 # Intend to use, block variable
+    "Has a computer" = ComputerYes1or0,
+    "Knows ECS is subsidised" = AffordSubsidies1or0,
+    "ECS coverage" = HighECSCov1or0,               # Strata: High low cover in zipcode
+    "blocks" = blocksMatWaveStrata
+        ) # do sght for income
+  
+  #"Years with RSA "= Senio,
+  #"Number of children" = nchild,
+ # "Registered unemployed" = PE,
+ # "Labor income >0"=income_pos,
+ # "Receive RSA "= out_RSA,
+ # "Total household income"=incomeRUC,
+ # "Total amount of social transfers"=MTPRESVE,
+ # "Number of consumption units (CU)"=NBUC,
+ # "Household income per CU"=RUC,
+ # "Date of randomisation" = DATERANDOMIZE,
+ # "French citizenship"=French,
+ # "Age over 35" =AGE35,
+ # "Share with children under 2"=NBEN0A2C,
+ # "Share with one child over 16"=Share16,
+ # "mean age youngest child"=B_youngest,
+ # "mean age oldest child"=B_oldest,
+ # "Mean child age"=B_meanChildAge,
+ # "Worked in the past year",
+ # "blocks"=strataXc) #% #%>% 
+  #select(Cohort)
+    # Treatment=if_else(Treatment==TRUE,"Participants", "Non-participants"),
+    #                           Treatment = as.factor(Treatment),
+                            # Education=if_else((Cohort=="Cohort 2020"| Cohort=="Cohort 2021")==TRUE,"Unavailable 2020/2021",as.character(`Education`))) %>% select(-Cohort)
+
+datasummary_balance(~Assignment,
+                    data=tabVar,
+                    fmt = 2,
+                    title="Balance of main outcomes and blocks measured at the month of randomisation",#),
+                    output = 'flextable',escape=TRUE)
+
+# `B_income_pos_-1`+`B_NA_income_pos_-1`+
+#                     AGE35+ B_French+B_Sexe+B_childrenMix+Qyoungest+Qoldest+B_couple+
+#                                   CloseLM+B_PSERE+B_actif+MovedRecentlyFr+
+#                                   qBRUC+ QMTPRESVE+B_TPA
+# 
+# datasummary((income_pos+out_RSA+RUC+incomeRUC+LABORINCOME)~Treatment*(Mean + SD+N)* DropEmpty(),
+#             data = C1C3 %>% filter(timeToEvent==0) %>% select(Treatment,income_pos,out_RSA,RUC,incomeRUC,LABORINCOME,blocks=strataXc))
+# 
+# datasummary((MTPRESVE+NECHALOG+income_pos+out_RSA++MTREVBRU+
+#                French+AGE+Woman+
+#                onechild+childrenGirls+childrenBoys+childrenMix) ~ Treatment*(Mean + SD+N)* DropEmpty(),
+#             data = C1C3 %>% filter(timeToEvent==0) %>% select(Treatment,out_RSA,
+#                                            out_RSA,
+#                                            income_pos,
+#                                            MTPRESVE,
+#                                            NECHALOG,
+#                                            French,
+#                                            AGE,
+#                                            Sexe,
+#                                            `B_surface`,
+#                                            MTREVBRU,
+#                                            childrenGirls,childrenBoys,childrenMix
+#                                            ) %>% mutate(across(c(French,childrenGirls,childrenBoys),~ifelse(.x==TRUE,1,0)),
+#                                                         Woman=ifelse(Sexe=="Woman",1,0),
+#                                                         onechild=ifelse(childrenMix=="One child",1,0),
+#                                                         Mixed=ifelse(childrenMix=="Mixed",1,0)),
+#             output = 'markdown')
+
+# 
+# favourable+`B_surface_-1`+
+#           `B_NECHALOG_-1`+`B_YMTBRU_-1`+`B_income_pos_-6`+`B_income_pos_-1`+
+#           `B_TRIMINC_-1`+`B_MonthsOldRSA_-1`+I(`B_MonthsOldRSA_-1`^(2))+I(`B_MonthsOldRSA_-1`^(3)))
+```
+
+```{r, fig.width= 30}
+
+tabVar <- data_full  %>% filter(Assignment == "Control" | Assignment == "T1") %>% 
+   mutate(
+     SingleMum1or0 = ifelse(SingleMum == TRUE, 1, 0),
+     CoupleCohabiting1or0 = ifelse(CoupleCohabiting == TRUE, 1, 0),
+     AgeSup321or0 = ifelse(AgeSup32 == "Yes", 1, 0),
+     Active1or0 = ifelse(Act3 == "Active", 1, 0),
+     Educ1or0  = ifelse(Educ == "Sup", 1, 0),
+     BornFr1or0  = ifelse(FrenchYN == "French", 1, 0),
+     EverUsedECS1or0  = ifelse(UsedECEC == "Oui", 1, 0),
+     PlanToUseECS1or0 = ifelse(ECSPlanTo == TRUE, 1, 0),
+     ComputerYes1or0 = ifelse(ComputerYN == "Oui", 1, 0),
+     HighECSCov1or0 = ifelse(HighLowECEC == "High ECEC covering", 1, 0), 
+     DepParis1or0  = ifelse(Dep == "75", 1, 0),
+     KnowsCrecheOnly1or0  = ifelse(KnowsCrecheOnly == TRUE, 1, 0),
+     DidNotSmoke1or0 = ifelse(SmokePreg == "Did Not Smoke", 1, 0), 
+     Primipare1or0 = ifelse(Primipare == TRUE, 1, 0), 
+     WorkPlanTo1or0 = ifelse(WorkPlanTo == TRUE, 1, 0), 
+     DeprivHolidays1or0 = ifelse(DeprivHolidays != "Pas du tout", 1, 0)
+                                ) %>% 
+  select(
+    "Assignment" = Assignment,
+    "Single mother" = SingleMum1or0,
+    "Couple cohabiting" = CoupleCohabiting1or0,
+    "Age of the mother is over 32" = AgeSup321or0,
+    "Number of children" = NumberChildren,
+    "The mother has no child" = Primipare1or0,
+    "Migration background" = BornFr1or0,
+    "The mother is active" = Active1or0,
+    "The mother want to work after maternity leaves" = WorkPlanTo1or0,
+    "The mother has a post-secondary education" = Educ1or0,  # Strata: Educ: ≤ Bac or higher
+    "The family earn less than €2,500 per month" = FmilyEarnLessThan2500,
+    "The family could'nt afford holidays" = DeprivHolidays1or0,
+    "The mother did not smoke" = DidNotSmoke1or0,
+    "The mother wants to breastfeed" = BreastFeedIntend1or0, 
+    "Has ever used ECS" = EverUsedECS1or0,                  # Used: yes/no/ don't wanna answer
+    "Want to use ECS" = PlanToUseECS1or0,                 # Intend to use, block variable
+    "Has a computer" = ComputerYes1or0,
+    "Knows ECS is subsidised" = AffordSubsidies1or0,
+    "Knows only crèche" = KnowsCrecheOnly1or0,
+    "Value socialization" = ValSocialisation,
+    "Value obedience" = ValObedience,
+    "Believe in returns to childcare" = LikertReturnHK1or0,
+    "The mother trusts crèches" = TrustCreche1or0,
+    "The mother lives in Paris" = DepParis1or0,
+    "ECS coverage" = HighECSCov1or0,  # Strata: High low cover in zipcode
+    "blocks" = blocksMatWaveStrata
+        ) # do sght for income
+   #%>% 
+  #select(Cohort)
+    # Treatment=if_else(Treatment==TRUE,"Participants", "Non-participants"),
+    #                           Treatment = as.factor(Treatment),
+                            # Education=if_else((Cohort=="Cohort 2020"| Cohort=="Cohort 2021")==TRUE,"Unavailable 2020/2021",as.character(`Education`))) %>% select(-Cohort)
+
+datasummary_balance(~Assignment,
+                    data=tabVar,
+                    fmt = 2,
+                    title="Balance of main outcomes and blocks measured at the month of randomisation",#),
+                    output = 'flextable',escape=TRUE, 
+                    stars = c("***"=.01,"**"=.05,"*"=.1)
+                    )
+
+
+```
+
+### Dealing with NAs
+
+```{r}
+library(rpart)
+library(rpart.plot)
+
+data_full <- data_full %>%
+          select(SingleMum, CoupleCohabiting, Couple,
+                 Relationship,
+                 Language,
+                 SmokePreg,
+                 BreastFeedIntend,
+                 BreastFeedLength,
+                 OrderedEduc,
+                 Act3,
+                 FmlyIncome,
+                 Income,
+                 ECSType7,
+                 FrenchYN,
+                 Intention.x,
+                 ECSUsed,
+                 ECSNeed, # intensity of childcare needed
+                 ECSNeed, # full-time, part-time, never, don't know yet
+                 ECSIdealAgeEntry,
+                 AffordSubsidies,
+                 AffordSubsidies1or0, 
+                 AffordNMCostWB,
+                 AffordOppCost,                                                                   # 
+                 AffordNMCostCareer,
+                 DiscountRate,
+                 AccessEasy,
+                 AccessHours,
+                 AccessInformalCare,
+                 Norms,
+                 NormsOpposedDK,
+                 NormsOpposedN,
+                LikertAccessInfo, # strongly disagree, disagree, don't know, agree, strongly agree
+                LikertReturnHK,
+                LikertReturnHK1or0,
+                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
+                TrustFamIrrelevant,
+                TrustFriendIrrelevant,
+                TrustAssMatIrrelevant,
+                TrustCrecheIrrelevant,
+                TrustFam,
+                TrustFriend,
+                TrustAssMat,
+                TrustCreche,
+                TrustCreche1or0,
+                DeprivClothesIrrelevant,
+                DeprivFoodIrrelevant,
+                DeprivBillsIrrelevant,
+                DeprivHolidaysIrrelevant,
+                DeprivHousingIrrelevant,
+                DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
+                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
+                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
+                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
+                DeprivHousing, # DEPRIVATION: do parents struggle to pay for housing?
+                InformalReciprocity, # Do the parents already take care of the children of others
+                AffordCostDK, 
+                AffordCost, 
+                ComputerYN, # Whether families can access a computer
+                NumberChildren,
+                Primipare ,
+                AgeSup32 ,
+                AccessImpossible,
+                AccessHard,
+                AccessHardtoImpossible,
+                AccessEasy,
+                AccessEasyDK,
+                AccessNotHours, 
+                AccessNotInformalCare, 
+                AccessInformalCareAMAP
+                ) %>% mutate( prop_miss = add_prop_miss(.))
+   
+
+ data_full %>%
+          select(SingleMum, CoupleCohabiting, Couple,
+                 Relationship,
+                 Language,
+                 SmokePreg,
+                 BreastFeedIntend,
+                 BreastFeedLength,
+                 OrderedEduc,
+                 Act3,
+                 FmlyIncome,
+                 Income,
+                 ECSType7,
+                 FrenchYN,
+                 Intention.x,
+                 ECSUsed,
+                 ECSNeed, # intensity of childcare needed
+                 ECSNeed, # full-time, part-time, never, don't know yet
+                 ECSIdealAgeEntry,
+                 AffordSubsidies,
+                 AffordSubsidies1or0, 
+                 AffordNMCostWB,
+                 AffordOppCost,                                                                   # 
+                 AffordNMCostCareer,
+                 DiscountRate,
+                 AccessEasy,
+                 AccessHours,
+                 AccessInformalCare,
+                 Norms,
+                 NormsOpposedDK,
+                 NormsOpposedN,
+                LikertAccessInfo, # strongly disagree, disagree, don't know, agree, strongly agree
+                LikertReturnHK,
+                LikertReturnHK1or0,
+                LikertAccessSoc, # strongly disagree, disagree, don't know, agree, strongly agree
+                TrustFamIrrelevant,
+                TrustFriendIrrelevant,
+                TrustAssMatIrrelevant,
+                TrustCrecheIrrelevant,
+                TrustFam,
+                TrustFriend,
+                TrustAssMat,
+                TrustCreche,
+                TrustCreche1or0,
+                DeprivClothesIrrelevant,
+                DeprivFoodIrrelevant,
+                DeprivBillsIrrelevant,
+                DeprivHolidaysIrrelevant,
+                DeprivHousingIrrelevant,
+                DeprivClothes, # DEPRIVATION: do parents struggle to buy clothes?
+                DeprivFood, # DEPRIVATION: do parents struggle to buy food?
+                DeprivBills, # DEPRIVATION: do parents struggle to pay for the bills?
+                DeprivHolidays, # DEPRIVATION: do parents struggle to go in holidays?
+                DeprivHousing, # DEPRIVATION: do parents struggle to pay for housing?
+                InformalReciprocity, # Do the parents already take care of the children of others
+                AffordCostDK, 
+                AffordCost, 
+                ComputerYN, # Whether families can access a computer
+                NumberChildren,
+                Primipare ,
+                AgeSup32 ,
+                AccessImpossible,
+                AccessHard,
+                AccessHardtoImpossible,
+                AccessEasy,
+                AccessEasyDK,
+                AccessNotHours, 
+                AccessNotInformalCare, 
+                AccessInformalCareAMAP
+                ) %>% 
+  add_prop_miss() %>%
+  rpart(prop_miss_all ~ ., data = .) %>%
+  prp(type = 4, extra = 101, prefix = "Prop. Miss = ")
+```
+
+\newpage
+
+# (APPENDIX) Appendix {.unnumbered}
+
+
+```{r dataset2}
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#######-##-
+##### Import and clean the raw survey database %%%%%%%%%%%##
+#####%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%#######-###-
+
+##Import data_full, the baseline dataset
+data_full <- read_csv("../Data/BaselinePremiersPas.csv")
+
+
+##Import data_tot_clean with excluded participants (the ones that were undocumented or did not leave their phone number)
+data_tot_clean <- read_csv("../Data/Full_dataset_PremiersPas_with_undocumented.csv") 
+
+
+
+#convert relevant VARIABLES INTO FACTORS
+##NB: pour ajouter les stats sur les heures, prendre le dataset du 24/10 et ajouter "'HOUR_1','HOUR_2','HOUR_3','HOUR_4',"
+names <- c("ResponseId", "SurveyorId", "MaternityWard", "Dep", "CodePostal", "DateArrival",
+           "DateArrival2", "SansPapier", "Relationship", "Language", "Preg7Less", "SmokePreg", 
+           "BreastFeedIntend", "OrderedEduc", "Educ", "Act3", "FmlyIncome", "Income", "ECSType7", "FrenchYN", 
+           "Intention.x", "ECSUsed", "ECSNeed", "ECSIdealAgeEntry", "AffordSubsidies", "AffordNMCostWB", "AffordOppCost", 
+           "AffordNMCostCareer", "DiscountRate", "AccessEasy", "AccessHours", "AccessInformalCare", "Norms", "NormsOpposedDK",
+           "LikertAccessInfo", "LikertReturnHK", "LikertAccessSoc", "TrustFam", "TrustFriend", "TrustAssMat", "TrustCreche", 
+           "DeprivClothes", "DeprivFood", "DeprivBills", "DeprivHolidays", "DeprivHousing", "InformalReciprocity", 
+           "LevelComprehensionExPost", "LevelExpressionExPost", "LevelInfoSubExPost", "LevelPartnerAnsweredExPost", 
+           "ComputerYN", "AgeSup32", "BirthPlace", "BirthPlace2", "OrderedEduc2", "Occupation", "Occupation2", 
+           "AfterBirthOccupation", "NUMCOM", "COM", "REG", "HighLowECEC", "Educ2", "Intention.y", "UsedECEC", "IntendUse",
+           "Assignment", "Which_wave", "labels", "blocksMatWaveStrata", "blocksMatWave", "code_commune", "code_departement"
+           
+)
+
+data_full[,names] <- lapply(data_full[,names] , factor)
+
+#convert relevant VARIABLES INTO numerical ones
+
+
+names_numerical <- c("AgeChild1", "AgeChild2", "AgeChild3", "AgeChild4", "AgeChild5", "AgeChild6", "AgeChild7", "AgeChild8",
+                     "Age", "KnowsCreche", "KnowsCrecheA", "KnowsCrechePub", "KnowsAssMat", "KnowsNotYet", "KnowsJE", "KnowsAutre",
+                     "KnowsPartage", "KnowsHG", "KnowsNounou", "KnowsNothing", "WantCreche", "WantCrecheA", "WantAssMat", "WantJE", 
+                     "WantAutre", "WantPartage", "WantHG", "WantNounou", "KnownNbTypeECS", "PregMonth", "BreastFeedLength",
+                     "BreastFeedIntend1or0", "AffordSubsidies1or0", "NormsOpposedN", "LikertReturnHK1or0", "TrustCreche1or0",
+                     "AffordCost", "NumberChildren", "AccessImpossible", "AccessHard", "AccessHardtoImpossible", "AccessEasy1or0", 
+                     "AccessEasyDK", "AccessNotHours", "AccessNotInformalCare", "AccessInformalCareAMAP", "ValGenerosity", 
+                     "ValIndependence", "ValSocialisation", "ValObedience", "ValEducation", "ValDK", "ValImagination", "ValNone", 
+                     "WorkBefore", "FmilyEarnLessThan2500", "EarnLessThan1500", "Intention1or0", "CODDEP", "CODREG", "PTOT", 
+                     "TAUXCOUV_COM", "TAUXCOUV_EPCI", "TAUXCOUV_DEP", "TAUXCOUV_NAT", "n", "strata", "group_id", "prixMoyen", 
+                     "PrixMedian", "surfaceReelleBati", "PrixMoyenM2Bati")
+data_full[,names_numerical] <- lapply(data_full[,names_numerical] , as.numeric)
+
+# Order relevant variables
+
+
+data_full <- data_full %>%  mutate(
+         OrderedEduc=factor(OrderedEduc, levels =
+             c("No school", "9-11", "Brevet", "CAP", "Bac", "Bac +2", "Bac + 3", "Bac + 4/5", "+ Bac+5"), ordered = TRUE),
+         Income = factor(Income, 
+                         levels = c("NSP","- 500","500-700", "1000-1500", 
+                                    "1500-2000", "2000-2500", "2500-3000", "3000-4500", "4500-5000",  "5000-6000", "Ne veut pas répondre" ), ordered = TRUE),
+         FmlyIncome = factor(FmlyIncome, 
+                             levels =c("NSP", "- 500", "500-700", "700-1000", "1000-1500", 
+                                       "1500-2000", "2000-2500", "2500-3000", "3000-4500", "4500-5000",
+                                       "5000-6000", "6000-7000", "7000-8000", "+8000", "Ne veut pas répondre"), ordered = TRUE),
+          AffordNMCostWBOrdered=factor(AffordNMCostWB,
+                               levels=c("Négatif",  "Je ne sais pas encore","Pas d'impact","Positif"), ordered = TRUE # would staying at home have a positive, 
+         ),                                                                   # negative or null impact on mother's well being
+         AffordOppCost=factor(AffordOppCost,
+                              levels=c("Négatif",  "Je ne sais pas encore", "Pas d'impact", "Positif"), ordered = TRUE # would staying at home have a positive, 
+         ),                                                                   # negative or null impact on household's income
+         AffordNMCostCareer=factor(AffordNMCostCareer, # would staying at home have a positive, 
+                                   levels=c("Négatif", "Pas d'impact", "Je ne sais pas encore","Positif"), ordered = TRUE # negative or null impact on mother's career
+         ),
+         AccessEasy=factor(AccessEasy,levels =c("impossible","quasiment impossible", # Whether accessing a slot in ECS is seen as easy
+                                                   "très difficile","assez difficile",
+                                                   "je ne sais pas","assez facile",
+                                                   "très facile"),ordered = TRUE), 
+         AccessHours=factor(AccessHours,levels =c("Oui", # Whether ECS opening hours fit parents working hours
+                                                     "Non, mais on prendra un autre mode de garde en plus","Je ne sais pas encore",
+                                                     "Non"),ordered = TRUE),
+         AccessInformalCare=factor(AccessInformalCare,levels =c("Oui, autant que nécessaire", # Whether accessing informal care is feasible
+                                                          "Oui, de temps en temps","Oui, pour dépanner / très ponctuellement",
+                                                          "Je ne sais pas encore",
+                                                          "Non"),ordered = TRUE),
+         Norms=factor(Norms,
+                      levels=c("Ne sait pas","Aucune","Une minorité","Moitié moitié","La plupart","Toutes"), ordered = TRUE # how many mothers in their surroundings use childcare 
+         ),
+     LikertAccessInfo=factor(LikertAccessInfo, # Is it feasible to access information about childcare
+                            levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE), # strongly disagree, disagree, don't know, agree, strongly agree
+    LikertReturnHK=factor(LikertReturnHK, # believe in childcare returns on investment: is a child that attended childcare better developed in preschool?
+                          levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord") , ordered = TRUE), # strongly disagree, disagree, don't know, agree, strongly agree
+    LikertAccessSoc=factor(LikertAccessSoc, # Does the mother have someone that can help with paperwork if needed
+                           levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE), # strongly disagree, disagree, don't know, agree, strongly agree
+    TrustFam=factor(TrustFam, # TRUST: Do the parents trust their close family (parents, brother, sister, etc.) to take care of the baby
+                    levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"),  ordered = TRUE
+    ),
+    TrustFriend=factor(TrustFriend, # TRUST: Do the parents trust their friends to take care of the baby
+                       levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE
+    ),
+    TrustAssMat=factor(TrustAssMat, # TRUST: Do the parents trust a private childminder to take care of the baby
+                       levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE
+    ),
+    TrustCreche=factor(TrustCreche, # TRUST: Do the parents trust their family to take care of the baby
+                       levels=c("Très en désaccord","Assez en désaccord","Je ne sais pas","Assez d’accord","Très d’accord"), ordered = TRUE
+    ),
+    DeprivClothes =factor(DeprivClothes,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to buy clothes?
+    DeprivFood    =factor(DeprivFood,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to buy food?
+    DeprivBills   =factor(DeprivBills,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to pay for the bills?
+    DeprivHolidays=factor(DeprivHolidays,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to go in holidays?
+    DeprivHousing =factor(DeprivHousing,levels=c("Pas du tout","Un peu","Beaucoup","Je ne souhaite pas répondre"), ordered = TRUE), # DEPRIVATION: do parents struggle to pay for housing?
+    InformalReciprocity = factor(InformalReciprocity, 
+                                 levels = c( "Non", " Je ne souhaite pas répondre", "Oui, pour dépanner / très ponctuellement",
+                                              "Oui, de temps en temps", " Oui, très souvent"), ordered = TRUE), # Do the parents already take care of the children of others
+OrderedEduc2=factor(OrderedEduc2, levels  = c(
+  "No school", "9-11", "Brevet", "CAP", "Bac", "Bac +2", "Bac + 3", "Bac + 4/5", "+ Bac+5","Missing","No Partner"), ordered = TRUE),
+ECSIdealAgeEntry = factor(ECSIdealAgeEntry, 
+                          levels = c( "Ne sait pas", "Jamais", "Pendant ses trois premiers mois", "Pendant ses six premiers mois", "Pendant ses neuf premiers mois", "Pendant la première année", "Jusqu’à l’entrée à la maternelle" ) , ordered = TRUE), 
+Active = ifelse(as.character(Act3) == "NSP", "Inactive", as.character(Act3)), 
+Active = relevel(as.factor(Active), ref = "Inactive"), 
+Active1or0 = ifelse(as.character(Active) == "Inactive", 0, 1),
+Educ3 = fct_collapse(OrderedEduc, "Bac or Less" = c("No school", "9-11", "Brevet", "CAP", "Bac"), 
+                    "Undergrad" = c("Bac + 3", "Bac +2"), 
+                    "Graduate" = c("Bac + 4/5", "+ Bac+5") ), 
+Educ3Dad = fct_collapse(OrderedEduc2, "Bac or Less" = c("No school", "9-11", "Brevet", "CAP", "Bac"), 
+                    "Undergrad" = c("Bac + 3", "Bac +2"), 
+                    "Graduate" = c("Bac + 4/5", "+ Bac+5"), "Missing" = c("Missing", "No Partner" )), 
+Intention1or0 = ifelse(as.character(Intention.x) == "No", 0, 1)
+
+)
+
+
+#data_full$Edu3 = relevel(factor(data_full$Educ3), ref = "Bac or Less" )
+
+
+
+```
+
+## Appendix 1 {-}: Regression table of the relationship between Number of ECS known and Intention {#id}
+
+```{r modIntentionNECSKnown,echo = FALSE,message=FALSE}
+
+# Relationship between Number of ECS known and Intention
+
+
+IntentionECSKnown            <- feols(Intention1or0 ~ KnownNbTypeECS, data = data_full)
+IntentionECSKnownFE          <- feols(Intention1or0 ~ KnownNbTypeECS| blocksMatWave , data = data_full, cluster = ~ blocksMatWave)      
+IntentionECSKnownEduc        <- feols(Intention1or0 ~ KnownNbTypeECS + Educ | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )     
+IntentionECSKnownEducMig     <- feols(Intention1or0 ~ KnownNbTypeECS + Educ + FrenchYN| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionECSKnownEducMigAct  <- feols(Intention1or0 ~ KnownNbTypeECS + Educ + FrenchYN + Active| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+
+
+
+modelsummary(list(
+"Intention by ECS known"                                                               = IntentionECSKnown,           
+"Intention by ECS known with FE"                                                       = IntentionECSKnownFE,         
+"Intention by ECS known controlling for Educ with FE"                                  = IntentionECSKnownEduc,       
+"Intention by ECS known controlling for Educ and migration background with FE"         = IntentionECSKnownEducMig,    
+"Intention by ECS known controlling for Educ, migration background and activity with FE"         =IntentionECSKnownEducMigAct 
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs",  "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Inention and number of ECS known",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+
+```
+
+## Appendix 2 {-} Regression table of the relationship between knowing only crèche and Intention {#id}
+
+```{r modIntentionOnlyCreche,echo = FALSE,message=FALSE}
+
+# Relationship between knowing only crèche and Intention
+
+
+IntentionCrecheOnly            <- feols(Intention1or0 ~ KnowsCrecheOnly, data = data_full)
+IntentionCrecheOnlyFE          <- feols(Intention1or0 ~ KnowsCrecheOnly| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+     
+IntentionCrecheOnlyEduc        <- feols(Intention1or0 ~ KnowsCrecheOnly + Educ | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )     
+IntentionCrecheOnlyEducMig     <- feols(Intention1or0 ~ KnowsCrecheOnly + Educ + FrenchYN| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionCrecheOnlyEducMigAct  <- feols(Intention1or0 ~ KnowsCrecheOnly + Educ + FrenchYN + Active| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionCrecheOnlyXMigFE       <- feols(Intention1or0 ~ KnowsCrecheOnly*FrenchYN + Educ| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+
+
+
+modelsummary(list(
+"Intention by Knows only crèche"                                                                         = IntentionCrecheOnly,           
+"Intention by Knows only crèche with FE"                                                                 = IntentionCrecheOnlyFE,         
+"Intention by Knows only crèche controlling for Educ with FE"                                            = IntentionCrecheOnlyEduc,       
+"Intention by Knows only crèche controlling for Educ and migration background with FE"                   = IntentionCrecheOnlyEducMig,    
+"Intention by Knows only crèche controlling for Educ, migration background and activity with FE"         =IntentionCrecheOnlyEducMigAct,
+"Intention by Knows only crèche controlling for migration background and activity with interaction with migration, with FE" = IntentionCrecheOnlyXMigFE
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs",  "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Intention and knows only crèche",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+
+```
+
+## Appendix 3 {-} Regression table of the relationship between not knowing the costs and Intention
+
+```{r modAffordCostDKIntention,echo = FALSE,message=FALSE}
+
+# Relationship between knowing having no idea of ECS costs and Intention
+
+
+IntentionCostsDK            <- feols(Intention1or0 ~ AffordCostDK, data = data_full)
+IntentionCostsDKFE          <- feols(Intention1or0 ~ AffordCostDK| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+     
+IntentionCostsDKEduc        <- feols(Intention1or0 ~ AffordCostDK + Educ | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )     
+IntentionCostsDKEducMig     <- feols(Intention1or0 ~ AffordCostDK + Educ + FrenchYN| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionCostsDKEducMigAct  <- feols(Intention1or0 ~ AffordCostDK + Educ + FrenchYN + Active| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionCostsDKXMigFE       <- feols(Intention1or0 ~ AffordCostDK*FrenchYN + Educ| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+IntentionCostsDKXEducFE       <- feols(Intention1or0 ~ AffordCostDK*Educ + FrenchYN| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+
+
+modelsummary(list(
+"Intention by having no idea of ECS costs"                                                                         = IntentionCostsDK,           
+"Intention by having no idea of ECS costs with FE"                                                                 = IntentionCostsDKFE,         
+"Intention by having no idea of ECS costs controlling for Educ with FE"                                            = IntentionCostsDKEduc,       
+"Intention by having no idea of ECS costs controlling for Educ and migration background with FE"                   = IntentionCostsDKEducMig,    
+"Intention by having no idea of ECS costs controlling for Educ, migration background and activity with FE"         =IntentionCostsDKEducMigAct,
+"Intention by having no idea of ECS costs controlling for migration background and activity with interaction with migration, with FE" = IntentionCostsDKXMigFE,
+"Intention by having no idea of ECS costs controlling for migration background and activity with interaction with education, with FE" = IntentionCostsDKXEducFE
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs",  "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Intention and have no idea of ECS costs",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+
+```
+
+## Appendix 4 {-} Regression table of the relationship between not knowing that ECS cost is reduced through subsidies and Intention
+
+```{r modSubsidiesIntention,echo = FALSE,message=FALSE}
+
+# Relationship between between not knowing that ECS cost is reduced through subsidies and Intention
+
+
+IntentionKnowsSub            <- feols(Intention1or0  ~ AffordSubsidies, data = data_full)
+IntentionKnowsSubFE          <- feols(Intention1or0  ~ AffordSubsidies| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+     
+IntentionKnowsSubEduc        <- feols(Intention1or0  ~ AffordSubsidies + Educ | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )     
+IntentionKnowsSubEducMig     <- feols(Intention1or0  ~ AffordSubsidies + Educ + FrenchYN| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionKnowsSubEducMigAct  <- feols(Intention1or0  ~ AffordSubsidies + Educ + FrenchYN + Active| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionKnowsSubXMigFE       <- feols(Intention1or0 ~ AffordSubsidies*FrenchYN + Educ| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+IntentionKnowsSubXEducFE       <- feols(Intention1or0 ~ AffordSubsidies*Educ + FrenchYN| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+
+
+modelsummary(list(
+"Intention by knows about subsidies for ECS cost"                                                                                            = IntentionKnowsSub,               
+"Intention by knows about subsidies for ECS cost with FE"                                                                                    = IntentionKnowsSubFE   ,         
+"Intention by knows about subsidies for ECS cost controlling for Educ with FE"                                                               = IntentionKnowsSubEduc,        
+"Intention by knows about subsidies for ECS cost controlling for Educ and migration background with FE"                                      = IntentionKnowsSubEducMig,     
+"Intention by knows about subsidies for ECS cost controlling for Educ, migration background and activity with FE"                            = IntentionKnowsSubEducMigAct,
+"Intention by knows about subsidies for ECS cost controlling for migration background and activity with interaction with migration, with FE" = IntentionKnowsSubXMigFE, 
+"Intention by knows about subsidies for ECS cost controlling for migration background and activity with interaction with education, with FE" = IntentionKnowsSubXEducFE
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs",  "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Intention and have no idea of ECS costs",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+
+```
+
+## Appendix 5 {-} Regression table of the relationship between not knowing that ECS cost is reduced through subsidies and Intention
+
+1.  With the full range of categories
+
+```{r modDifficultyIntention,echo = FALSE,message=FALSE}
+
+# Relationship between between perceived difficulty of accessing ECS and Intention
+
+
+IntentionAccessEasy            <- feols(Intention1or0 ~ AccessEasy, data = data_full)
+IntentionAccessEasyFE           <- feols(Intention1or0  ~ AccessEasy| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+IntentionAccessEasyEduc         <- feols(Intention1or0  ~ AccessEasy + Educ | blocksMatWave , data = data_full, cluster = ~ blocksMatWave )     
+IntentionAccessEasyEducMig      <- feols(Intention1or0  ~ AccessEasy + Educ + FrenchYN| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionAccessEasyEducMigAct   <- feols(Intention1or0  ~ AccessEasy + Educ + FrenchYN + Active| blocksMatWave , data = data_full, cluster = ~ blocksMatWave )
+IntentionAccessEasyXMigFE        <- feols(Intention1or0 ~ AccessEasy*FrenchYN + Educ| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+IntentionAccessEasyXEducFE       <- feols(Intention1or0 ~ AccessEasy*Educ + FrenchYN| blocksMatWave , data = data_full, cluster = ~ blocksMatWave) 
+
+
+modelsummary(list(
+"Intention by perceived difficulty of accessing ECS"                                                                                            = IntentionAccessEasy,         
+"Intention by perceived difficulty of accessing ECS with FE"                                                                                    = IntentionAccessEasyFE,
+"Intention by perceived difficulty of accessing ECS controlling for Educ with FE"                                                               = IntentionAccessEasyEduc,
+"Intention by perceived difficulty of accessing ECS controlling for Educ and migration background with FE"                                      = IntentionAccessEasyEducMig , 
+"Intention by perceived difficulty of accessing ECS controlling for Educ, migration background and activity with FE"                            = IntentionAccessEasyEducMigAct,
+"Intention by perceived difficulty of accessing ECS controlling for migration background and activity with interaction with migration, with FE" = IntentionAccessEasyXMigFE,
+"Intention by perceived difficulty of accessing ECS controlling for migration background and activity with interaction with education, with FE" = IntentionAccessEasyXEducFE   
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs",  "vcov.type", "FE"="FE: WardxWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Intention and have no idea of ECS costs",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE)
+
+
+```
+
+Not only low-SES mothers knew less ECS types than high-SES mothers did, but low-SES mothers were significantly more likely to know Crèches and only Crèches (low-SES \= `` `r PropKnowOnlyCrecheLowSES` `` , high-SES = `` `r PropKnowOnlyCrecheHighSES` `` ). This is also true for migrant mothers, that were even more likely to be in this situation than low-SES mothers ( migrants \= `` `r PropKnowOnlyCrecheMig` `` ), while only `` `r PropKnowOnlyCrecheNonMig` `` percents of native mothers were in this situation.
+
+
+Strikingly, it was also the case for inactive mothers: `` `r PropKnowOnlyCrecheInactive` `` percents of them only knew the crèches, while it was the case for `` `r PropKnowOnlyCrecheActive` ``percents of active mothers. This even though generally, inactive mothers are less likely to access a place in crèche because they don't work. Besides, inactive mothers are just as likely to know Halte-garderies compared to active mothers. Only `` `r PropKnowHGInactive` `` percents of them knew this type of structure, while this is one type of care created for them.
+
+Interestingly, looking at the coefficients of the regressions, whether the mother is active is contributing to a lesser extent than Education level and Migration background, unlike its contribution to ECS intention:
+
+2.  Grouped in three groups
