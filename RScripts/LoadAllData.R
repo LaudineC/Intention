@@ -6,7 +6,7 @@
 
 #---- LoadSource ----
 # Original baseline dataset 
-BaselineFull <- read_csv(here("Data","PremiersPas_orginal_withrefusals.csv"))
+BaselineFull <- fread(here("Data","PremiersPas_orginal_withrefusals.csv"))
 
 ##create a df with the first two rows that contains the full questions, in case it is needed
 details_values <- BaselineFull[1:2,]
@@ -17,14 +17,16 @@ BaselineFull<- BaselineFull[-c(1:2),]
 # Endline clean
 #PremiersPasWithoutIds <- read_csv(here("Data","PremiersPasWithoutIds.csv"))
 
-MainDB <- read_csv(here("PremiersPasWithNonRespondents112024.csv")) %>%    
+MainDB <- fread(file = here("PremiersPasWithNonRespondents112024.csv"),
+                          header = TRUE, 
+                          sep = ",") %>%    
   mutate(Responded=ifelse(is.na(ECSApp),0,1), ResponseStatus=case_when(Responded==1~"Respondent",                                                                         Responded==2~"NonRespondent")) %>%
   group_by(strata,Which_wave) %>%  
   mutate(StrataWave=cur_group_id() %>% as.factor()) %>%   ungroup() %>%   
   mutate(Educ2=ifelse(as.character(Educ2)=="Bac","Low-SES","High-SES"))
 
 # Baseline clean
-data_full <- read_csv(here("Data","BaselinePremiersPas.csv"))
+data_full <- fread(here("Data","BaselinePremiersPas.csv"))
 
 # Include some data that was lost
 MainDB <- left_join(MainDB, data_full[, c("ResponseId", "BirthPlace", "BirthPlace2")], by = "ResponseId")
@@ -632,3 +634,4 @@ MLDummified <- dbMachineLearning %>%
   )) %>% 
   mutate(across(where(is.logical), as.factor)) %>% 
   mutate(across(where(is.character), as.factor)) # put them in the right format for tidymodels
+

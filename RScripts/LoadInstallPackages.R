@@ -28,7 +28,8 @@ p_load(here,
        broom, 
        knitr,
        kableExtra, # for nice tables
-       modelsummary
+       modelsummary,
+       data.table
        )
 #
 ## Packages for importing, storing and manipulating data

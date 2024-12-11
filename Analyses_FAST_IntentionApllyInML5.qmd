@@ -327,12 +327,13 @@ rf_recipe <- recipe(target ~ ., data = train_df)  %>%
 ## RUN THE RANDOM FOREST
 
 # In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
-rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
-                       trees = tune(), # if I tune it, it takes forever to run
-                       min_n = tune()) %>%
+rf_spec <- rand_forest(mtry = 4, # 100 is a low side. Do at least 150 
+                       trees = 1636, # if I tune it, it takes forever to run
+                       min_n = 39) %>%
   set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
   set_engine("partykit")
 
+# tuned with 50 latin hypercube: mtry 4 1636 trees min_n 39
 
   # Flooow: specify what transformations (recipe) will be done and what algo will be fitted in a first step
 initial_flow <- workflow() %>% # create the initial workflow
