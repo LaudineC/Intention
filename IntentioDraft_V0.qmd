@@ -2,6 +2,8 @@
 title: "IntentionDraft_V0"
 format: docx
 editor: visual
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Descriptive statistics
@@ -107,6 +109,8 @@ cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the moth
 lm1 <- feols(ECSPlanToBaseline~ Educ , data = MainDB, cluster = ~blocksMatWave)
 
 lm2 <- feols(ECSApp~  Educ, data = Control, cluster = ~blocksMatWave)
+lm5 <- feols(ECSApp~  Educ + ECSPlanToBaseline, data = Control, cluster = ~blocksMatWave)
+
 lm3 <- feols(ECSUseYes~  Educ, data = Control, cluster = ~blocksMatWave)
 lm4 <- feols(ECSUseYes~  Educ + ECSApp, data = Control, cluster = ~blocksMatWave)
 
@@ -115,6 +119,7 @@ lm4 <- feols(ECSUseYes~  Educ + ECSApp, data = Control, cluster = ~blocksMatWave
 modelsummary(list(
 "Intention" = lm1,    
 "Application" = lm2, 
+"Application Intention" = lm5,
 "Access" = lm3, 
 "Access Apply" = lm4
 
@@ -125,10 +130,151 @@ modelsummary(list(
                       title="Probability to be satisfied with the current childcare solution according to education level and ECEC used",
                       notes=list("",
                                  "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
-                      ,output = 'flextable',escape=TRUE, coef_map = cm)|>
+                      ,output = 'flextable',escape=TRUE, 
+#coef_map = cm
+)|>
   autofit()
 
 
 
 
 ```
+
+## Introducing migration background
+
+```{r}
+library(fixest)
+library(modelsummary)
+cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the mother: High-SES', "ECSApp"= "Applied")
+lm1 <- feols(ECSPlanToBaseline~ Educ  + Migration4, data = MainDB, cluster = ~blocksMatWave)
+
+lm2 <- feols(ECSApp~  Educ + Migration4 , data = Control, cluster = ~blocksMatWave)
+lm5 <- feols(ECSApp~  Educ + ECSPlanToBaseline +  Migration4, data = Control, cluster = ~blocksMatWave)
+
+lm3 <- feols(ECSUseYes~  Educ + Migration4 , data = Control, cluster = ~blocksMatWave)
+lm4 <- feols(ECSUseYes~  Educ + ECSApp +  Migration4, data = Control, cluster = ~blocksMatWave)
+
+
+
+modelsummary(list(
+"Intention" = lm1,    
+"Application" = lm2, 
+"Application Intention" = lm5,
+"Access" = lm3, 
+"Access Apply" = lm4
+
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: blocksMatWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Probability to be satisfied with the current childcare solution according to education level and ECEC used",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE, 
+#coef_map = cm
+)|>
+  autofit()
+
+
+```
+
+## Determinants of intention and how they relate to application and access
+
+## Machine learning
+
+## Social stratification of these determinants
+
+```{r}
+library(fixest)
+library(modelsummary)
+cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the mother: High-SES', "ECSApp"= "Applied")
+
+lm1 <- feols(as.numeric(AccessInformalFullTime)~ Educ , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+
+lm2 <- feols(as.numeric(i(LevelInformation, ref = "Low knowledge"))~  Educ , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm3 <- feols(as.numeric(TrustEarlyChildcareAgree)~  Educ , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+
+lm4 <- feols(as.numeric(ECAccessHoursFit)~  Educ , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm5 <- feols(as.numeric(NegativeImpactSalary)~  Educ , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm6 <- feols(as.numeric(Active)~  Educ , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm7 <- feols(as.numeric(NormsScore)~  Educ  , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm8 <- feols(as.numeric(NegativeImpactWellBeing)~  Educ , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm9 <- feols(as.numeric(NegativeImpactCareer)~  Educ  , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm10 <- feols(as.numeric(NormsUseMostToAll)~  Educ  , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+
+modelsummary(list(
+"Access to Informal Care" = lm1,    
+"Level of Information" = lm2, 
+"Trust in Early Childcare facilities" = lm3,
+"Opening hours fit" = lm4, 
+"Negative perceived impact on salary" = lm5,
+"Active" = lm6,
+"Adherence to traditional norms" = lm7,
+"Negative perceived impact on well-being" = lm8,
+"Negative perceived impact on career" = lm9,
+"Norms: Use most to all" = lm10
+
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: blocksMatWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Probability to be satisfied with the current childcare solution according to education level and ECEC used",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE,
+#coef_map = cm
+)|>
+  autofit()
+
+
+```
+
+## With migration background
+
+
+```{r}
+library(fixest)
+library(modelsummary)
+cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the mother: High-SES', "ECSApp"= "Applied")
+
+lm1 <- feols(as.numeric(AccessInformalFullTime)~ Educ  + Migration4, data = DummiesSocioDemo, cluster = ~blocksMatWave)
+
+lm2 <- feols(as.numeric(LevelInformation)~  Educ + Migration4 , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm3 <- feols(as.numeric(TrustEarlyChildcareAgree)~  Educ +  Migration4, data = DummiesSocioDemo, cluster = ~blocksMatWave)
+
+lm4 <- feols(as.numeric(ECAccessHoursFit)~  Educ + Migration4 , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm5 <- feols(as.numeric(NegativeImpactSalary)~  Educ +  Migration4, data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm6 <- feols(as.numeric(Active)~  Educ + Migration4 , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm7 <- feols(as.numeric(NormsScore)~  Educ  +  Migration4, data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm8 <- feols(as.numeric(NegativeImpactWellBeing)~  Educ + Migration4 , data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm9 <- feols(as.numeric(NegativeImpactCareer)~  Educ  +  Migration4, data = DummiesSocioDemo, cluster = ~blocksMatWave)
+lm10 <- feols(as.numeric(NormsUseMostToAll)~  Educ  +  Migration4, data = DummiesSocioDemo, cluster = ~blocksMatWave)
+
+modelsummary(list(
+"Access to Informal Care" = lm1,    
+"Level of Information" = lm2, 
+"Trust in Early Childcare facilities" = lm3,
+"Opening hours fit" = lm4, 
+"Negative perceived impact on salary" = lm5,
+"Active" = lm6,
+"Adherence to traditional norms" = lm7,
+"Negative perceived impact on well-being" = lm8,
+"Negative perceived impact on career" = lm9,
+"Norms: Use most to all" = lm10
+
+), statistic = "{std.error} ({p.value})",
+                      estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+                      gof_map = c("r.squared" ,"adj.r.squared" ,"nobs", "vcov.type", "FE"="FE: blocksMatWave" ),
+                      stars = c("***"=.01,"**"=.05,"*"=.1),
+                      title="Probability to be satisfied with the current childcare solution according to education level and ECEC used",
+                      notes=list("",
+                                 "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis")
+                      ,output = 'flextable',escape=TRUE,
+#coef_map = cm
+)|>
+  autofit()
+
+
+```
+
+## Robustness
