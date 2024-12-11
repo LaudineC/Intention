@@ -685,7 +685,8 @@ DummiesSocioDemo <- dbMachineLearning %>%
     CanAccessScoialResources = ifelse((LikertAccessSoc == "Assez d’accord" | LikertAccessSoc == "Très d’accord"), 
                                       "Yes", "No"), # Can access social resources
     CanAccessInformation = ifelse((LikertAccessInfoBaseline == "Assez d’accord" | LikertAccessInfoBaseline == "Très d’accord"),
-                                  "Yes", "No") # Can access information
+                                  "Yes", "No"), # Can access information
+    ProgressiveNorms = ifelse(NormsScore < 2, "Yes", "No"), # Progressive norms: play with that a bit
   ) %>% select(-c(TrustCreche, 
                   NormsBaseline, 
                   LikertReturnHKBaseline, 

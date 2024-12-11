@@ -2,6 +2,8 @@
 title: "SupplementaryMaterials"
 format: docx
 editor: visual
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Link between baseline intention and endline outcome: Alluvial plot on all
@@ -89,5 +91,50 @@ alluvial_data_Controls_LowSES <- Control %>% filter(Educ == "Bac") %>%    dplyr:
 
 # Create the alluvial plot 
 ggplot(alluvial_data_Controls_LowSES,        aes(axis1 = ChildcareTypeBaseline, axis2 = ECSApp, axis3 =  ChildcareTypeEndline)) +   geom_alluvium(aes(fill = ChildcareTypeBaseline), width = 1/12) +   geom_stratum(width = 1/12, fill = "gray") +   geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +   scale_x_discrete(limits = c("Desired Care (During Pregnancy)", "Actual Care (Endline)"),                    expand = c(0.15, 0.15)) +   theme_minimal() +   labs(title = "Flow of Early Childcare Preferences to Actual Care",        x = "Stages",        y = "Number of Families")
+
+```
+
+# Logit regressions 
+
+```{r logit}
+cm <- c( '(Intercept)' = 'Constant', 'EducSup' = 'Level of Education of the mother: High-SES', "ECSApp"= "Applied")
+
+logit1 <- glm(AccessInformalFullTime ~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit2 <- glm(i(LevelInformation, ref = "Low knowledge")~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit3 <- glm(TrustEarlyChildcareAgree ~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit4 <- glm(ECAccessHoursFit ~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit5 <- glm(NegativeImpactSalary ~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit6 <- glm(Active ~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit7 <- glm(ProgressiveNorms ~ Educ,data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit8 <- glm(NegativeImpactWellBeing ~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit9 <- glm(NegativeImpactCareer ~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+logit10 <- glm(NormsUseMostToAll ~ Educ, data = DummiesSocioDemo, family = binomial(link = "logit"))
+
+modelsummary(
+  list(
+    "Access to Informal Care" = logit1,
+    "Level of Information" = logit2,
+    "Trust in Early Childcare facilities" = logit3,
+    "Opening hours fit" = logit4,
+    "Negative perceived impact on salary" = logit5,
+    "Active" = logit6,
+    "Adherence to progressive norms" = logit7,
+    "Negative perceived impact on well-being" = logit8,
+    "Negative perceived impact on career" = logit9,
+    "Norms: Use most to all" = logit10
+  ), 
+  statistic = "{std.error} ({p.value})",
+  estimate = "{estimate}{stars}  [{conf.low}, {conf.high}]",
+  gof_map = c("r.squared" ,"adj.r.squared", "aic", "bic", "nobs"),
+  stars = c("***" = .01, "**" = .05, "*" = .1),
+  title = "Probability to be satisfied with the current childcare solution according to education level and ECEC used",
+  notes = list(
+    "",
+    "Coefficient, 95 % CI in brackets, standard errors, p-value or adjusted p-value in parenthesis"
+  ),
+  exponentiate = TRUE,
+  output = 'flextable',
+  escape = TRUE
+) |> autofit()
 
 ```
