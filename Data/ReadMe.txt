@@ -1,1 +1,0 @@
-Dans la version PremierPasWithNonRespondent il manquait quelques variables ==> Mises dans la version 112024
