@@ -1,0 +1,12 @@
+.DS_Store
+.RData_old
+.Rhistory
+.Rprofile
+.Rproj.user/
+Data/*
+!Data/MainDB_analysis.csv
+Plots/
+Tables/
+images/
+*.docx
+*.html
