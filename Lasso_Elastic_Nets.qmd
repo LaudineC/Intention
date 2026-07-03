@@ -1,0 +1,2721 @@
+---
+title: "Supplementary Information for the manuscript - Lasso & Elastic Nets"
+author: "Laudine Carbuccia^[Sciences Po. Contact at laudine.carbuccia@sciencespo.fr.]"
+date: "`r Sys.Date()`"
+abstract: "**Abstract**: Write something that's so abstract, that it's abstract"
+format: 
+  docx:
+    toc: true
+    reference-doc: FormatRefWordFinal.docx
+    number-sections: true
+    number-depth: 3
+    fig-dpi: 500
+    fig-align: center
+execute: 
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message=FALSE, warning=FALSE,fig.width = 8,fig.height = 5,fig.pos = "H" #, 
+#cache.lazy = FALSE)
+)
+doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
+
+library(pacman)
+p_load(here)
+p_load(officedown)
+
+
+```
+
+```{r LoadLibraries, include=FALSE}
+source(here("RScripts","LoadInstallPackages.R"), local = knitr::knit_global())
+```
+
+```{r LoadData, include=FALSE}
+source(here("RScripts","LoadAllData.R"), local = knitr::knit_global())
+```
+
+```{r ImportAllFunctions, include=FALSE}
+source(here("RScripts","AllFunctions.R"), local = knitr::knit_global())
+```
+
+
+# The Lasso
+
+## Intention
+
+```{r}
+
+library(rio)
+
+# Clean the names
+coef_names <- c(  
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information", 
+   "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only" 
+ # "EntryAgeBeforeOneBeforeOne" = "Household want to use early childcare after the child is 1 yo" # Dropped becuse colinear
+)
+
+
+lasso_clean <- MLDummified %>% filter(!is.na(Intention)) %>% 
+  mutate(target = as.numeric(Intention) - 1) %>%
+ select(-c(Assignment, ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne,BabyHealthIndex, MotherHealthIndex, MovedOut))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+# Cleaning the data
+
+# Create a subset with the sociodemo and the predictors
+# Cleaning the data
+
+
+
+# Preparation
+## Split the sample
+library(tidymodels)
+tidymodels_prefer()
+set.seed(30)
+lasso_split <- initial_split(lasso_clean, prop = 0.8)
+lasso_train <- training(lasso_split)
+lasso_test <- testing(lasso_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = lasso_train) %>%
+  step_unknown(AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+    step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_normalize(all_numeric_predictors()) %>% 
+   step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm
+                  #BreastFeedLength,
+                  #NumberChildren
+                  )  # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+
+# Model specification
+lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
+                          mixture = 1) %>% # penalty is the lambda parameter
+  # mixture is the alpha. Alpha = 1 is just the lasso
+  # Penalty is tune ()
+  set_mode("regression") %>% # we are still doing regression
+  set_engine("glmnet") # we use a different engine that does regularisation
+
+lasso_wf <- workflow() %>% # define the workflow
+  add_model(lasso_spec) %>%
+  add_recipe(model_recipe)
+
+elastic_metrics <- metric_set(rsq) # we select metrics, we don't want the 3
+# we use the rsq metric
+
+# Resampling methods: 10 fold cross-validation
+set.seed(20)
+cv_folds <- vfold_cv(lasso_train,
+                     v = 10,
+                     repeats = 5)
+
+# Using dials to tune the model: 
+glmnet_param <- extract_parameter_set_dials(lasso_spec)# it extracts for me the parameter that 
+# needs to be tuned
+
+# Set the grid
+set.seed(15)
+lasso_grid <- grid_max_entropy(glmnet_param,
+                               size = 175, # generate 50 different lambdas
+                               # 50 is a bit low, 100 or 150 is better
+                               original = TRUE, # we are keeoing the original scale, the log
+                               variogram_range = 0.5) # the higher the value, the less likely it is to explore 
+
+
+# Tuning the Hyper-Parameter
+doParallel::registerDoParallel() # to know how many cores to use at the same time
+lasso_tune <- lasso_wf %>%
+  tune_grid(cv_folds,
+            grid = lasso_grid, # use the grid we just created
+            metrics = elastic_metrics)
+# So far we've selected 50 values of lambda. It run a regression for each lambda within each fold
+# We are running 50 * 10 * 5 = 2500 regressions in total, which all has a different R2
+
+# Plot the (average) performance
+autoplot(lasso_tune) # x is different values of lambda in the log scale. y is the average R2
+
+# Select the best lambda
+lasso_best <- select_best(lasso_tune)
+lasso_best # Model 46 
+
+temp <- collect_metrics(lasso_tune)
+# the std error is the variance divided by the square root of N
+# We see that model 46 is the best, but we can also see that the difference between the best and the worst is not that big
+
+# Finalizing the fit
+lasso_updated <- finalize_model(lasso_spec, # I finalize by using the pre specified moded
+                                lasso_best) # this replace the spec() argument by the picked lambda
+workflow_new <- lasso_wf %>%
+  update_model(lasso_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = lasso_train)
+
+tidy_lasso <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+
+# Evaluating the model: performance
+lasso_metrics <- new_fit %>%
+  predict(lasso_test) %>%
+  bind_cols(lasso_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+
+## POST LASSO 
+
+lasso_var <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+library(broom)      # Pour tidy()
+library(dplyr)      # Pour manipuler les données
+library(knitr)      # Pour knitr::kable
+library(kableExtra) # Pour styliser les tableaux
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+library(modelsummary)
+
+## PLOTS
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+  
+# TO DO LATER: Clean the names
+  # Sort coefficients by absolute value
+  #sorted_coefficients <- tidy(post_lasso_model) %>%
+   # arrange(desc(abs(estimate))) %>%
+    #filter(term != "(Intercept)")
+  
+  # Create vector with sorted names
+ # sorted_names <- sorted_coefficients$term
+  
+  # Order coefficient map including intercept
+
+#  ordered_coef_map <- coef_names[c("(Intercept)", sorted_names)]
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(list("Intention" =post_lasso_model),
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié    
+
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable') %>% autofit()
+
+
+# Forest plot
+out_conf <- tidy(post_lasso_model, conf.int = TRUE) %>%
+  filter(!is.na(conf.low)) %>%  # Filtrer les NA des intervalles de confiance
+  filter(term != "(Intercept)")  # Enlever l'intercept
+
+lm_model_out <- round_df(out_conf, digits=2)
+
+# Now plot them
+ggplot(lm_model_out, aes(x=reorder(term, estimate), y=estimate)) +
+         geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                       width = 0.2, size = 1,
+                       position = "dodge", color="turquoise4") +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+  geom_point() + 
+  coord_flip()+
+     theme_minimal() +
+     theme(
+       axis.text.y = element_text(size = 10),
+       plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+       axis.title = element_text(size = 12)
+     ) +
+     labs(
+       title = "Determinants of Early Childcare Intention",
+       subtitle = "Post-LASSO predictors",
+       x = "",
+       y = "Coefficient Estimates"
+     )
+
+```
+
+
+```{r}
+# Complete SHAP Visualization Suite for LASSO Models
+# ---------------------------------------------
+# This script provides a comprehensive set of functions for analyzing and
+# visualizing SHAP values for LASSO regression models
+
+p_load(forcats)
+# All-in-One SHAP Visualization Functions for LASSO Models
+# --------------------------------------------------------
+# This script provides a comprehensive set of visualization functions
+# specifically adapted to the structure of your SHAP results
+# Create SHAP analysis for your post-LASSO model
+shap_results <- calculate_shapley_importance_lasso(
+  lasso_model = post_lasso_model,  # Your post-LASSO model from lm()
+  test_df = lasso_test_post,       # Your test dataset with the target variable
+  target_var = "target",
+  n_samples = 50,
+  seed_val = 1995
+)
+
+# 
+# # 1. Basic importance plot
+importance_plot <- plot_shap_importance(shap_results)
+print(importance_plot)
+# 
+
+# # 5. Compare with model coefficients
+coef_comparison <- plot_shap_vs_coefficients(shap_results, post_lasso_model)
+print(coef_comparison)
+
+
+```
+
+### Oaxaca Blinder
+
+```{r}
+
+# extract the name of the coefficient 
+lasso_var_intention <- clean_variable_names(lasso_var)
+
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_intention <- Oaxaca %>%
+  filter(!is.na(Intention)) %>%
+  mutate(
+    target = as.numeric(Intention) - 1,
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(lasso_var_intention)) 
+
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(lasso_var_intention, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_lasso_intention <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_intention,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_lasso_intention, 
+                                outcome = "Intention",
+                                model = "Post-Lasso predictors")
+gapExplained
+
+
+
+```
+
+```{r}
+
+# Clean the names
+
+# Clean the names
+coef_names <- c(  
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information"#, 
+ # "EntryAgeBeforeOneBeforeOne" = "Household want to use early childcare after the child is 1 yo" # Dropped becuse colinear
+)
+ExplainedAppReg <- plot_top_contributors(oax_lasso_intention, 
+                                         var_labels = coef_names,
+                                         outcome = "Intention",
+                                         top_n = 15,
+                                          model = "Post-Lasso predictors"
+                                         ) 
+ExplainedAppReg
+```
+
+
+## Application
+
+```{r}
+
+library(rio)
+
+
+
+lasso_clean <- MLDummified %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(target = as.numeric(ECSApp))  %>%  # the idea db we would be working with in the end
+ select(-c( ECSApp, ECSUseYes))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+
+# Preparation
+## Split the sample
+library(tidymodels)
+tidymodels_prefer()
+set.seed(10)
+lasso_split <- initial_split(lasso_clean, prop = 0.8)
+lasso_train <- training(lasso_split)
+lasso_test <- testing(lasso_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = lasso_train) %>%
+  step_unknown(EntryAgeBeforeOne,
+               AttitudesTowardsWorkAndFamily, AttitudesLaborAffectsChildren
+               #FmlyIncomeBaseline,
+                # IncomeBaseline, 
+           #    TrustCreche, 
+            #   DeprivHolidays,
+               #BreastFeedIntend,
+            #   InformalReciprocity, 
+             #TrustAssMat,
+             #TrustFam,
+            # TrustFriend,
+             #CoupleCohabiting,
+             #AccessEasy5, 
+             #NormsHouse, 
+#NormsWork, 
+#LevelInfoSubExPost, 
+#Assignment
+) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_normalize(all_numeric_predictors()) %>% 
+   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm
+                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+# Model specification
+lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
+                          mixture = 1) %>% # penalty is the lambda parameter
+  # mixture is the alpha. Alpha = 1 is just the lasso
+  # Penalty is tune ()
+  set_mode("regression") %>% # we are still doing regression
+  set_engine("glmnet") # we use a different engine that does regularisation
+
+lasso_wf <- workflow() %>% # define the workflow
+  add_model(lasso_spec) %>%
+  add_recipe(model_recipe)
+
+elastic_metrics <- metric_set(rsq) # we select metrics, we don't want the 3
+# we use the rsq metric
+
+# Resampling methods: 10 fold cross-validation
+set.seed(20)
+cv_folds <- vfold_cv(lasso_train,
+                     v = 10,
+                     repeats = 5)
+
+# Using dials to tune the model: 
+glmnet_param <- extract_parameter_set_dials(lasso_spec)# it extracts for me the parameter that 
+# needs to be tuned
+
+# Set the grid
+set.seed(15)
+lasso_grid <- grid_max_entropy(glmnet_param,
+                               size = 175, # generate 50 different lambdas
+                               # 50 is a bit low, 100 or 150 is better
+                               original = TRUE, # we are keeoing the original scale, the log
+                               variogram_range = 0.5) # the higher the value, the less likely it is to explore 
+
+
+
+# Tuning the Hyper-Parameter
+doParallel::registerDoParallel() # to know how many cores to use at the same time
+lasso_tune <- lasso_wf %>%
+  tune_grid(cv_folds,
+            grid = lasso_grid, # use the grid we just created
+            metrics = elastic_metrics)
+# So far we've selected 50 values of lambda. It run a regression for each lambda within each fold
+# We are running 50 * 10 * 5 = 2500 regressions in total, which all has a different R2
+
+# Plot the (average) performance
+autoplot(lasso_tune) # x is different values of lambda in the log scale. y is the average R2
+
+# Select the best lambda
+lasso_best <- select_best(lasso_tune)
+lasso_best # Model 46 
+
+temp <- collect_metrics(lasso_tune)
+# the std error is the variance divided by the square root of N
+# We see that model 46 is the best, but we can also see that the difference between the best and the worst is not that big
+
+# Finalizing the fit
+lasso_updated <- finalize_model(lasso_spec, # I finalize by using the pre specified moded
+                                lasso_best) # this replace the spec() argument by the picked lambda
+workflow_new <- lasso_wf %>%
+  update_model(lasso_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = lasso_train)
+
+tidy_lasso <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+
+# Evaluating the model: performance
+metrics <- new_fit %>%
+  predict(lasso_test) %>%
+  bind_cols(lasso_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+
+## POST LASSO 
+
+lasso_var_application <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var_application))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var_application)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var_application))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(list("Application" =post_lasso_model),
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable') %>% autofit()
+
+
+
+# Forest plot
+out_conf <- tidy(post_lasso_model, conf.int = TRUE) %>%
+  filter(!is.na(conf.low)) %>%  # Filtrer les NA des intervalles de confiance
+  filter(term != "(Intercept)")  # Enlever l'intercept
+
+lm_model_out <- round_df(out_conf, digits=2)
+
+# Now plot them
+ggplot(lm_model_out, aes(x=reorder(term, estimate), y=estimate)) +
+         geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                       width = 0.2, size = 1,
+                       position = "dodge", color="turquoise4") +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+  geom_point() + 
+  coord_flip()+
+     theme_minimal() +
+     theme(
+       axis.text.y = element_text(size = 10),
+       plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+       axis.title = element_text(size = 12)
+     ) +
+     labs(
+       title = "Determinants of Early Childcare Application",
+       subtitle = "Post-LASSO predictors",
+       x = "",
+       y = "Coefficient Estimates"
+     )
+
+```
+
+### Oaxaca Blinder
+
+```{r}
+
+# extract the name of the coefficient 
+lasso_var_application <- clean_variable_names(lasso_var_application)
+
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_application <- Oaxaca %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(
+    target = as.numeric(ECSApp),
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(lasso_var_application))  
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(lasso_var_application, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_lasso_application <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_application,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_lasso_application, 
+                                outcome = "Application",
+                                model = "Post-Lasso predictors")
+gapExplained
+
+
+
+```
+
+
+```{r}
+
+# Clean the names
+coef_names_application <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  "EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo", 
+  "MovedOutYes" = "Household moved between baseline and endline", 
+   "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only"
+)
+
+ExplainedAppReg <- plot_top_contributors(oax_lasso_application, 
+                                         var_labels = coef_names_application, 
+                                         top_n = 15,
+                                          model = "Post-Lasso predictors",
+                                         outcome = "Application") 
+ExplainedAppReg
+```
+
+## Access 
+
+```{r}
+
+lasso_clean <- MLDummified_Access %>%   
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No"), 
+         Applied = factor(Applied, labels = c("No", "Yes"))
+                          ) %>% 
+  select( -c(ECSUseYes, ECSApp, EntryAgeBeforeOne))  # Take a look at the data with skimr 
+
+
+
+# Preparation 
+## Split the sample 
+set.seed(10) 
+lasso_split <- initial_split(lasso_clean, prop = 0.8) 
+lasso_train <- training(lasso_split) 
+lasso_test <- testing(lasso_split)  # Apply the recipe (simplified) 
+
+  
+
+model_recipe <- recipe(target ~ ., data = lasso_train) %>%  
+  step_unknown(#EntryAgeBeforeOne, 
+                 AttitudesTowardsWorkAndFamily, AttitudesLaborAffectsChildren) %>%   
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_normalize(all_numeric_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+ step_impute_knn(Taux.de.couv.global,
+                NumberChildren,
+                PrescriptiveNorm,
+                neighbors = 5) %>% 
+  step_YeoJohnson(MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  MonthlyDaycareFees,
+                  PrescriptiveNorm
+                  )
+
+
+
+# Clean the names
+coef_names_access <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  #"OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "MonthlyDaycareFees" = "Monthly daycare fees",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  #"EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo", 
+  "AppliedYes" = "Applied to early childcare at endline",
+  #"PoliticalOrientationRight" = "Right-wing mayor",
+  #"PoliticalOrientationOther" = "Other political orientation of the mayor",
+ "MovedOutYes" = "Household moved between baseline and endline", 
+ "ECSAppTimingBeforeBirthYes" = "Applied before birth",
+ "IncomeLess than 1500 euros" = "Household income earns less than 1500 euros",
+ "IncomeMore than 2500 euros" = "Household income more than 2500 euros", 
+       "ApplicationCalledYes" = "Household contacted providers by phone", 
+      "ApplicationWentOnSiteYesYes" = "Household visited providers in person",
+      "ApplicationNetworkedYes" = "Household reached out to an elected official", 
+   "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only"
+)
+
+
+# Model specification
+lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
+                          mixture = 1) %>% # penalty is the lambda parameter
+  # mixture is the alpha. Alpha = 1 is just the lasso
+  # Penalty is tune ()
+  set_mode("regression") %>% # we are still doing regression
+  set_engine("glmnet") # we use a different engine that does regularisation
+
+lasso_wf <- workflow() %>% # define the workflow
+  add_model(lasso_spec) %>%
+  add_recipe(model_recipe)
+
+elastic_metrics <- metric_set(rsq) # we select metrics, we don't want the 3
+# we use the rsq metric
+
+# Resampling methods: 10 fold cross-validation
+set.seed(20)
+cv_folds <- vfold_cv(lasso_train,
+                     v = 10,
+                     repeats = 5)
+
+# Using dials to tune the model: 
+glmnet_param <- extract_parameter_set_dials(lasso_spec)# it extracts for me the parameter that 
+# needs to be tuned
+
+# Set the grid
+set.seed(15)
+lasso_grid <- grid_max_entropy(glmnet_param,
+                               size = 175, # generate 50 different lambdas
+                               # 50 is a bit low, 100 or 150 is better
+                               original = TRUE, # we are keeoing the original scale, the log
+                               variogram_range = 0.5) # the higher the value, the less likely it is to explore 
+
+# Vérifier que la recette fonctionne
+#prep(model_recipe) %>%
+#  bake(new_data = NULL) %>%
+#  glimpse()
+
+# Tuning the Hyper-Parameter
+doParallel::registerDoParallel() # to know how many cores to use at the same time
+lasso_tune <- lasso_wf %>%
+  tune_grid(cv_folds,
+            grid = lasso_grid, # use the grid we just created
+            metrics = elastic_metrics)
+# So far we've selected 50 values of lambda. It run a regression for each lambda within each fold
+# We are running 50 * 10 * 5 = 2500 regressions in total, which all has a different R2
+
+# Plot the (average) performance
+autoplot(lasso_tune) # x is different values of lambda in the log scale. y is the average R2
+
+# Select the best lambda
+lasso_best <- select_best(lasso_tune)
+lasso_best # Model 46 
+
+temp <- collect_metrics(lasso_tune)
+# the std error is the variance divided by the square root of N
+# We see that model 46 is the best, but we can also see that the difference between the best and the worst is not that big
+
+# Finalizing the fit
+lasso_updated <- finalize_model(lasso_spec, # I finalize by using the pre specified moded
+                                lasso_best) # this replace the spec() argument by the picked lambda
+workflow_new <- lasso_wf %>%
+  update_model(lasso_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = lasso_train)
+
+tidy_lasso <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+
+lasso_var = tidy_lasso %>% filter(estimate != 0)
+# Evaluating the model: performance
+metrics <- new_fit %>%
+  predict(lasso_test) %>%
+  bind_cols(lasso_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+
+lasso_var_access <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var_access))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var_access)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var_access))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(list("Access" = post_lasso_model),
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable')
+
+
+# Forest plot
+out_conf <- tidy(post_lasso_model, conf.int = TRUE) %>%
+  filter(!is.na(conf.low)) %>%  # Filtrer les NA des intervalles de confiance
+  filter(term != "(Intercept)")  # Enlever l'intercept
+
+lm_model_out <- round_df(out_conf, digits=2)
+
+# Now plot them
+ggplot(lm_model_out, aes(x=reorder(term, estimate), y=estimate)) +
+         geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                       width = 0.2, size = 1,
+                       position = "dodge", color="turquoise4") +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+  geom_point() + 
+  coord_flip()+
+    theme_minimal() +
+    theme(
+      axis.text.y = element_text(size = 10),
+      plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+      axis.title = element_text(size = 12)
+    ) +
+    labs(
+      title = "Determinants of Early Childcare Access",
+      subtitle = "Post-LASSO predictors",
+      x = "",
+      y = "Coefficient Estimates"
+    )
+  
+```
+
+
+### Oaxaca Blinder
+
+```{r}
+
+# extract the name of the coefficient 
+lasso_var_access <- clean_variable_names(lasso_var_access)
+
+
+oaxaca_data_access <- Oaxaca_Access %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(lasso_var_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(lasso_var_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_lasso_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_lasso_access, 
+                                outcome = "Access",
+                                model = "Post-Lasso predictors")
+gapExplained
+
+```
+
+
+```{r}
+
+ExplainedAppReg <- plot_top_contributors(oax_lasso_access, 
+                                         var_labels = coef_names_access, 
+                                         top_n = 13,
+                                          model = "Post-Lasso predictors",
+                                         outcome = "Access") 
+ExplainedAppReg
+```
+
+
+
+## Access with the same variables than Application
+
+```{r}
+## DO THE LASSO 
+library(rio)
+
+lasso_clean <- MLDummified %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No" )) %>%
+ select(-c( ECSApp, ECSUseYes))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+
+
+
+
+
+# Preparation
+## Split the sample
+tidymodels_prefer()
+set.seed(10)
+lasso_split <- initial_split(lasso_clean, prop = 0.8)
+lasso_train <- training(lasso_split)
+lasso_test <- testing(lasso_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = lasso_train) %>%
+    step_unknown(EntryAgeBeforeOne, 
+                 AttitudesTowardsWorkAndFamily, AttitudesLaborAffectsChildren
+) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_normalize(all_numeric_predictors()) %>% 
+   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm
+                  )
+# Model specification
+lasso_spec <-  linear_reg(penalty = tune(), # here we need something new
+                          mixture = 1) %>% # penalty is the lambda parameter
+  # mixture is the alpha. Alpha = 1 is just the lasso
+  # Penalty is tune ()
+  set_mode("regression") %>% # we are still doing regression
+  set_engine("glmnet") # we use a different engine that does regularisation
+
+lasso_wf <- workflow() %>% # define the workflow
+  add_model(lasso_spec) %>%
+  add_recipe(model_recipe)
+
+elastic_metrics <- metric_set(rsq) # we select metrics, we don't want the 3
+# we use the rsq metric
+
+# Resampling methods: 10 fold cross-validation
+set.seed(20)
+cv_folds <- vfold_cv(lasso_train,
+                     v = 10,
+                     repeats = 5)
+
+# Using dials to tune the model: 
+glmnet_param <- extract_parameter_set_dials(lasso_spec)# it extracts for me the parameter that 
+# needs to be tuned
+
+# Set the grid
+set.seed(15)
+lasso_grid <- grid_max_entropy(glmnet_param,
+                               size = 175, # generate 50 different lambdas
+                               # 50 is a bit low, 100 or 150 is better
+                               original = TRUE, # we are keeoing the original scale, the log
+                               variogram_range = 0.5) # the higher the value, the less likely it is to explore 
+
+# Vérifier que la recette fonctionne
+#prep(model_recipe) %>%
+#  bake(new_data = NULL) %>%
+#  glimpse()
+
+# Tuning the Hyper-Parameter
+doParallel::registerDoParallel() # to know how many cores to use at the same time
+lasso_tune <- lasso_wf %>%
+  tune_grid(cv_folds,
+            grid = lasso_grid, # use the grid we just created
+            metrics = elastic_metrics)
+# So far we've selected 50 values of lambda. It run a regression for each lambda within each fold
+# We are running 50 * 10 * 5 = 2500 regressions in total, which all has a different R2
+
+# Plot the (average) performance
+autoplot(lasso_tune) # x is different values of lambda in the log scale. y is the average R2
+
+# Select the best lambda
+lasso_best <- select_best(lasso_tune)
+lasso_best # Model 46 
+
+temp <- collect_metrics(lasso_tune)
+# the std error is the variance divided by the square root of N
+# We see that model 46 is the best, but we can also see that the difference between the best and the worst is not that big
+
+# Finalizing the fit
+lasso_updated <- finalize_model(lasso_spec, # I finalize by using the pre specified moded
+                                lasso_best) # this replace the spec() argument by the picked lambda
+workflow_new <- lasso_wf %>%
+  update_model(lasso_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = lasso_train)
+
+tidy_lasso <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+
+lasso_var = tidy_lasso %>% filter(estimate != 0)
+# Evaluating the model: performance
+metrics <- new_fit %>%
+  predict(lasso_test) %>%
+  bind_cols(lasso_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+
+lasso_var_access <- tidy_lasso %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+## Post Lasso on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = lasso_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+lasso_test_baked <- prep(model_recipe) %>% # should we apply the transformatios ? 
+  bake(new_data = lasso_test)
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var_access))) # we select the target and the variables that the lasso picked up
+
+lasso_test_post <- lasso_test_baked %>% # for model metrics
+  select(all_of(c("target", lasso_var_access)))
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_lasso_preds <- predict(post_lasso_model, newdata = lasso_test_post)
+
+# Calculer les métriques
+post_lasso_metrics <- metrics(
+  data = data.frame(truth = lasso_test_post$target, estimate = post_lasso_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_lasso_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+lasso_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = lasso_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the lasso picked up
+lasso_train_post <- lasso_train_baked %>%
+  select(all_of(c("target", lasso_var_access))) # we select the target and the variables that the lasso picked up
+
+# Fit the model on the training set 
+post_lasso_model <- lm(target ~ ., data = lasso_train_post)
+
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle Lasso") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_lasso_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(list("Access" = post_lasso_model),
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable')
+
+
+# Forest plot
+out_conf <- tidy(post_lasso_model, conf.int = TRUE) %>%
+  filter(!is.na(conf.low)) %>%  # Filtrer les NA des intervalles de confiance
+  filter(term != "(Intercept)")  # Enlever l'intercept
+
+lm_model_out <- round_df(out_conf, digits=2)
+
+# Now plot them
+ggplot(lm_model_out, aes(x=reorder(term, estimate), y=estimate)) +
+         geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                       width = 0.2, size = 1,
+                       position = "dodge", color="turquoise4") +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+  geom_point() + 
+  coord_flip()+
+    theme_minimal() +
+    theme(
+      axis.text.y = element_text(size = 10),
+      plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+      axis.title = element_text(size = 12)
+    ) +
+    labs(
+      title = "Determinants of Early Childcare Access",
+      subtitle = "Post-LASSO predictors",
+      x = "",
+      y = "Coefficient Estimates"
+    )
+  
+```
+
+
+### Oaxaca Blinder
+
+```{r}
+
+# extract the name of the coefficient 
+lasso_var_access <- clean_variable_names(lasso_var_access)
+
+
+# Clean the names
+coef_names_access <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  "EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo", 
+  "AppliedYes" = "Applied to early childcare at endline",
+  "MovedOutYes" = "Household moved between baseline and endline"
+
+)
+
+
+oaxaca_data_access <- Oaxaca %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(lasso_var_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(lasso_var_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_lasso_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_lasso_access, 
+                                outcome = "Access",
+                                model = "Post-Lasso predictors")
+gapExplained
+
+```
+
+
+```{r}
+
+ExplainedAppReg <- plot_top_contributors(oax_lasso_access, 
+                                         var_labels = coef_names_access, 
+                                         top_n = 13,
+                                          model = "Post-Lasso predictors",
+                                         outcome = "Access") 
+ExplainedAppReg
+```
+
+# Elastic Nets
+
+## Intention
+
+```{r}
+
+
+elastic_clean <- MLDummified %>% filter(!is.na(Intention)) %>% 
+  mutate(target = as.numeric(Intention) - 1) %>%
+ select(-c(Assignment, MovedOut, ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne,BabyHealthIndex, MotherHealthIndex ))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+
+# Preparation
+## Split the sample
+tidymodels_prefer()
+set.seed(153)
+elastic_split <- initial_split(elastic_clean, prop = 0.8)
+elastic_train <- training(elastic_split)
+elastic_test <- testing(elastic_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = elastic_train) %>%
+  step_unknown(AttitudesTowardsWorkAndFamily, AttitudesLaborAffectsChildren) %>% 
+    step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_normalize(all_numeric_predictors()) %>% 
+     step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm
+                  #BreastFeedLength,
+                  #NumberChildren
+                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+
+# Specify the metrics: R squared
+elastic_metrics <- metric_set(rsq)
+
+# Now with elastic nets we have 2 tuning parameters
+elastic_spec <-  linear_reg(penalty = tune(),
+                            mixture = tune()) %>%
+  set_mode("regression") %>%
+  set_engine("glmnet")
+
+# Workflow for elastic nets
+elastic_wf <- workflow() %>%
+  add_model(elastic_spec) %>%
+  add_recipe(model_recipe)
+
+# 10 fold cross validation with 5 repeats
+set.seed(20)
+cv_folds <- vfold_cv(elastic_train, v = 10, 
+                     repeats = 5)
+
+# Tune the model
+# First specify the tuning grid with the dials package
+
+# Extract the tuning parameter and store it -- conveniently this way the model knows what are the limits for alpha and lambda
+glmnet_param <- extract_parameter_set_dials(elastic_spec)
+elastic_grid <- grid_latin_hypercube(glmnet_param, # hypercube when more than 1 tuning parameter, otherwise entropy
+                                     size = 175, # number of points in the grid: 50 combinantions of alpha and lambda
+                                     variogram_range = 0.5, # influencing how well it explores the parameter space
+                                     original = TRUE) # works with the log scale of the lambda
+
+# to tune the model, we use parallel processing (do this as much as you can)
+doParallel::registerDoParallel()
+elastic_tune <- elastic_wf %>%
+  tune_grid(cv_folds, grid = elastic_grid, metrics = elastic_metrics)
+
+autoplot(elastic_tune) # x is different values of lambda in the log scale. y is the average R2
+
+elastic_best <- select_best(elastic_tune)
+elastic_best # mixture: 22 percents LASSO and 78 percents Ridge
+
+# Optional: check the values
+temp <- collect_metrics(elastic_tune)
+
+# Finalize the model
+elastic_updated <- finalize_model(elastic_spec,
+                                  elastic_best)
+workflow_new <- elastic_wf %>%
+  update_model(elastic_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = elastic_train)
+
+tidy_elastic <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+
+
+# Evaluating the model: performance
+metrics <- new_fit %>%
+  predict(elastic_test) %>%
+  bind_cols(elastic_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+# R2 here is 0.893, which is a bit better than the lasso
+
+
+## POST elastic nets 
+
+elastic_var_intention <- tidy_elastic %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+## Post EN on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+elastic_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = elastic_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+elastic_test_baked <- prep(model_recipe) %>% # should we apply the transformatios ? 
+  bake(new_data = elastic_test)
+
+# Select only the variables that the elastic picked up
+elastic_train_post <- elastic_train_baked %>%
+  select(all_of(c("target", elastic_var_intention))) # we select the target and the variables that the elastic picked up
+
+elastic_test_post <- elastic_test_baked %>% # for model metrics
+  select(all_of(c("target", elastic_var_intention)))
+
+# Fit the model on the training set 
+post_elastic_model <- lm(target ~ ., data = elastic_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_elastic_preds <- predict(post_elastic_model, newdata = elastic_test_post)
+
+# Calculer les métriques
+post_elastic_metrics <- metrics(
+  data = data.frame(truth = elastic_test_post$target, estimate = post_elastic_preds),
+  truth = truth,
+  estimate = estimate
+)
+
+print(post_elastic_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+elastic_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = elastic_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the elastic picked up
+elastic_train_post <- elastic_train_baked %>%
+  select(all_of(c("target", elastic_var_intention))) # we select the target and the variables that the elastic picked up
+
+# Fit the model on the training set 
+post_elastic_model <- lm(target ~ ., data = elastic_train_post)
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_elastic_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+## Générer un joli tableau pour Word
+#coefficients_table %>%
+#  kable(format = "html", col.names = c("Variable", "Coefficient", "Erreur standard", "P-value"), 
+#        caption = "Tableau des coefficients du modèle elastic") %>%
+#  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+#
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_elastic_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(list("Intention" =post_elastic_model),
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable') %>% autofit()
+
+
+
+# Forest plot
+out_conf <- tidy(post_elastic_model, conf.int = TRUE) %>%
+  filter(!is.na(conf.low)) %>%  # Filtrer les NA des intervalles de confiance
+  filter(term != "(Intercept)")  # Enlever l'intercept
+
+elastic_model_out <- round_df(out_conf, digits=2)
+
+# Now plot them
+ggplot(elastic_model_out, aes(x=reorder(term, estimate), y=estimate)) +
+         geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                       width = 0.2, size = 1,
+                       position = "dodge", color="turquoise4") +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+  geom_point() + 
+  coord_flip()+
+     theme_minimal() +
+     theme(
+       axis.text.y = element_text(size = 10),
+       plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+       axis.title = element_text(size = 12)
+     ) +
+     labs(
+       title = "Determinants of Early Childcare Intention",
+       subtitle = "Elastic-Nets predictors",
+       x = "",
+       y = "Coefficient Estimates"
+     )
+
+```
+
+### Oaxaca Blinder
+
+```{r}
+
+# extract the name of the coefficient 
+elastic_var_intention <- clean_variable_names(elastic_var_intention)
+
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_intention <- Oaxaca %>%
+  filter(!is.na(Intention)) %>%
+  mutate(
+    target = as.numeric(Intention) - 1,
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(elastic_var_intention)) 
+
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(elastic_var_intention, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_elastic_intention <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_intention,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_elastic_intention, 
+                                outcome = "Intention",
+                                model = "Elastic Nets predictors")
+gapExplained
+
+
+
+```
+
+```{r}
+
+# Clean the names
+
+# Clean the names
+coef_names <- c(  
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information"#, 
+ # "EntryAgeBeforeOneBeforeOne" = "Household want to use early childcare after the child is 1 yo" # Dropped becuse colinear
+)
+ExplainedAppReg <- plot_top_contributors(oax_elastic_intention, 
+                                         var_labels = coef_names, 
+                                         top_n = 15,
+                                          model = "Elastic Nets predictors"
+                                         ) 
+ExplainedAppReg
+```
+
+
+
+## Application
+
+```{r}
+
+
+
+
+elastic_clean <- MLDummified %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(target = as.numeric(ECSApp))  %>%  # the idea db we would be working with in the end
+ select(-c( ECSApp, ECSUseYes))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+
+
+# Preparation
+## Split the sample
+tidymodels_prefer()
+set.seed(10)
+elastic_split <- initial_split(elastic_clean, prop = 0.8)
+elastic_train <- training(elastic_split)
+elastic_test <- testing(elastic_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = elastic_train) %>%
+  step_unknown(EntryAgeBeforeOne, AttitudesTowardsWorkAndFamily, AttitudesLaborAffectsChildren                           
+) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_normalize(all_numeric_predictors()) %>% 
+   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+    step_YeoJohnson(
+                    MotherHealthIndex,
+                    BabyHealthIndex,
+                    NumberChildren, 
+                    OpportunityCosts,
+  
+                    PrescriptiveNorm
+                    )# some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+# Model specification
+
+# Specify the metrics: R squared
+elastic_metrics <- metric_set(rsq)
+
+# Now with elastic nets we have 2 tuning parameters
+elastic_spec <-  linear_reg(penalty = tune(),
+                            mixture = tune()) %>%
+  set_mode("regression") %>%
+  set_engine("glmnet")
+
+# Workflow for elastic nets
+elastic_wf <- workflow() %>%
+  add_model(elastic_spec) %>%
+  add_recipe(model_recipe)
+
+# 10 fold cross validation with 5 repeats
+set.seed(20)
+cv_folds <- vfold_cv(elastic_train, v = 10, 
+                     repeats = 5)
+
+# Tune the model
+# First specify the tuning grid with the dials package
+
+# Extract the tuning parameter and store it -- conveniently this way the model knows what are the limits for alpha and lambda
+glmnet_param <- extract_parameter_set_dials(elastic_spec)
+elastic_grid <- grid_latin_hypercube(glmnet_param, # hypercube when more than 1 tuning parameter, otherwise entropy
+                                     size = 175, # number of points in the grid: 50 combinantions of alpha and lambda
+                                     variogram_range = 0.75, # influencing how well it explores the parameter space
+                                     original = TRUE) # works with the log scale of the lambda
+
+# to tune the model, we use parallel processing (do this as much as you can)
+doParallel::registerDoParallel()
+elastic_tune <- elastic_wf %>%
+  tune_grid(cv_folds, grid = elastic_grid, metrics = elastic_metrics)
+
+autoplot(elastic_tune) # x is different values of lambda in the log scale. y is the average R2
+
+elastic_best <- select_best(elastic_tune)
+elastic_best # mixture: 22 percents LASSO and 78 percents Ridge
+
+# Optional: check the values
+temp <- collect_metrics(elastic_tune)
+
+# Finalize the model
+elastic_updated <- finalize_model(elastic_spec,
+                                  elastic_best)
+workflow_new <- elastic_wf %>%
+  update_model(elastic_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = elastic_train)
+
+tidy_elastic <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+
+# Evaluating the model: performance
+metrics <- new_fit %>%
+  predict(elastic_test) %>%
+  bind_cols(elastic_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+# R2 here is 0.893, which is a bit better than the lasso
+
+
+## POST elastic nets 
+
+elastic_var_application <- tidy_elastic %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+
+
+## Post EN on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+elastic_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = elastic_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+elastic_test_baked <- prep(model_recipe) %>% # should we apply the transformatios ? 
+  bake(new_data = elastic_test)
+
+# Select only the variables that the elastic picked up
+elastic_train_post <- elastic_train_baked %>%
+  select(all_of(c("target", elastic_var_application))) # we select the target and the variables that the elastic picked up
+
+elastic_test_post <- elastic_test_baked %>% # for model metrics
+  select(all_of(c("target", elastic_var_application)))
+
+# Fit the model on the training set 
+post_elastic_model <- lm(target ~ ., data = elastic_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_elastic_preds <- predict(post_elastic_model, newdata = elastic_test_post)
+
+# Calculer les métriques
+post_elastic_metrics <- metrics(
+  data = data.frame(truth = elastic_test_post$target, estimate = post_elastic_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_elastic_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+elastic_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = elastic_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the elastic picked up
+elastic_train_post <- elastic_train_baked %>%
+  select(all_of(c("target", elastic_var_application))) # we select the target and the variables that the elastic picked up
+
+# Fit the model on the training set 
+post_elastic_model <- lm(target ~ ., data = elastic_train_post)
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_elastic_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_elastic_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(list("Application" =post_elastic_model),
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable') %>% autofit()
+
+
+# Forest plot
+out_conf <- tidy(post_elastic_model, conf.int = TRUE) %>%
+  filter(!is.na(conf.low)) %>%  # Filtrer les NA des intervalles de confiance
+  filter(term != "(Intercept)")  # Enlever l'intercept
+
+elastic_model_out <- round_df(out_conf, digits=2)
+
+# Now plot them
+ggplot(elastic_model_out, aes(x=reorder(term, estimate), y=estimate)) +
+         geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                       width = 0.2, size = 1,
+                       position = "dodge", color="turquoise4") +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+  geom_point() + 
+  coord_flip()+
+     theme_minimal() +
+     theme(
+       axis.text.y = element_text(size = 10),
+       plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+       axis.title = element_text(size = 12)
+     ) +
+     labs(
+       title = "Determinants of Early Childcare Application",
+       subtitle = "Elastic-Nets predictors",
+       x = "",
+       y = "Coefficient Estimates"
+     )
+
+```
+
+### Oaxaca Blinder
+
+```{r}
+
+# extract the name of the coefficient 
+elastic_var_application <- clean_variable_names(elastic_var_application)
+
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_application <- Oaxaca %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(
+    target = as.numeric(ECSApp),
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(elastic_var_application))  
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(elastic_var_application, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_elastic_application <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_application,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_elastic_application, 
+                                outcome = "Application",
+                                model = "Post-Lasso predictors")
+gapExplained
+
+
+
+```
+
+
+```{r}
+
+# Clean the names
+coef_names_application <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  "EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo",
+ "MovedOutYes" = "Household moved between baseline and endline"
+
+)
+
+ExplainedAppReg <- plot_top_contributors(oax_elastic_application, 
+                                         var_labels = coef_names_application, 
+                                         top_n = 13,
+                                          model = "Post-Lasso predictors",
+                                         outcome = "Application") 
+ExplainedAppReg
+```
+
+## Access
+
+```{r}
+## DO THE LASSO 
+
+
+elastic_clean <- MLDummified_Access %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No" )) %>%
+ select(-c( ECSApp, ECSUseYes, EntryAgeBeforeOne))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+
+# Clean the names
+coef_names_access <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  #"OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "MonthlyDaycareFees" = "Monthly daycare fees",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  #"EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo", 
+  "AppliedYes" = "Applied to early childcare at endline",
+ # "PoliticalOrientationRight" = "Right-wing mayor",
+  #"PoliticalOrientationOther" = "Other political orientation of the mayor",
+ "MovedOutYes" = "Household moved between baseline and endline", 
+ "ECSAppTimingBeforeBirthYes" = "Applied before birth",
+ "IncomeLess than 1500 euros" = "Household income earns less than 1500 euros",
+ "IncomeMore than 2500 euros" = "Household income more than 2500 euros", 
+       "ApplicationCalledYes" = "Household contacted providers by phone", 
+      "ApplicationWentOnSiteYesYes" = "Household visited providers in person",
+      "ApplicationNetworkedYes" = "Household reached out to an elected official"
+)
+
+# Preparation
+## Split the sample
+tidymodels_prefer()
+set.seed(10)
+elastic_split <- initial_split(elastic_clean, prop = 0.8)
+elastic_train <- training(elastic_split)
+elastic_test <- testing(elastic_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = elastic_train) %>%
+    step_unknown(#EntryAgeBeforeOne, 
+                   AttitudesTowardsWorkAndFamily, 
+                   AttitudesLaborAffectsChildren 
+) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_normalize(all_numeric_predictors()) %>% 
+   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  #OpportunityCosts,
+                  MonthlyDaycareFees,
+
+                  PrescriptiveNorm
+                  ) 
+
+
+# Specify the metrics: R squared
+elastic_metrics <- metric_set(rsq)
+
+# Now with elastic nets we have 2 tuning parameters
+elastic_spec <-  linear_reg(penalty = tune(),
+                            mixture = tune()) %>%
+  set_mode("regression") %>%
+  set_engine("glmnet")
+
+# Workflow for elastic nets
+elastic_wf <- workflow() %>%
+  add_model(elastic_spec) %>%
+  add_recipe(model_recipe)
+
+# 10 fold cross validation with 5 repeats
+set.seed(20)
+cv_folds <- vfold_cv(elastic_train, v = 10, 
+                     repeats = 5)
+
+# Tune the model
+# First specify the tuning grid with the dials package
+
+# Extract the tuning parameter and store it -- conveniently this way the model knows what are the limits for alpha and lambda
+glmnet_param <- extract_parameter_set_dials(elastic_spec)
+elastic_grid <- grid_latin_hypercube(glmnet_param, # hypercube when more than 1 tuning parameter, otherwise entropy
+                                     size = 175, # number of points in the grid: 50 combinantions of alpha and lambda
+                                     variogram_range = 0.75, # influencing how well it explores the parameter space
+                                     original = TRUE) # works with the log scale of the lambda
+
+# to tune the model, we use parallel processing (do this as much as you can)
+doParallel::registerDoParallel()
+elastic_tune <- elastic_wf %>%
+  tune_grid(cv_folds, grid = elastic_grid, metrics = elastic_metrics)
+
+autoplot(elastic_tune) # x is different values of lambda in the log scale. y is the average R2
+
+elastic_best <- select_best(elastic_tune)
+elastic_best # mixture: 22 percents LASSO and 78 percents Ridge
+
+# Optional: check the values
+temp <- collect_metrics(elastic_tune)
+
+# Finalize the model
+elastic_updated <- finalize_model(elastic_spec,
+                                  elastic_best)
+workflow_new <- elastic_wf %>%
+  update_model(elastic_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = elastic_train)
+
+tidy_elastic <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+
+
+# Evaluating the model: performance
+metrics <- new_fit %>%
+  predict(elastic_test) %>%
+  bind_cols(elastic_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+# R2 here is 0.893, which is a bit better than the lasso
+
+
+## POST elastic nets 
+
+elastic_var_access <- tidy_elastic %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+## Post EN on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+elastic_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = elastic_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+elastic_test_baked <- prep(model_recipe) %>% # should we apply the transformatios ? 
+  bake(new_data = elastic_test)
+
+# Select only the variables that the elastic picked up
+elastic_train_post <- elastic_train_baked %>%
+  select(all_of(c("target", elastic_var_access))) # we select the target and the variables that the elastic picked up
+
+elastic_test_post <- elastic_test_baked %>% # for model metrics
+  select(all_of(c("target", elastic_var_access)))
+
+# Fit the model on the training set 
+post_elastic_model <- lm(target ~ ., data = elastic_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_elastic_preds <- predict(post_elastic_model, newdata = elastic_test_post)
+
+# Calculer les métriques
+post_elastic_metrics <- metrics(
+  data = data.frame(truth = elastic_test_post$target, estimate = post_elastic_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_elastic_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+elastic_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = elastic_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the elastic picked up
+elastic_train_post <- elastic_train_baked %>%
+  select(all_of(c("target", elastic_var_access))) # we select the target and the variables that the elastic picked up
+
+# Fit the model on the training set 
+post_elastic_model <- lm(target ~ ., data = elastic_train_post)
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_elastic_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_elastic_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(list("Access" =post_elastic_model),
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable') %>% autofit()
+
+# Forest plot
+out_conf <- tidy(post_elastic_model, conf.int = TRUE) %>%
+  filter(!is.na(conf.low)) %>%  # Filtrer les NA des intervalles de confiance
+  filter(term != "(Intercept)")  # Enlever l'intercept
+
+elastic_model_out <- round_df(out_conf, digits=2)
+
+# Now plot them
+ggplot(elastic_model_out, aes(x=reorder(term, estimate), y=estimate)) +
+         geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                       width = 0.2, size = 1,
+                       position = "dodge", color="turquoise4") +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+  geom_point() + 
+  coord_flip()+
+     theme_minimal() +
+     theme(
+       axis.text.y = element_text(size = 10),
+       plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+       axis.title = element_text(size = 12)
+     ) +
+     labs(
+       title = "Determinants of Early Childcare Access",
+       subtitle = "Elastic-Nets predictors",
+       x = "",
+       y = "Coefficient Estimates"
+     )
+
+```
+
+### Oaxaca Blinder
+
+```{r}
+
+# extract the name of the coefficient 
+elastic_var_access <- clean_variable_names(elastic_var_access)
+
+# Clean the names
+coef_names_access <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  #"OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "MonthlyDaycareFees" = "Monthly daycare fees",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  #"EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo", 
+  "AppliedYes" = "Applied to early childcare at endline",
+ # "PoliticalOrientationRight" = "Right-wing mayor",
+ #"PoliticalOrientationOther" = "Other political orientation of the mayor",
+ "MovedOutYes" = "Household moved between baseline and endline", 
+ "ECSAppTimingBeforeBirthYes" = "Applied before birth",
+ "IncomeLess than 1500 euros" = "Household income earns less than 1500 euros",
+ "IncomeMore than 2500 euros" = "Household income more than 2500 euros", 
+       "ApplicationCalledYes" = "Household contacted providers by phone", 
+      "ApplicationWentOnSiteYesYes" = "Household visited providers in person",
+      "ApplicationNetworkedYes" = "Household reached out to an elected official"
+)
+
+
+oaxaca_data_access <- Oaxaca_Access %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(elastic_var_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(elastic_var_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_elastic_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_elastic_access, 
+                                outcome = "Access",
+                                model = "Elastic-Nets predictors")
+gapExplained
+
+```
+
+
+```{r}
+
+ExplainedAppReg <- plot_top_contributors(oax_elastic_access, 
+                                         var_labels = coef_names_access, 
+                                         top_n = 13,
+                                          model = "Elastic-Nets predictors",
+                                         outcome = "Access") 
+ExplainedAppReg
+```
+## Access with the same predictors as Application
+
+```{r}
+## DO THE LASSO 
+
+
+elastic_clean <- MLDummified %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No" )) %>%
+ select(-c( ECSApp, ECSUseYes))%>%      
+  mutate(across(where(is.logical), as.numeric)) 
+
+
+
+# Preparation
+## Split the sample
+tidymodels_prefer()
+set.seed(10)
+elastic_split <- initial_split(elastic_clean, prop = 0.8)
+elastic_train <- training(elastic_split)
+elastic_test <- testing(elastic_split)
+
+# Apply the recipe (simplified)
+model_recipe <- recipe(target ~ ., data = elastic_train) %>%
+    step_unknown(EntryAgeBeforeOne, AttitudesTowardsWorkAndFamily, AttitudesLaborAffectsChildren 
+) %>%   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+    step_zv() %>%
+    step_normalize(all_numeric_predictors()) %>% 
+   step_impute_knn(all_numeric_predictors(), neighbors = 5) %>%
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm
+                  ) 
+
+
+# Specify the metrics: R squared
+elastic_metrics <- metric_set(rsq)
+
+# Now with elastic nets we have 2 tuning parameters
+elastic_spec <-  linear_reg(penalty = tune(),
+                            mixture = tune()) %>%
+  set_mode("regression") %>%
+  set_engine("glmnet")
+
+# Workflow for elastic nets
+elastic_wf <- workflow() %>%
+  add_model(elastic_spec) %>%
+  add_recipe(model_recipe)
+
+# 10 fold cross validation with 5 repeats
+set.seed(20)
+cv_folds <- vfold_cv(elastic_train, v = 10, 
+                     repeats = 5)
+
+# Tune the model
+# First specify the tuning grid with the dials package
+
+# Extract the tuning parameter and store it -- conveniently this way the model knows what are the limits for alpha and lambda
+glmnet_param <- extract_parameter_set_dials(elastic_spec)
+elastic_grid <- grid_latin_hypercube(glmnet_param, # hypercube when more than 1 tuning parameter, otherwise entropy
+                                     size = 175, # number of points in the grid: 50 combinantions of alpha and lambda
+                                     variogram_range = 0.75, # influencing how well it explores the parameter space
+                                     original = TRUE) # works with the log scale of the lambda
+
+# to tune the model, we use parallel processing (do this as much as you can)
+doParallel::registerDoParallel()
+elastic_tune <- elastic_wf %>%
+  tune_grid(cv_folds, grid = elastic_grid, metrics = elastic_metrics)
+
+autoplot(elastic_tune) # x is different values of lambda in the log scale. y is the average R2
+
+elastic_best <- select_best(elastic_tune)
+elastic_best # mixture: 22 percents LASSO and 78 percents Ridge
+
+# Optional: check the values
+temp <- collect_metrics(elastic_tune)
+
+# Finalize the model
+elastic_updated <- finalize_model(elastic_spec,
+                                  elastic_best)
+workflow_new <- elastic_wf %>%
+  update_model(elastic_updated)
+
+new_fit <- workflow_new %>%
+  fit(data = elastic_train)
+
+tidy_elastic <- new_fit %>%
+  extract_fit_parsnip() %>%
+  tidy()
+
+
+
+# Evaluating the model: performance
+metrics <- new_fit %>%
+  predict(elastic_test) %>%
+  bind_cols(elastic_test) %>%
+  metrics(truth = target, estimate = .pred)
+
+# R2 here is 0.893, which is a bit better than the lasso
+
+
+## POST elastic nets 
+
+elastic_var_access <- tidy_elastic %>% 
+  filter(estimate != 0) %>%
+  filter(term != "(Intercept)") %>%
+  pull(term)  # Liste des variables sélectionnées
+
+
+
+
+
+## Post EN on training and test sets
+
+# Appliquer la recipe sur les données d'entraînement
+elastic_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = elastic_train) # it creates the transformed dataset  
+
+# We do the same for the test set 
+elastic_test_baked <- prep(model_recipe) %>% # should we apply the transformatios ? 
+  bake(new_data = elastic_test)
+
+# Select only the variables that the elastic picked up
+elastic_train_post <- elastic_train_baked %>%
+  select(all_of(c("target", elastic_var_access))) # we select the target and the variables that the elastic picked up
+
+elastic_test_post <- elastic_test_baked %>% # for model metrics
+  select(all_of(c("target", elastic_var_access)))
+
+# Fit the model on the training set 
+post_elastic_model <- lm(target ~ ., data = elastic_train_post)
+
+
+# Accuracy on the test set based on the predicted coefficient
+post_elastic_preds <- predict(post_elastic_model, newdata = elastic_test_post)
+
+# Calculer les métriques
+post_elastic_metrics <- metrics(
+  data = data.frame(truth = elastic_test_post$target, estimate = post_elastic_preds),
+  truth = truth,
+  estimate = estimate
+)
+print(post_elastic_metrics)
+
+### Test with the whole dataset
+# Appliquer la recipe sur les données d'entraînement
+elastic_train_baked <- prep(model_recipe) %>% # we preprosess the data
+  bake(new_data = elastic_clean) # it creates the dataset normalized and transformed
+
+
+# Select only the variables that the elastic picked up
+elastic_train_post <- elastic_train_baked %>%
+  select(all_of(c("target", elastic_var_access))) # we select the target and the variables that the elastic picked up
+
+# Fit the model on the training set 
+post_elastic_model <- lm(target ~ ., data = elastic_train_post)
+
+# Extraire les coefficients et autres informations du modèle
+coefficients_table <- tidy(post_elastic_model) %>%
+  arrange(desc(abs(estimate))) %>% # Trier par ordre décroissant de la valeur absolue des coefficients
+  mutate(estimate = round(estimate, 3),  # Arrondir pour améliorer la lisibilité
+         std.error = round(std.error, 3))
+# Sélectionner les colonnes importantes
+
+library(modelsummary)
+
+
+# 1. Extraire et trier les coefficients avec broom::tidy
+tidied <- tidy(post_elastic_model) %>%
+  arrange(desc(abs(estimate))) # Trier par ordre décroissant de la valeur absolue des coefficients
+
+# 2. Utiliser coef_map pour réorganiser les coefficients dans modelsummary
+modelsummary(list("Access" =post_elastic_model),
+             statistic = "{std.error} ({p.value})",
+             estimate="{estimate}{stars}  [{conf.low}, {conf.high}]",
+             coef_map = setNames(tidied$term, tidied$term), # Réorganiser les coefficients dans l'ordre trié
+             #gof_map = c("nobs", "r.squared", "adj.r.squared", "AIC", "BIC"), # Inclure les statistiques globales
+             stars = c("***"=.01,"**"=.05,"*"=.1),
+              output = 'flextable') %>% autofit()
+
+# Forest plot
+out_conf <- tidy(post_elastic_model, conf.int = TRUE) %>%
+  filter(!is.na(conf.low)) %>%  # Filtrer les NA des intervalles de confiance
+  filter(term != "(Intercept)")  # Enlever l'intercept
+
+elastic_model_out <- round_df(out_conf, digits=2)
+
+# Now plot them
+ggplot(elastic_model_out, aes(x=reorder(term, estimate), y=estimate)) +
+         geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                       width = 0.2, size = 1,
+                       position = "dodge", color="turquoise4") +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+  geom_point() + 
+  coord_flip()+
+     theme_minimal() +
+     theme(
+       axis.text.y = element_text(size = 10),
+       plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+       axis.title = element_text(size = 12)
+     ) +
+     labs(
+       title = "Determinants of Early Childcare Access",
+       subtitle = "Elastic-Nets predictors",
+       x = "",
+       y = "Coefficient Estimates"
+     )
+
+```
+
+### Oaxaca Blinder
+
+```{r}
+
+# extract the name of the coefficient 
+elastic_var_access <- clean_variable_names(elastic_var_access)
+
+
+# Clean the names
+coef_names_access <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  "EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo", 
+  "AppliedYes" = "Applied to early childcare at endline",
+  "MovedOutYes" = "Household moved between baseline and endline"
+
+)
+
+
+oaxaca_data_access <- Oaxaca %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(elastic_var_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(elastic_var_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_elastic_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_elastic_access, 
+                                outcome = "Access",
+                                model = "Elastic-Nets predictors")
+gapExplained
+
+```
+
+
+```{r}
+
+ExplainedAppReg <- plot_top_contributors(oax_elastic_access, 
+                                         #var_labels = coef_names_access, 
+                                         top_n = 13,
+                                          model = "Elastic-Nets predictors",
+                                         outcome = "Access") 
+ExplainedAppReg
+```

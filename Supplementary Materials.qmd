@@ -1,0 +1,3551 @@
+---
+title: "Supplementary Information for the manuscript"
+author: "Laudine Carbuccia^[Sciences Po. Contact at laudine.carbuccia@sciencespo.fr.]"
+date: "`r Sys.Date()`"
+abstract: "**Abstract**: Write something that's so abstract, that it's abstract"
+format: 
+  docx:
+    toc: true
+    reference-doc: FormatRefWordFinal.docx
+    number-sections: true
+    number-depth: 3
+    fig-dpi: 500
+    fig-align: center
+execute: 
+  echo: false
+  warning: false
+  message: false
+editor_options: 
+  chunk_output_type: console
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message=FALSE, warning=FALSE,fig.width = 8,fig.height = 5,fig.pos = "H" #, 
+#cache.lazy = FALSE)
+)
+doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
+
+library(pacman)
+p_load(here)
+p_load(officedown)
+
+
+```
+
+```{r LoadLibraries, include=FALSE}
+source(here("RScripts","LoadInstallPackages.R"), local = knitr::knit_global())
+```
+
+```{r LoadData, include=FALSE}
+source(here("RScripts","LoadAllData.R"), local = knitr::knit_global())
+```
+
+```{r ImportAllFunctions, include=FALSE}
+source(here("RScripts","AllFunctions.R"), local = knitr::knit_global())
+```
+
+# Descriptive statistics
+
+## Descriptive table of all variables used
+
+```{r DescriptiveTable}
+
+# Using the Oaxaca dataframe directly for the descriptive table
+tbl_summary <- Descriptives  %>% 
+  tbl_summary(
+    type = list(
+      MotherHealthIndex ~ "continuous2",
+      BabyHealthIndex ~ "continuous2",
+      Taux.de.couv.global ~ "continuous2",
+      OpportunityCosts ~ "continuous2",
+      PrescriptiveNorm ~ "continuous2",
+      NumberChildren ~ "continuous2",
+      MonthlyDaycareFees ~ "continuous2",
+      Age ~ "continuous2"
+
+    ),
+    statistic = list(
+      all_continuous() ~ c("{mean} ({sd})", "{min}, {max}"),
+      all_categorical() ~ c("{n} ({p}%)")
+    ),
+    digits = list(
+      all_continuous() ~ c(1, 1),
+      all_categorical() ~ c(0, 1)
+    ),
+    missing = "no",
+    missing_text = "Missing",
+label = list(
+      Intention ~ "Intention to use early childcare at baseline",
+      ECSApp ~ "Applied to any early childcare facility at endline",
+      ECSUseYes ~ "Accessed any early childcare facility at endline",
+      Educ ~ "The mother has post-secondary education (high-SES)",
+      MotherHealthIndex ~ "Mother's health index at endline",
+      BabyHealthIndex ~ "Baby's health index at endline",
+      NumberChildren ~ "Number of children in the household",
+      Taux.de.couv.global ~ "Early childcare coverage in the area of residence",
+      Active ~ "The mother is active at the baseline",
+      WorkPlanTo ~ "The mother wants to work after maternity leave",
+      ECAccessHoursFit ~ "Early childcare opening hours fit",
+      AccessInformalFullTime ~ "Has access to informal full-time childcare",
+      OpportunityCosts ~ "Opportunity costs of staying at home for the mother",
+      NegativeImpactSalary ~ "Perceived negative impact of staying at home on salary",
+      NegativeImpactCareer ~ "Perceived negative impact of staying at home on career",
+      NegativeImpactWellBeing ~ "Perceived negative impact of staying at home on well-being",
+      PrescriptiveNorm ~ "Number of people opposed to mother using childcare",
+      NormsUseMostToAll ~ "The majority of friends and relatives use early childcare",
+      AttitudesTowardsWorkAndFamily ~ "Traditional attitudes towards household roles",
+      AttitudesLaborAffectsChildren ~ "Believes work negatively affects children",
+      PerceivedAffordability ~ "Perceived affordability of early childcare",
+      TrustEarlyChildcareAgree ~ "Household trusts early childcare",
+      ECBenefitChildrenAgree ~ "Household believes in early childcare benefits",
+      LevelInformation ~ "Household's knowledge about early childcare at baseline",
+      LevelComprehensionGoodExcellent ~ "Mother's comprehension level of French",
+      PresentOriented ~ "The mother is present biased",
+      KnowsECIsSubsidized ~ "Household knows that early childcare is subsidized",
+      BelieveAccessingChildcareEasy ~ "Household believes accessing childcare is easy",
+      HasAccessToAComputer ~ "Household has access to a computer",
+      CanAccessScoialResources ~ "Household can access social resources",
+      CanAccessInformation ~ "Household can access information",
+      EntryAgeBeforeOne ~ "Mother prefers starting early childcare before age one", 
+      #PoliticalOrientation ~ "Political orientation of the mayor",
+      MovedOut ~ "Moved out between baseline and endline", 
+      ECSAppTimingBeforeBirth = "Applied before birth",
+      FmlyIncome3 = "Household income",
+      Educ =  "The mother has post-secondary education (high-SES)",
+      MigrationBackground =  "The mother has a migration background",
+      Age =  "Age of the mother at baseline",
+      ApplicationCalled = "Household contacted providers by phone", 
+      ApplicationWentOnSiteYes = "Household visited providers in person",
+      ApplicationNetworked = "Household reached out to an elected official", 
+      ActivityCriteriaYes = "Active mothers are prioritized",
+      SocialCriteriaYes = "Vulnerable families are prioritized",
+      RegistrationOnlineOnly = "Registration is online only" 
+    )
+  ) %>%
+  modify_header(label = "**Variable**",
+                stat_0 = "**n = {N}**") %>%
+  modify_caption("Descriptive Statistics") %>%
+  bold_labels()
+
+# Convert to flextable for Rmd output
+ft <- tbl_summary %>%
+  as_flex_table() %>%
+  theme_booktabs() %>%
+  fontsize(size = 9, part = "all") %>%
+  padding(padding = 3, part = "all") %>%
+  align(align = "left", part = "all") %>%
+  autofit()
+
+ft
+
+
+```
+
+## Descriptive table of all variable used by Socioeconomic Status (SES)
+
+```{r}
+# Generate the comparison table by SES (Educ)
+summary_baseline_variables_SES <- Descriptives %>%
+  mutate(ActivityCriteriaYes= ifelse(ActivityCriteriaYes == "Yes", 1, 0), 
+         SocialCriteriaYes= ifelse(SocialCriteriaYes == "Yes", 1, 0)) %>% 
+  tbl_summary(
+    by = Educ,
+    type = list(
+      MotherHealthIndex ~ "continuous2",
+      BabyHealthIndex ~ "continuous2",
+      Taux.de.couv.global ~ "continuous2",
+      OpportunityCosts ~ "continuous2",
+      PrescriptiveNorm ~ "continuous2",
+      NumberChildren ~ "continuous2",
+      MonthlyDaycareFees ~ "continuous2",
+      Age ~ "continuous2"
+
+    ),
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{p}% ({n})"
+    ),
+    digits = all_continuous() ~ 1,
+    missing = "no",
+    missing_text = "Missing",
+    label = list(
+      Intention ~ "Intention to use early childcare at baseline",
+      ECSApp ~ "Applied to any early childcare facility at endline",
+      ECSUseYes ~ "Accessed any early childcare facility at endline",
+      MotherHealthIndex ~ "Mother's health index at endline",
+      BabyHealthIndex ~ "Baby's health index at endline",
+      NumberChildren ~ "Number of children in the household",
+      Taux.de.couv.global ~ "Early childcare coverage in the area of residence",
+      Active ~ "The mother is active at the baseline",
+      WorkPlanTo ~ "The mother wants to work after maternity leave",
+      ECAccessHoursFit ~ "Early childcare opening hours fit",
+      AccessInformalFullTime ~ "Has access to informal full-time childcare",
+      OpportunityCosts ~ "Opportunity costs of staying at home for the mother",
+      NegativeImpactSalary ~ "Perceived negative impact of staying at home on salary",
+      NegativeImpactCareer ~ "Perceived negative impact of staying at home on career",
+      NegativeImpactWellBeing ~ "Perceived negative impact of staying at home on well-being",
+      PrescriptiveNorm ~ "Number of people opposed to mother using childcare",
+      NormsUseMostToAll ~ "The majority of friends and relatives use early childcare",
+      AttitudesTowardsWorkAndFamily ~ "Traditional attitudes towards household roles",
+      AttitudesLaborAffectsChildren ~ "Believes work negatively affects children",
+      PerceivedAffordability ~ "Perceived affordability of early childcare",
+      TrustEarlyChildcareAgree ~ "Household trusts early childcare",
+      ECBenefitChildrenAgree ~ "Household believes in early childcare benefits",
+      LevelInformation ~ "Household's knowledge about early childcare at baseline",
+      LevelComprehensionGoodExcellent ~ "Mother's comprehension level of French",
+      PresentOriented ~ "The mother is present biased",
+      KnowsECIsSubsidized ~ "Household knows that early childcare is subsidized",
+      BelieveAccessingChildcareEasy ~ "Household believes accessing childcare is easy",
+      HasAccessToAComputer ~ "Household has access to a computer",
+      CanAccessScoialResources ~ "Household can access social resources",
+      CanAccessInformation ~ "Household can access information",
+      EntryAgeBeforeOne ~ "Mother prefers starting early childcare before age one",
+      #PoliticalOrientation ~ "Political orientation of the mayor",
+      MovedOut ~ "Moved out between baseline and endline",
+      ECSAppTimingBeforeBirth = "Applied before birth",
+      FmlyIncome3 = "Household income",
+      MigrationBackground =  "The mother has a migration background",
+      Age =  "Age of the mother at baseline",
+      ApplicationCalled = "Household contacted providers by phone", 
+      ApplicationWentOnSiteYes = "Household visited providers in person",
+      ApplicationNetworked = "Household reached out to an elected official", 
+      ActivityCriteriaYes ~ "Active mothers are prioritized",
+      SocialCriteriaYes ~ "Vulnerable families are prioritized",
+      RegistrationOnlineOnly ~ "Registration is online only"
+
+    )
+  ) %>%
+  add_overall() %>%
+  add_difference() %>%
+  modify_header(label ~ "**Variable**",
+                stat_0 ~ "Overall",
+                stat_1 ~ "Low-SES",
+                stat_2 ~ "High-SES") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Socio-Economic Status**") %>% 
+  add_significance_stars(thresholds = c(0.01, 0.05, 0.1)) %>%
+  modify_table_body(~ .x %>% select(-std.error))
+
+# Convert to flextable for Rmd output
+summary_baseline_variables_SES %>% 
+  as_flex_table() %>% 
+  merge_v(part = "header", j = 1) %>% 
+  merge_v(part = "header", j = 2) %>% 
+  merge_h(part = "header", i = 1) %>% 
+  italic(j=1, part="body") %>%
+  width(j=c(1), unit = "cm", width=3) %>%
+  width(j=c(2:5), unit = "cm", width=2) %>%
+  set_caption(caption = "Differences by SES across the variables used in this study") %>% 
+  add_footer_lines(
+    "Sources: Baseline and endline database. Proportions and number of observations in parentheses for categorical and dichotomous variables and Pearson's Chi-squared test.
+We report averages and standard deviations in parentheses for continuous variables and use a Kruskal-Wallis rank sum test.") 
+```
+
+## Attrition
+
+```{r}
+
+library(gtsummary)
+library(flextable)
+library(tibble)
+
+# -----------------------------
+# 0) Variables + labels
+# -----------------------------
+vars_baseline <- c(
+  "Intention",
+  "Active", "WorkPlanTo",
+  "AccessInformalFullTime",
+  "Taux.de.couv.global",
+  "NumberChildren",
+  "FmlyIncome3",
+  "Educ",
+  "Age",
+  "MigrationBackground",
+  "OpportunityCosts",
+  "MonthlyDaycareFees",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "EntryAgeBeforeOne",
+  "NormsUseMostToAll",
+  "PrescriptiveNorm",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources",
+  "CanAccessInformation",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "ECSAppTimingBeforeBirth",
+  "ApplicationCalled",
+  "ApplicationWentOnSiteYes",
+  "ApplicationNetworked",
+  "Assignment",
+  "ActivityCriteriaYes",
+  "SocialCriteriaYes",
+  "RegistrationOnlineOnly"
+)
+
+labels <- list(
+  Intention ~ "Intention to use early childcare at baseline",
+  Taux.de.couv.global ~ "Early childcare coverage in the area of residence",
+  NumberChildren ~ "Number of children in the household",
+  Educ ~ "The mother has post-secondary education (high-SES)",
+  MigrationBackground ~ "The mother has a migration background",
+  Age ~ "Age of the mother at baseline",
+  Active ~ "The mother is active at the baseline",
+  WorkPlanTo ~ "The mother wants to work after maternity leave",
+  AccessInformalFullTime ~ "Has access to informal full-time childcare",
+  OpportunityCosts ~ "Opportunity costs of staying at home for the mother",
+  MonthlyDaycareFees ~ "Monthly daycare fees",
+  PrescriptiveNorm ~ "Number of people opposed to mother using childcare",
+  NormsUseMostToAll ~ "The majority of friends and relatives use early childcare",
+  AttitudesTowardsWorkAndFamily ~ "Traditional attitudes towards household roles",
+  AttitudesLaborAffectsChildren ~ "Believes work negatively affects children",
+  PerceivedAffordability ~ "Perceived affordability of early childcare",
+  TrustEarlyChildcareAgree ~ "Household trusts early childcare",
+  ECBenefitChildrenAgree ~ "Household believes in early childcare benefits",
+  LevelInformation ~ "Household's knowledge about early childcare at baseline",
+  LevelComprehensionGoodExcellent ~ "Mother's comprehension level of French",
+  PresentOriented ~ "The mother is present biased",
+  KnowsECIsSubsidized ~ "Household knows that early childcare is subsidized",
+  BelieveAccessingChildcareEasy ~ "Household believes accessing childcare is easy",
+  HasAccessToAComputer ~ "Household has access to a computer",
+  CanAccessScoialResources ~ "Household can access social resources",
+  CanAccessInformation ~ "Household can access information",
+  EntryAgeBeforeOne ~ "Mother prefers starting early childcare before age one",
+  ECSAppTimingBeforeBirth ~ "Applied before birth",
+  FmlyIncome3 ~ "Household income",
+  ApplicationCalled ~ "Household contacted providers by phone",
+  ApplicationWentOnSiteYes ~ "Household visited providers in person",
+  ApplicationNetworked ~ "Household reached out to an elected official",
+  ActivityCriteriaYes ~ "Active mothers are prioritized",
+  SocialCriteriaYes ~ "Vulnerable families are prioritized",
+  RegistrationOnlineOnly ~ "Registration is online only"
+)
+
+# -----------------------------
+# 1) Helpers: SMD
+# -----------------------------
+smd_cont <- function(x, g){ # g: 0/1
+  x0 <- x[g == 0]; x1 <- x[g == 1]
+  m0 <- mean(x0, na.rm = TRUE); m1 <- mean(x1, na.rm = TRUE)
+  s0 <- sd(x0, na.rm = TRUE);   s1 <- sd(x1, na.rm = TRUE)
+  sp <- sqrt((s0^2 + s1^2) / 2)
+  if (is.na(sp) || sp == 0) return(NA_real_)
+  (m1 - m0) / sp
+}
+
+smd_bin <- function(ind, g){ # ind: 0/1 indicator for a given level
+  p0 <- mean(ind[g == 0], na.rm = TRUE)
+  p1 <- mean(ind[g == 1], na.rm = TRUE)
+  p  <- mean(ind, na.rm = TRUE)
+  den <- sqrt(p * (1 - p))
+  if (is.na(den) || den == 0) return(NA_real_)
+  (p1 - p0) / den
+}
+
+make_smd_map <- function(data, vars, gvar = "FU"){
+  g <- data[[gvar]]
+  out <- list()
+
+  for (v in vars){
+    x <- data[[v]]
+
+    # continuous / numeric
+    if (is.numeric(x)){
+      out[[length(out) + 1]] <- tibble(
+        variable = v,
+        row_type = "label",
+        label = NA_character_,
+        smd = smd_cont(x, g)
+      )
+      next
+    }
+
+    # categorical: per-level indicator SMD
+    xf <- as.factor(x)
+    levs <- levels(xf)
+    for (L in levs){
+      ind <- as.integer(xf == L)
+      out[[length(out) + 1]] <- tibble(
+        variable = v,
+        row_type = "level",
+        label = L,
+        smd = smd_bin(ind, g)
+      )
+    }
+  }
+
+  bind_rows(out) %>%
+    mutate(smd_fmt = if_else(is.na(smd), "", sprintf("%.2f", smd)))
+}
+
+# -----------------------------
+# 2) Baseline dataset + group
+# -----------------------------
+df0 <- Descriptives %>%
+  mutate(
+    FU = if_else(!is.na(ECSApp), 1L, 0L),  # 1 = responded at follow-up
+    Group = factor(
+      if_else(FU == 1L, "Follow-up respondents", "Baseline-only (attriters)"),
+      levels = c("Follow-up respondents", "Baseline-only (attriters)")
+    ),
+    ActivityCriteriaYes = if_else(ActivityCriteriaYes == "Yes", 1, 0),
+    SocialCriteriaYes   = if_else(SocialCriteriaYes   == "Yes", 1, 0)
+  )
+
+# (optional) force some 0/1 vars to be categorical if they are stored as numeric
+force_categorical <- c("ActivityCriteriaYes", "SocialCriteriaYes")
+df0 <- df0 %>%
+  mutate(across(all_of(force_categorical), ~ factor(.x, levels = c(0, 1), labels = c("No", "Yes"))))
+
+# -----------------------------
+# 3) 3-column table: Overall + respondents + attriters
+# -----------------------------
+tab3 <- df0 %>%
+  tbl_summary(
+    by = Group,
+    include = all_of(vars_baseline),
+    type = list(
+      Taux.de.couv.global ~ "continuous2",
+      OpportunityCosts ~ "continuous2",
+      PrescriptiveNorm ~ "continuous2",
+      NumberChildren ~ "continuous2",
+      MonthlyDaycareFees ~ "continuous2"
+    ),
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{p}% ({n})"
+    ),
+    digits = all_continuous() ~ 1,
+    missing = "no",
+    label = labels
+  ) %>%
+  add_overall(last = FALSE) %>%
+  modify_header(
+    label ~ "**Variable**",
+    stat_0 ~ "**Overall (baseline)**",
+    stat_1 ~ "**Follow-up respondents**",
+    stat_2 ~ "**Baseline-only (attriters)**"
+  )
+
+# -----------------------------
+# 4) Add SMD column (respondents vs attriters)
+# -----------------------------
+smd_map <- make_smd_map(
+  data = df0 %>% mutate(FU = if_else(Group == "Follow-up respondents", 1L, 0L)),
+  vars = vars_baseline,
+  gvar = "FU"
+)
+
+tab3_smd <- tab3 %>%
+  modify_table_body(~ .x %>%
+    left_join(smd_map, by = c("variable", "row_type", "label")) %>%
+    mutate(SMD = coalesce(smd_fmt, "")) %>%
+    select(-smd, -smd_fmt)
+  ) %>%
+  modify_header(SMD ~ "**SMD**") %>%
+  modify_footnote(
+    SMD ~ "Standardized mean difference compares follow-up respondents vs baseline-only (attriters); for categorical variables, SMD is computed per level (indicator)."
+  )
+
+# -----------------------------
+# 5) Export flextable
+# -----------------------------
+tab3_smd %>%
+  as_flex_table() %>%
+  italic(j = 1, part = "body") %>%
+  set_caption("Attrition table: baseline overall vs respondents vs attriters, with SMD (respondents vs attriters)")
+
+```
+
+## Alluvial plot of the flow from Intention to access
+
+```{r alluvialPlot}
+
+# Ensure your data is in the correct format for ggalluvial
+alluvial_data <- MainDB %>% 
+ # Control %>% 
+  dplyr::select(Intention, ECSApp, ECSUseYes) %>%
+  dplyr::filter(!is.na(Intention) & !is.na(ECSApp) & !is.na(ECSUseYes)) %>% 
+  mutate(Intention = ifelse(Intention == "Yes", "Yes" , "No"),
+           Application = ifelse(ECSApp == 1, "Applied", "Did not apply"), 
+         Access = ifelse(ECSUseYes == 1, "Accessed", "Did not access")) 
+
+# Create the alluvial plot
+ggplot(alluvial_data,
+       aes(axis1 = Intention, axis2 = Application, axis3 = Access)) +
+  geom_alluvium(aes(fill = Intention), width = 1/12) +
+  geom_stratum(width = 1/12, fill = "gray") +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
+  scale_x_discrete(limits = c("Intention (During Pregnancy)", "Application (One year later)", "Access (One year later)"),
+                   expand = c(0.15, 0.15)) +
+  theme_minimal() +
+  labs(title = "Flow of Early Childcare Intention to Actual Access",
+       x = "Stages",
+       y = "Number of Families") + 
+  scale_fill_manual(values = c("Yes" =  "#D55E00", "No" = "#0072B2"))
+
+```
+
+# Results
+
+## SES gaps in outcomes: Table for Supplementary Information
+
+```{r}
+library(fixest)
+library(tidyr)
+
+df <- MainDB %>%
+  mutate(
+    Intention = ifelse(Intention == "Yes", 1, 0),
+    Educ = relevel(factor(Educ), ref = "Sup")
+  )
+
+m_gap <- feols(c(Intention, ECSApp, ECSUseYes) ~ Educ, data = df, se = "hetero")
+
+tidy_fixest <- function(m, level = 0.95){
+  ct <- as.data.frame(coeftable(m))
+  ct$term <- rownames(ct); rownames(ct) <- NULL
+
+  crit <- qnorm(1 - (1 - level)/2)
+
+  ct %>%
+    transmute(
+      term,
+      estimate = Estimate,
+      std.error = `Std. Error`,
+      conf.low  = estimate - crit * std.error,
+      conf.high = estimate + crit * std.error
+    )
+}
+
+mlist <- as.list(m_gap)
+names(mlist) <- names(m_gap)
+
+td <- bind_rows(lapply(names(mlist), function(nm){
+  tidy_fixest(mlist[[nm]]) %>% mutate(outcome = nm)
+}))
+
+educ_terms <- td %>%
+  filter(term != "(Intercept)") %>%
+  distinct(term) %>%
+  pull(term)
+
+if(length(educ_terms) != 1){
+  stop("Multiple Educ terms found. Set `educ_term` manually, e.g. educ_term <- 'EducBac'.")
+}
+educ_term <- educ_terms[1]
+
+tab_si <- td %>%
+  filter(term %in% c("(Intercept)", educ_term)) %>%
+  mutate(term_clean = if_else(term == "(Intercept)", "Intercept", "GapTerm")) %>%
+  select(outcome, term_clean, estimate, conf.low, conf.high) %>%
+  pivot_wider(
+    names_from = term_clean,
+    values_from = c(estimate, conf.low, conf.high)
+  ) %>%
+  transmute(
+    Outcome = case_when(
+      grepl("Intention", outcome) ~ "Intend to use",
+      grepl("ECSApp", outcome) ~ "Apply",
+      grepl("ECSUseYes", outcome) ~ "Access",
+      TRUE ~ outcome
+    ),
+    Intercept = round(estimate_Intercept, 3),
+    Intercept_CI = sprintf("[%.3f, %.3f]", conf.low_Intercept, conf.high_Intercept),
+    Gap = round(estimate_GapTerm, 3),
+    Gap_CI = sprintf("[%.3f, %.3f]", conf.low_GapTerm, conf.high_GapTerm),
+    PercentDiff = sprintf("%.1f%%", 100 * abs(estimate_GapTerm) / estimate_Intercept)
+  )
+library(officer)
+
+
+# tab_si is your tibble shown above
+ft_si <- tab_si %>%
+  mutate(
+    Intercept = sprintf("%.3f", Intercept),
+    Gap       = sprintf("%.3f", Gap)
+  ) %>%
+  flextable() %>%
+  set_header_labels(
+    Outcome = "Stage",
+    Intercept = "High-SES rate",
+    Intercept_CI = "95% CI",
+    Gap = "Low–High (pp)",
+    Gap_CI = "95% CI",
+    PercentDiff = "Low vs High (%)"
+  ) %>%
+  align(j = c("Intercept","Intercept_CI","Gap","Gap_CI","PercentDiff"), align = "center", part = "all") %>%
+  align(j = "Outcome", align = "left", part = "all") %>%
+  autofit() %>%
+  bold(part = "header") %>%
+  fontsize(size = 10, part = "all") %>%
+  theme_vanilla() %>%
+  border_remove() %>%
+  border_outer(border = fp_border(color = "black", width = 1)) %>%
+  border_inner_h(border = fp_border(color = "black", width = 0.5)) %>%
+  border_inner_v(border = fp_border(color = "black", width = 0.5)) %>%
+  set_table_properties(layout = "autofit")
+
+ft_si
+
+
+```
+
+## Main models: Random Forest with Random Features elimination (RFE)
+
+For the tuning process, see R document "RFE.qmd", which will take a lot of time to run (several days).
+
+### Intention
+
+#### Selected hyper-parameters
+
+```         
+mtry trees min_n .config
+  <int> <int> <int> <chr>                 
+1    24   212    17 Preprocessor1_Model085
+```
+
+#### SHAP of selected values
+
+![](images/clipboard-4152095104.png)
+
+#### Accuracy of the model
+
+```         
+# A tibble: 2 × 3
+  .metric  .estimator .estimate
+  <chr>    <chr>          <dbl>
+1 accuracy binary         0.884
+2 kap      binary         0.492
+```
+
+#### OKB Decomposition results
+
+```{r}
+cleaned_variables_intention <- c("AccessInformalFullTime",
+                         "WorkPlanTo",
+                          "TrustEarlyChildcareAgree",
+                        "ECAccessHoursFit",
+                         "LevelInformation")         
+```
+
+```{r run_oaxaca_intention}
+
+# Clean the names
+coef_names <- c(  
+  "NumberChildren" = "Household size (number of children)",
+  "Taux.de.couv.global" = "Local early childcare availability",
+  "ActiveYes" = "Pre-birth employment status",
+  "WorkPlanToYes" = "Post-birth work intention",
+  "ECAccessHoursFitYes" = "Compatibility of childcare opening hours",
+  "AccessInformalFullTimeYes" = "Access to informal childcare arrangements",
+  "OpportunityCosts" = "Opportunity costs of staying at home",
+  "NegativeImpactSalaryYes" = "Perceived salary consequences of staying at home",
+  "NegativeImpactCareerYes" = "Perceived career consequences of staying at home",
+  "NegativeImpactWellBeingYes" = "Perceived well-being consequences of staying at home",
+  "PrescriptiveNorm" = "Social opposition to maternal childcare use",
+  "NormsUseMostToAllYes" = "Exposure to childcare use in social network",
+  "AttitudesTowardsWorkAndFamilyYes" = "Gender role attitudes within the household",
+  "AttitudesLaborAffectsChildrenYes" = "Beliefs about work and child development",
+  "PerceivedAffordabilityOverestimate" = "Perceived affordability of early childcare (overestimation)",
+  "PerceivedAffordabilityUnderestimate" = "Perceived affordability of early childcare (underestimation)",
+  "TrustEarlyChildcareAgreeYes" = "Trust in early childcare institutions",
+  "ECBenefitChildrenAgreeYes" = "Perceived benefits of early childcare for children",
+  "LevelInformationLow knowledge" = "Level of information about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Language proficiency",
+  "PresentOrientedYes" = "Time preferences (present orientation)",
+  "KnowsECIsSubsidizedYes" = "Knowledge of childcare subsidies",
+  "BelieveAccessingChildcareEasyYes" = "Perceived ease of accessing childcare",
+  "HasAccessToAComputerYes" = "Digital access",
+  "CanAccessScoialResourcesYes" = "Access to social support resources",
+  "CanAccessInformationYes" = "Access to information resources",
+  "ActivityCriteriaYesYes" = "Employment-based prioritization criteria",
+  "SocialCriteriaYesYes" = "Social vulnerability prioritization criteria",
+  "RegistrationOnlineOnlyYes" = "Digitalization of childcare registration"
+)
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_intention <- Oaxaca %>%
+  filter(!is.na(Intention)) %>%
+  mutate(
+    target = as.numeric(Intention) - 1,
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_intention)) 
+
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(cleaned_variables_intention, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_decomp_intention <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_intention,
+                     R = 100)  # Number of bootstrap repetitions
+
+# résultats décomp agrégée
+#round(oax_decomp_intention$twofold$overall[, c(1,2,4)], 3)# 3 and 5 are SD
+
+# Diff -0.14 : coeff A (low) : 0.73; B : 0.88
+# 0: low SES 
+# -0.17
+
+
+
+#plot(oax_decomp_intention, decomposition = "twofold", group.weight = -2) # weighted 
+
+
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_decomp_intention, 
+                                model = "Random Forest with RFE", 
+                                outcome = "Intention")
+gapExplained
+
+
+```
+
+#### Unexplained part
+
+```{r}
+
+UnexplainedIntentionRFE <- plot_top_unexplained_contributors(oax_decomp_intention,
+                                                             var_labels = coef_names,
+                                                             model = "Random Forest with RFE", top_n = 10 ) 
+UnexplainedIntentionRFE
+```
+
+```{r}
+# Threefold decomposition
+#plots <- plot_oaxaca_threefold(oax_decomp_intention)
+
+# View individual plots
+#plots$overall
+#plots$endowments
+#plots$coefficients
+#plots$interaction
+```
+
+#### Coefficients of the Oaxaca-Blinder decomposition
+
+```{r}
+
+oaxaca_pooled_summary_table(
+              oax_decomp_intention,
+              pooled = "pooled.2",
+              coef_names = coef_names
+)
+
+
+  
+```
+
+### Application
+
+#### RFE Results
+
+![](images/clipboard-3071796927.png)
+
+```         
+       Variables Accuracy  Kappa AccuracySD KappaSD Selected
+        35   0.8537 0.5658    0.03921  0.1225        *
+```
+
+#### Selected hyper-parameters
+
+```         
+mtry trees min_n .config                  
+<int> <int> <int> <chr>               
+18   149     6 Preprocessor1_Model138
+```
+
+#### SHAP with selected variables
+
+![](images/clipboard-3225829724.png)
+
+#### Accuracy of the model
+
+```         
+.metric  .estimator .estimate   
+<chr>    <chr>          <dbl> 
+1 accuracy binary         0.828 
+2 kap      binary         0.473
+```
+
+#### Results of the KOB decomposition
+
+```{r}
+# Selected variables
+cleaned_variables_application <- c("Intention",
+                               "Active",
+                               "OpportunityCosts",
+                               "WorkPlanTo",
+                               "EntryAgeBeforeOne",
+                               "NumberChildren",
+                               "AccessInformalFullTime",
+                               "TrustEarlyChildcareAgree",
+                               "Taux.de.couv.global",
+                               "NormsUseMostToAll",
+                               "NegativeImpactCareer",
+                               "CanAccessScoialResources",
+                               "PrescriptiveNorm",
+                               "AttitudesTowardsWorkAndFamily",
+                               "ECAccessHoursFit",
+                               "KnowsECIsSubsidized",
+                               "PerceivedAffordability",
+                               "NegativeImpactSalary")
+  
+  
+```
+
+```{r}
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_application <- Oaxaca %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(
+    target = as.numeric(ECSApp),
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_application))  
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(cleaned_variables_application, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_app <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_application,
+                     R = 100)  # Number of bootstrap repetition décomp 
+
+
+set.seed(124)
+
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_decomp_app, model = "Random Forest with RFE", outcome = "Application")
+gapExplained
+
+```
+
+#### Unexplained applications
+
+```{r}
+
+# Clean the names
+coef_names_application <- c(
+  "IntentionYes" = "Intention to use early childcare after birth",
+  "AppliedYes" = "Application to early childcare",
+  "NumberChildren" = "Household size (number of children)",
+  "Taux.de.couv.global" = "Local early childcare availability",
+  "ActiveYes" = "Pre-birth employment status",
+  "WorkPlanToYes" = "Post-birth work intention",
+  "ECAccessHoursFitYes" = "Compatibility of childcare opening hours",
+  "AccessInformalFullTimeYes" = "Access to informal childcare arrangements",
+  "OpportunityCosts" = "Opportunity costs of staying at home",
+  "NegativeImpactSalaryYes" = "Perceived salary consequences of staying at home",
+  "NegativeImpactCareerYes" = "Perceived career consequences of staying at home",
+  "NegativeImpactWellBeingYes" = "Perceived well-being consequences of staying at home",
+  "PrescriptiveNorm" = "Social opposition to maternal childcare use",
+  "NormsUseMostToAllYes" = "Exposure to childcare use in social network",
+
+  "AttitudesTowardsWorkAndFamilyYes" = "Gender role attitudes within the household",
+  "AttitudesLaborAffectsChildrenYes" = "Beliefs about work and child development",
+  "PerceivedAffordabilityOverestimate" = "Perceived affordability of early childcare (overestimation)",
+  "PerceivedAffordabilityUnderestimate" = "Perceived affordability of early childcare (underestimation)",
+ "TrustEarlyChildcareAgreeYes" = "Trust in early childcare institutions",
+  "ECBenefitChildrenAgreeYes" = "Perceived benefits of early childcare for children",
+  "LevelInformationLow knowledge" = "Level of information about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Language proficiency",
+  "PresentOrientedYes" = "Time preferences (present orientation)",
+  "KnowsECIsSubsidizedYes" = "Knowledge of childcare subsidies",
+  "BelieveAccessingChildcareEasyYes" = "Perceived ease of accessing childcare",
+  "HasAccessToAComputerYes" = "Digital access",
+  "CanAccessScoialResourcesYes" = "Access to social support resources",
+  "CanAccessInformationYes" = "Access to information resources",
+  "MotherHealthIndex" = "Maternal health status",
+  "BabyHealthIndex" = "Child health status",
+  "AssignmentT1" = "Information-only intervention",
+  "AssignmentT2" = "Information and support intervention",
+  "EntryAgeBeforeOneBefore One" = "Preferred timing of childcare entry",
+  "MovedOutYes" = "Residential mobility between baseline and endline",
+
+  "ActivityCriteriaYesYes" = "Employment-based prioritization criteria",
+  "SocialCriteriaYesYes" = "Social vulnerability prioritization criteria",
+  "RegistrationOnlineOnlyYes" = "Digitalization of childcare registration", 
+   "ActiveYes" = "Pre-birth employment status"
+
+)
+
+
+
+
+UnexplainedAppRFE <- plot_top_unexplained_contributors(oax_decomp_app, 
+                                                             var_labels = coef_names_application, top_n = 10, 
+                                                             outcome = "Application", 
+                                                             model = "Random Forest with RFE"
+                                                             ) 
+UnexplainedAppRFE
+```
+
+#### Coefficients of the Oaxaca-Blinder decomposition
+
+```{r}
+
+oaxaca_pooled_summary_table(
+              oax_decomp_app,
+              pooled = "pooled.2",
+              coef_names = coef_names_application
+            
+)
+
+
+  
+```
+
+### Access
+
+#### RFE Results
+
+```         
+Recursive feature selection
+
+Outer resampling method: Cross-Validated (10 fold) 
+
+Resampling performance over subset size:
+
+ Variables Accuracy  Kappa AccuracySD KappaSD Selected
+        45   0.8321 0.6523    0.04822 0.10049        *
+```
+
+#### Selected hyper-parameters
+
+```         
+  mtry trees min_n .config                 
+  <int> <int> <int> <chr>                  
+ 20  1658    31 Preprocessor1_Model148
+```
+
+#### SHAP of selected values
+
+![](images/clipboard-3115985216.png)
+
+#### Accuracy of the model
+
+```         
+.metric  .estimator .estimate 
+1 accuracy binary         0.822 
+2 kap      binary         0.629
+```
+
+#### Results of the KOB decomposition
+
+```{r}
+cleaned_variables_access <-  c("Applied",
+                               "Active",
+                               "Income",
+                               "MonthlyDaycareFees",
+                               "ECSAppTimingBeforeBirth",
+                               "Intention",
+                               "ApplicationCalled",
+                               "WorkPlanTo",
+                               "NormsUseMostToAll",
+                               "NumberChildren",
+                               "PrescriptiveNorm",
+                               "Taux.de.couv.global",
+                               "ApplicationWentOnSiteYes",
+                               "LevelInformation",
+                               "ApplicationNetworked",
+                               "AttitudesLaborAffectsChildren",
+                               "AccessInformalFullTime",
+                               "KnowsECIsSubsidized",
+                               "AttitudesTowardsWorkAndFamily",
+                               "TrustEarlyChildcareAgree",
+                               "PerceivedAffordability",
+                               "HasAccessToAComputer",
+                               "ActivityCriteriaYes",
+                               "PresentOriented",
+                               "SocialCriteriaYes")
+#
+
+```
+
+```{r}
+# We use other variables for Access in the main paper
+
+oaxaca_data_access <- Oaxaca_Access %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(cleaned_variables_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_access <- plot_oaxaca_gap(oax_decomp_access, 
+                                       outcome = "Access", 
+                                       model = "Random Forest with RFE")
+gapExplained_access 
+```
+
+#### Unexplained part
+
+```{r}
+
+coef_names_access <- c(
+  "IntentionYes" = "Intention to use early childcare after birth",
+
+  "NumberChildren" = "Household size (number of children)",
+  "Taux.de.couv.global" = "Local early childcare availability",
+  "ActiveYes" = "Pre-birth employment status",
+  "WorkPlanToYes" = "Post-birth work intention",
+  "ECAccessHoursFitYes" = "Compatibility of childcare opening hours",
+  "AccessInformalFullTimeYes" = "Access to informal childcare arrangements",
+
+  "MonthlyDaycareFees" = "Monthly childcare fees",
+
+  "NegativeImpactSalaryYes" = "Perceived salary consequences of staying at home",
+  "NegativeImpactCareerYes" = "Perceived career consequences of staying at home",
+  "NegativeImpactWellBeingYes" = "Perceived well-being consequences of staying at home",
+
+  "PrescriptiveNorm" = "Social opposition to maternal childcare use",
+  "NormsUseMostToAllYes" = "Exposure to childcare use in social network",
+
+  "AttitudesTowardsWorkAndFamilyYes" = "Gender role attitudes within the household",
+  "AttitudesLaborAffectsChildrenYes" = "Beliefs about work and child development",
+
+  "PerceivedAffordabilityOverestimate" = "Perceived affordability of early childcare (overestimation)",
+  "PerceivedAffordabilityUnderestimate" = "Perceived affordability of early childcare (underestimation)",
+
+  "TrustEarlyChildcareAgreeYes" = "Trust in early childcare institutions",
+  "ECBenefitChildrenAgreeYes" = "Perceived benefits of early childcare for children",
+
+  "LevelInformationLow knowledge" = "Level of information about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Language proficiency",
+
+  "PresentOrientedYes" = "Time preferences (present orientation)",
+  "KnowsECIsSubsidizedYes" = "Knowledge of childcare subsidies",
+  "BelieveAccessingChildcareEasyYes" = "Perceived ease of accessing childcare",
+
+  "HasAccessToAComputerYes" = "Digital access",
+  "CanAccessScoialResourcesYes" = "Access to social support resources",
+  "CanAccessInformationYes" = "Access to information resources",
+
+  "MotherHealthIndex" = "Maternal health status",
+  "BabyHealthIndex" = "Child health status",
+
+  "AssignmentT1" = "Information-only intervention",
+  "AssignmentT2" = "Information and support intervention",
+
+  "AppliedYes" = "Application to early childcare services",
+  "MovedOutYes" = "Residential mobility between baseline and endline",
+
+  "ECSAppTimingBeforeBirthYes" = "Timing of application (before birth)",
+
+  "IncomeLess than 1500 euros" = "Household income (low)",
+  "IncomeMore than 2500 euros" = "Household income (high)",
+
+  "ApplicationCalledYes" = "Parents called childcare centers",
+  "ApplicationWentOnSiteYesYes" = "Parents visited childcare centers",
+  "ApplicationNetworkedYes" = "Parents networked",
+  "ActivityCriteriaYesYes" = "Employment-based prioritization criteria",
+  "SocialCriteriaYesYes" = "Social vulnerability prioritization criteria",
+  "RegistrationOnlineOnlyYes" = "Digitalization of childcare registration"
+)
+
+UnexplainedIntentionRFE <- plot_top_unexplained_contributors(oax_decomp_access, var_labels = coef_names, 
+                                                             top_n = 10, 
+                                                             outcome = "Access", 
+                                                             model = "Random Forest with RFE")
+UnexplainedIntentionRFE
+```
+
+#### Coefficients of the Oaxaca-Blinder decomposition
+
+```{r}
+
+oaxaca_pooled_summary_table(
+              oax_decomp_access,
+              pooled = "pooled.2",
+              coef_names = coef_names_access
+)
+
+
+  
+```
+
+## Results: Alternative models
+
+### Oaxaca-Blinder with all predictors
+
+#### Intention
+
+##### Results and model performance
+
+```{r }
+
+
+# Create the database
+db_intention_numeric_clean <- MLDummified %>%
+  filter(!is.na(Intention)) %>%
+  mutate(target = as.numeric(Intention) -1) %>% 
+ select(-c(Assignment,  ECSApp, ECSUseYes, 
+           Intention, EntryAgeBeforeOne, 
+           BabyHealthIndex, MotherHealthIndex, #PoliticalOrientation,
+           MovedOut,  
+           ActivityCriteriaYes,
+  SocialCriteriaYes,
+  RegistrationOnlineOnly
+ ))
+
+# Preparation
+## Split the sample
+
+tidymodels_prefer()
+set.seed(10)
+split <- initial_split(db_intention_numeric_clean, prop = 0.8)
+train <- training(split)
+test <- testing(split)
+
+# Clean the names
+coef_names <- c(  
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+    "CanAccessInformationYes" = "Household can access information"
+ # "EntryAgeBeforeOneBeforeOne" = "Household want to use early childcare after the child is 1 yo" # Dropped becuse colinear
+)
+
+# Define the recipe
+model_recipe <- recipe(target ~ ., data = train) %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(Taux.de.couv.global, NumberChildren, PrescriptiveNorm, neighbors = 5) %>% 
+  step_YeoJohnson(NumberChildren, OpportunityCosts, PrescriptiveNorm)
+
+# Call the regression function 
+results_intention <- regression_all_table(train, test, model_recipe, coef_names, model_name = "Intention")
+
+# Print the results
+results_intention$model_summary  # Afficher le tableau récapitulatif
+
+```
+
+The performance of this model is:
+
+```{r }
+print(results_intention$performance)    # performance
+
+```
+
+We can plot these coefficients with a forest plot:
+
+```{r, fig.cap= "Determinants of Early Childcare Intention. Forest plot of the coefficients of the OLS model with all predictors"}
+
+# Create the forest plot
+forest_plot <- create_forest_plot(
+  results_intention$model_fit, 
+  coef_names,
+  title = "Determinants of Early Childcare Intention",
+  subtitle = "Regression with all predictors"
+)
+print(forest_plot)
+
+# save it if needed
+#ggsave("forest_plot.png", forest_plot, width = 10, height = 8)
+```
+
+#### Oaxaca-Blinder decomposition
+
+```{r }
+
+
+# First, let's identify our variables from the regression model. We keep all the variables
+model_variables <- c(
+  "NumberChildren",
+  "Taux.de.couv.global",
+  "Active",
+  "WorkPlanTo",
+  "ECAccessHoursFit",
+  "AccessInformalFullTime",
+  "OpportunityCosts",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PrescriptiveNorm",
+  "NormsUseMostToAll",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources", 
+    "ActivityCriteriaYes",
+  "SocialCriteriaYes" ,
+  "RegistrationOnlineOnly" 
+
+  
+
+)
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_intention<- Oaxaca %>%
+  filter(!is.na(Intention)) %>%
+  mutate(
+    target = as.numeric(Intention) - 1,
+    Educ_bin = as.numeric(Educ == "Sup")  # Convert to binary: 1 for "Sup", 0 for "Bac"
+  ) %>%
+  select(target, Educ_bin, all_of(model_variables))
+
+
+
+# Create formula using all variables with proper Oaxaca syntax
+formula_vars <- paste(model_variables, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+# Set seed for reproducibility
+set.seed(124)
+
+# Run Oaxaca-Blinder decomposition
+oax_decomp_intention <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_intention,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_decomp_intention)
+gapExplained
+
+```
+
+```{r}
+
+
+ExplainedIntentionReg <- plot_top_contributors(oax_decomp_intention,
+                                               #var_labels = coef_names,
+                                               top_n = 10 )
+ExplainedIntentionReg
+```
+
+```{r}
+UnexplainedIntentionReg <- plot_top_unexplained_contributors(oax_decomp_intention, var_labels = coef_names, top_n = 10 )
+UnexplainedIntentionReg
+```
+
+### Application
+
+```{r }
+db_clean_application <- MLDummified %>%   
+  filter(!is.na(ECSApp)) %>%
+  mutate(target = as.numeric(ECSApp)) %>% 
+  select(-c(ECSApp, ECSUseYes))  # Take a look at the data with skimr 
+
+  
+# Preparation 
+## Split the sample 
+
+tidymodels_prefer()
+set.seed(10) 
+split <- initial_split(db_clean_application, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+model_recipe_application <- recipe(target ~ ., data = train) %>%   
+  step_normalize(all_numeric_predictors()) %>% 
+ step_impute_knn(Taux.de.couv.global,
+                NumberChildren,
+                PrescriptiveNorm,
+                neighbors = 5) %>% 
+  step_YeoJohnson(MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+                  PrescriptiveNorm
+                  )
+# Clean the names
+coef_names_application <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  "EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo",
+ "MovedOutYes" = "Household moved between baseline and endline", 
+  "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only" 
+
+)
+
+# Call the regression function 
+results_application <- regression_all_table(train, 
+                                            test, 
+                                            model_recipe_application,                                                  coef_names_application, 
+                                            model_name = "Application")
+
+# Print the results
+results_application$model_summary
+
+
+```
+
+The performance of this model is:
+
+```{r }
+print(results_application$performance)    # performance 
+```
+
+We can plot these coefficients with a forest plot:
+
+```{r}
+
+# Create the forest plot
+forest_plot_application <- create_forest_plot(
+  results_application$model_fit, 
+  coef_names_application,
+  title = "Determinants of Early Childcare Application",
+  subtitle = "Regression with all predictors"
+)
+print(forest_plot_application)
+
+# save it if needed
+#ggsave("forest_plot.png", forest_plot, width = 10, height = 8)
+```
+
+#### Oaxaca-Blinder decomposition
+
+```{r }
+
+
+# First, let's identify our variables from the regression model. We keep all the variables
+model_variables_application <- c(
+  "NumberChildren",
+  "Taux.de.couv.global",
+  "Active",
+  "WorkPlanTo",
+  "ECAccessHoursFit",
+  "AccessInformalFullTime",
+  "OpportunityCosts",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PrescriptiveNorm",
+  "NormsUseMostToAll",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources",
+  "CanAccessInformation",
+  "Intention", # New variables
+  "Assignment", 
+  "EntryAgeBeforeOne", 
+  "BabyHealthIndex", 
+  "MotherHealthIndex", 
+  "MovedOut", 
+    "ActivityCriteriaYes",
+  "SocialCriteriaYes",
+  "RegistrationOnlineOnly"  
+)
+
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_application <- Oaxaca %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(
+    target = as.numeric(ECSApp),
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(model_variables_application))  
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(model_variables_application, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_app <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_application,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_app <- plot_oaxaca_gap(oax_decomp_app,
+                                    outcome = "Application") 
+gapExplained_app 
+
+
+```
+
+```{r}
+ExplainedAppReg <- plot_top_contributors(oax_decomp_app, 
+                                         var_labels = coef_names_application, 
+                                         top_n = 10,
+                                         outcome = "Application") 
+ExplainedAppReg
+```
+
+### Access
+
+```{r}
+
+
+db_clean_access <- MLDummified_Access %>%   
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No"), 
+         Applied = factor(Applied, labels = c("No", "Yes"))
+                          ) %>% 
+  select( -c(ECSUseYes, ECSApp, EntryAgeBeforeOne))  # Take a look at the data with skimr 
+
+
+
+# Preparation 
+## Split the sample 
+set.seed(10) 
+split <- initial_split(db_clean_access, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+  
+
+model_recipe_access <- recipe(target ~ ., data = train) %>%  
+  step_normalize(all_numeric_predictors()) %>% 
+ step_impute_knn(Taux.de.couv.global,
+                NumberChildren,
+                PrescriptiveNorm,
+                neighbors = 5) %>% 
+  step_YeoJohnson(MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  MonthlyDaycareFees,
+                  PrescriptiveNorm
+                  )
+
+# Clean the names
+coef_names_access <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  #"OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "MonthlyDaycareFees" = "Monthly daycare fees",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  #"EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo", 
+  "AppliedYes" = "Applied to early childcare at endline",
+
+ "MovedOutYes" = "Household moved between baseline and endline", 
+ "ECSAppTimingBeforeBirthYes" = "Applied before birth",
+ "IncomeLess than 1500 euros" = "Household income earns less than 1500 euros",
+ "IncomeMore than 2500 euros" = "Household income more than 2500 euros", 
+       "ApplicationCalledYes" = "Household contacted providers by phone", 
+      "ApplicationWentOnSiteYesYes" = "Household visited providers in person",
+      "ApplicationNetworkedYes" = "Household reached out to an elected official",
+  "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only" 
+
+)
+# Call the regression function 
+results_access <- regression_all_table(train, 
+                                       test,
+                                       model_recipe_access, 
+                                       coef_names_access, 
+                                       model_name = "Access")
+
+# Print the results
+results_access$model_summary
+
+```
+
+The performance of this model is:
+
+```{r }
+print(results_access$performance)    # performance 
+```
+
+We can plot these coefficients with a forest plot:
+
+```{r}
+# Create the forest plot 
+forest_plot <- create_forest_plot(   
+  results_access$model_fit, 
+  coef_names_access,   
+  title = "Determinants of Early Childcare Access",  
+  subtitle = "Regression with all predictors" ) 
+print(forest_plot)  # save it if needed #ggsave("forest_plot.png", forest_plot, width = 10, height = 8)
+```
+
+#### Oaxaca-Blinder decomposition
+
+```{r}
+
+# First, let's identify our variables from the regression model. We keep all the variables
+model_variables_access <- c(
+  "NumberChildren",
+  "Taux.de.couv.global",
+  "Active",
+  "WorkPlanTo",
+  "ECAccessHoursFit",
+  "AccessInformalFullTime",
+  #"OpportunityCosts",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PrescriptiveNorm",
+  "NormsUseMostToAll",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources",
+  "CanAccessInformation",
+  "Intention", # New variables
+  "Assignment", 
+  #"EntryAgeBeforeOne", 
+  "BabyHealthIndex", 
+  "MotherHealthIndex", 
+  "Applied",
+  #"PoliticalOrientation", 
+  "Income",
+  "ECSAppTimingBeforeBirth",
+  "MonthlyDaycareFees",
+  "ApplicationCalled",
+  "ApplicationNetworked",
+"ApplicationWentOnSiteYes", 
+"MovedOut", 
+  "ActivityCriteriaYes",
+  "SocialCriteriaYes",
+  "RegistrationOnlineOnly"  
+)
+
+
+oaxaca_data_access <- Oaxaca_Access %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(model_variables_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(model_variables_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_access <- plot_oaxaca_gap(oax_decomp_access, outcome = "Access")
+gapExplained_access 
+```
+
+```{r}
+ExplainedAccessReg <- plot_top_contributors(oax_decomp_access, 
+                                            var_labels = coef_names_access,
+                                            top_n = 10, 
+                                            outcome = "Access") 
+ExplainedAccessReg
+```
+
+### Access with the same variables as application
+
+##### Random Forest with RFE
+
+Selected model
+
+```         
+mtry trees min_n .config                 
+<int> <int> <int> <chr>                 
+4   637     9 Preprocessor1_Model040
+```
+
+```         
+Selected features: Applied, OpportunityCosts, Intention, Active, NumberChildren, EntryAgeBeforeOne, WorkPlanTo, LevelInformation, PrescriptiveNorm, NormsUseMostToAll, Taux.de.couv.global, AttitudesLaborAffectsChildren, KnowsECIsSubsidized, AccessInformalFullTime, TrustEarlyChildcareAgree, AttitudesTowardsWorkAndFamily, HasAccessToAComputer, PerceivedAffordability, PresentOriented, MovedOut, SocialCriteriaYes, ActivityCriteriaYes 
+```
+
+![](images/clipboard-55324249.png)
+
+```         
+print(rf_tuned$test_performance) 
+# A tibble: 2 × 3  
+.metric  .estimator .estimate  
+<chr>    <chr>          <dbl> 
+1 accuracy binary         0.829 
+2 kap      binary         0.647
+```
+
+```{r}
+cleaned_variables_access <- c("Applied",
+                               "OpportunityCosts",
+                               "Intention",
+                               "Active",
+                               "NumberChildren",
+                               "EntryAgeBeforeOne",
+                               "WorkPlanTo",
+                               "LevelInformation",
+                               "PrescriptiveNorm",
+                               "NormsUseMostToAll",
+                               "Taux.de.couv.global",
+                               "AttitudesLaborAffectsChildren",
+                               "KnowsECIsSubsidized",
+                               "AccessInformalFullTime",
+                               "TrustEarlyChildcareAgree",
+                               "AttitudesTowardsWorkAndFamily",
+                               "HasAccessToAComputer",
+                               "PerceivedAffordability",
+                               "PresentOriented",
+                               "MovedOut",
+                               "SocialCriteriaYes",
+                               "ActivityCriteriaYes")
+```
+
+```{r}
+
+oaxaca_data_access <- Oaxaca %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(cleaned_variables_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_access <- plot_oaxaca_gap(oax_decomp_access, outcome = "Access", model = "Random Forest with RFE")
+gapExplained_access 
+```
+
+```{r}
+ExplainedAccessReg <- plot_top_contributors(oax_decomp_access, 
+                                         var_labels = coef_names_access, 
+                                         top_n = 10,
+                                         outcome = "Access", 
+                                         model = "Random Forest with RFE") 
+ExplainedAccessReg
+```
+
+##### Oaxaca with all predictors
+
+```{r}
+db_clean_access <- MLDummified %>%   
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(target = as.numeric(ECSUseYes), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No"), 
+         Applied = factor(Applied, labels = c("No", "Yes"))
+                          ) %>% 
+  select( -c(ECSUseYes, ECSApp))  # Take a look at the data with skimr 
+
+
+
+# Preparation 
+## Split the sample 
+set.seed(10) 
+split <- initial_split(db_clean_access, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+  
+
+model_recipe_access <- recipe(target ~ ., data = train) %>%   
+  step_normalize(all_numeric_predictors()) %>% 
+ step_impute_knn(Taux.de.couv.global,
+                NumberChildren,
+                PrescriptiveNorm,
+                neighbors = 5) %>% 
+  step_YeoJohnson(MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+                  PrescriptiveNorm
+                  )
+
+# Clean the names
+coef_names <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AssignmentT1" = "Received Information only",
+  "AssignmentT2" = "Received Information + Support",
+  "EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo", 
+  "AppliedYes" = "Applied to early childcare at endline",
+ "MovedOutYes" = "Household moved between baseline and endline"
+)
+names(train) <- make.unique(names(train))
+names(test)  <- make.unique(names(test))
+
+# Call the regression function 
+results_access <- regression_all_table(train, 
+                                       test,
+                                       model_recipe_access, 
+                                       coef_names, 
+                                       model_name = "Access")
+
+# Print the results
+results_access$model_summary
+
+
+```
+
+The performance of this model is:
+
+```{r}
+print(results_access$performance)    # performance
+```
+
+We can plot these coefficients with a forest plot:
+
+```{r}
+
+# Create the forest plot
+forest_plot_access <- create_forest_plot(   
+results_access$model_fit,   
+coef_names_access,  
+title = "Determinants of Early Childcare Access",
+subtitle = "Regression with all predictors" ) 
+
+print(forest_plot_access)  # save it if needed #ggsave("forest_plot.png", forest_plot, width = 10, height = 8)
+```
+
+```{r}
+
+# First, let's identify our variables from the regression model. We keep all the variables
+model_variables_access <- c(
+  "NumberChildren",
+  "Taux.de.couv.global",
+  "Active",
+  "WorkPlanTo",
+  "ECAccessHoursFit",
+  "AccessInformalFullTime",
+  "OpportunityCosts",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PrescriptiveNorm",
+  "NormsUseMostToAll",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources",
+  "CanAccessInformation",
+  "Intention", # New variables
+  "Assignment", 
+  "EntryAgeBeforeOne", 
+  "BabyHealthIndex", 
+  "MotherHealthIndex", 
+  "Applied"
+  #"PoliticalOrientation"
+)
+
+
+oaxaca_data_access <- Oaxaca %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(model_variables_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(model_variables_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_access <- plot_oaxaca_gap(oax_decomp_access, outcome = "Access")
+gapExplained_access 
+```
+
+```{r}
+ExplainedAccessReg <- plot_top_contributors(oax_decomp_access, 
+                                            var_labels = coef_names_access,
+                                            top_n = 10, 
+                                            outcome = "Access") 
+ExplainedAccessReg
+```
+
+```{r}
+UnExplainedAccessReg <- plot_top_unexplained_contributors(oax_decomp_access, var_labels = coef_names_access, top_n = 15 ) 
+UnExplainedAccessReg
+```
+
+## Sensitivity analyses
+
+### Post-LASSO
+
+### Elastic Nets
+
+## Controls only
+
+### Application
+
+```{r}
+
+## ---- Application (Control arm only) ----
+
+cleaned_variables_application <- c("Intention",
+                                    "Active",
+                                    "OpportunityCosts",
+                                    "WorkPlanTo",
+                                    "EntryAgeBeforeOne",
+                                    "NumberChildren",
+                                    "AccessInformalFullTime",
+                                    "TrustEarlyChildcareAgree",
+                                    "Taux.de.couv.global",
+                                    "NormsUseMostToAll",
+                                    "NegativeImpactCareer",
+                                    "CanAccessScoialResources",
+                                    "PrescriptiveNorm",
+                                    "AttitudesTowardsWorkAndFamily",
+                                    "ECAccessHoursFit",
+                                    "KnowsECIsSubsidized",
+                                    "PerceivedAffordability",
+                                    "NegativeImpactSalary")
+
+oaxaca_data_application_control <- Oaxaca %>%
+  filter(!is.na(ECSApp), Assignment == "Control") %>%
+  mutate(
+    target   = as.numeric(ECSApp),
+    Educ_bin = as.numeric(Educ == "Sup")
+  ) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_application))
+
+cat("Control-arm N for Application model:", nrow(oaxaca_data_application_control), "\n")
+
+formula_vars <- paste(cleaned_variables_application, collapse = " + ")
+formula_str  <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula  <- as.formula(formula_str)
+
+set.seed(124)
+oax_decomp_app_control <- oaxaca(formula = oax_formula,
+                                  data = oaxaca_data_application_control,
+                                  R = 100)
+
+gapExplained_app_control <- plot_oaxaca_gap(
+  oax_decomp_app_control,
+  model   = "Random Forest with RFE",
+  outcome = "Application \u2013 Control arm only"
+)
+gapExplained_app_control
+
+```
+
+```{r}
+
+ExplainedAppControl <- plot_top_contributors(
+  oax_decomp_app_control,
+  var_labels = coef_names_application,
+  model      = "Random Forest with RFE",
+  outcome    = "Application \u2013 Control arm only",
+  top_n      = 10
+)
+ExplainedAppControl
+
+
+UnexplainedAppControl <- plot_top_unexplained_contributors(
+  oax_decomp_app_control,
+  var_labels = coef_names_application,
+  model      = "Random Forest with RFE",
+  outcome    = "Application \u2013 Control arm only",
+  top_n      = 10
+)
+UnexplainedAppControl
+
+```
+
+```{r}
+oaxaca_pooled_summary_table(
+  oax_decomp_app_control,
+  pooled     = "pooled.2",
+  coef_names = coef_names_application
+)
+```
+
+```{r}
+oaxaca_control_significance_table(oax_decomp_app_control, component = "explained",
+                                   coef_names = coef_names_application)
+```
+
+### Access
+
+```{r}
+## ---- Access (Control arm only) ----
+
+cleaned_variables_access <- c("Applied",
+                               "Active",
+                               "Income",
+                               "MonthlyDaycareFees",
+                               "ECSAppTimingBeforeBirth",
+                               "Intention",
+                               "ApplicationCalled",
+                               "WorkPlanTo",
+                               "NormsUseMostToAll",
+                               "NumberChildren",
+                               "PrescriptiveNorm",
+                               "Taux.de.couv.global",
+                               "ApplicationWentOnSiteYes",
+                               "LevelInformation",
+                               "ApplicationNetworked",
+                               "AttitudesLaborAffectsChildren",
+                               "AccessInformalFullTime",
+                               "KnowsECIsSubsidized",
+                               "AttitudesTowardsWorkAndFamily",
+                               "TrustEarlyChildcareAgree",
+                               "PerceivedAffordability",
+                               "HasAccessToAComputer",
+                               "ActivityCriteriaYes",
+                               "PresentOriented",
+                               "SocialCriteriaYes")
+
+oaxaca_data_access_control <- Oaxaca_Access %>%
+  filter(!is.na(ECSUseYes), Assignment == "Control") %>%
+  mutate(
+    target   = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied  = factor(ifelse(ECSApp == 1, "Yes", "No"))
+  ) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_access))
+
+cat("Control-arm N for Access model:", nrow(oaxaca_data_access_control), "\n")
+
+formula_vars <- paste(cleaned_variables_access, collapse = " + ")
+formula_str  <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula  <- as.formula(formula_str)
+
+set.seed(124)
+oax_decomp_access_control <- oaxaca(formula = oax_formula,
+                                     data = oaxaca_data_access_control,
+                                     R = 100)
+
+gapExplained_access_control <- plot_oaxaca_gap(
+  oax_decomp_access_control,
+  model   = "Random Forest with RFE",
+  outcome = "Access \u2013 Control arm only"
+)
+
+gapExplained_access_control
+```
+
+```{r}
+ExplainedAccessControl <- plot_top_contributors(
+  oax_decomp_access_control,
+  var_labels = coef_names_access,
+  model      = "Random Forest with RFE",
+  outcome    = "Access \u2013 Control arm only",
+  top_n      = 30
+)
+ExplainedAccessControl
+
+
+UnexplainedAccessControl <- plot_top_unexplained_contributors(
+  oax_decomp_access_control,
+  var_labels = coef_names_access,
+  model      = "Random Forest with RFE",
+  outcome    = "Access \u2013 Control arm only",
+  top_n      = 10
+)
+UnexplainedAccessControl
+```
+
+```{r}
+oaxaca_pooled_summary_table(
+  oax_decomp_access_control,
+  pooled     = "pooled.2",
+  coef_names = coef_names_access
+)
+
+```
+
+```{r}
+oaxaca_control_significance_table(oax_decomp_access_control, component = "explained",
+                                   coef_names = coef_names_access)
+```
+
+## Assignment forced models {#assignment-forced-models}
+
+## Application
+
+#####  {.unnumbered}
+
+To confirm that the exclusion of treatment assignment by RFE reflects a stable modeling choice rather than an artifact of the variable-selection procedure, we compare the pooled regression coefficients (β) from the RFE-selected specification against the same specification with treatment assignment added.
+
+For application, adding treatment assignment leaves every other coefficient in the model materially unchanged: the largest shift across all \[18\] predictors is 0.001, and the ranking of contributors by magnitude is identical. The coefficients on the two treatment-assignment dummies themselves are small relative to the other predictors in the model (β = -0.007 for the information-only arm; β = 0.030 for the information + support arm), consistent with RFE's decision not to retain either as a selected predictor. Notably, the difference in means between SES groups on treatment assignment (Mean(A) − Mean(B) = 0.012 and 0.001, respectively) is close to zero for both arms, as expected under successful randomization, which is itself a useful internal check on trial balance.
+
+**Table S\_. Pooled coefficients with and without treatment assignment, Application**
+
+| Variable | Code | β (RFE-selected) | β (+ Assignment) |
+|------------------|------------------|------------------|------------------|
+| Intention to use early childcare after birth | IntentionYes | 0.338 | 0.339 |
+| Pre-birth employment status | ActiveYes | 0.208 | 0.207 |
+| Post-birth work intention | WorkPlanToYes | 0.151 | 0.150 |
+| Preferred timing of childcare entry | EntryAgeBeforeOneBefore One | 0.109 | 0.110 |
+| Access to informal childcare arrangements | AccessInformalFullTimeYes | -0.088 | -0.087 |
+| Household size (number of children) | NumberChildren | -0.026 | -0.026 |
+| Trust in early childcare institutions | TrustEarlyChildcareAgreeYes | 0.044 | 0.044 |
+| Local early childcare availability | Taux.de.couv.global | 0.001 | 0.001 |
+| Exposure to childcare use in social network | NormsUseMostToAllYes | 0.033 | 0.032 |
+| Perceived career consequences of staying at home | NegativeImpactCareerYes | 0.024 | 0.023 |
+| Access to social support resources | CanAccessScoialResourcesYes | 0.031 | 0.032 |
+| Social opposition to maternal childcare use | PrescriptiveNorm | -0.006 | -0.006 |
+| Gender role attitudes within the household | AttitudesTowardsWorkAndFamilyYes | -0.067 | -0.067 |
+| Compatibility of childcare opening hours | ECAccessHoursFitYes | -0.008 | -0.009 |
+| Knowledge of childcare subsidies | KnowsECIsSubsidizedYes | 0.064 | 0.063 |
+| Perceived affordability (overestimation) | PerceivedAffordabilityOverestimate | -0.017 | -0.017 |
+| Perceived affordability (underestimation) | PerceivedAffordabilityUnderestimate | 0.047 | 0.046 |
+| Perceived salary consequences of staying at home | NegativeImpactSalaryYes | 0.010 | 0.010 |
+| Information-only intervention | AssignmentT1 | — | -0.007 |
+| Information and support intervention | AssignmentT2 | — | 0.030 |
+| *Opportunity costs of staying at home* | *OpportunityCosts* | *\[insert with more decimals — displayed as 0.000\]* | *\[same\]* |
+
+*Note: β (RFE-selected) reproduces the pooled coefficients from Section 2.2; β (+ Assignment) adds treatment assignment (reference: control arm) to the same specification. Coefficient shifts across all non-Assignment predictors are ≤0.001 in absolute value.*
+
+```{r}
+cleaned_variables_application <- c("Intention",
+                               "Active",
+                               "OpportunityCosts",
+                               "WorkPlanTo",
+                               "EntryAgeBeforeOne",
+                               "NumberChildren",
+                               "AccessInformalFullTime",
+                               "TrustEarlyChildcareAgree",
+                               "Taux.de.couv.global",
+                               "NormsUseMostToAll",
+                               "NegativeImpactCareer",
+                               "CanAccessScoialResources",
+                               "PrescriptiveNorm",
+                               "AttitudesTowardsWorkAndFamily",
+                               "ECAccessHoursFit",
+                               "KnowsECIsSubsidized",
+                               "PerceivedAffordability",
+                               "NegativeImpactSalary", 
+                               "Assignment")
+  
+  
+```
+
+```{r}
+
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_application <- Oaxaca %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(
+    target = as.numeric(ECSApp),
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_application))  
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(cleaned_variables_application, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_app <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_application,
+                     R = 100)  # Number of bootstrap repetition décomp agrégée
+#round(oax_decomp_intention$twofold$overall[, c(1,2,4)], 3)# 3 and 5 are SD
+
+# Diff -0.14 : coeff A (low) : 0.73; B : 0.88
+# 0: low SES 
+# -0.17
+
+
+
+#plot(oax_decomp_intention, decomposition = "twofold", group.weight = -2) # weighted 
+
+
+
+set.seed(124)
+
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_decomp_app, model = "Random Forest with RFE", outcome = "Application")
+gapExplained
+
+```
+
+```{r}
+# Clean the names
+coef_names_application <- c(
+  "IntentionYes" = "Intention to use early childcare after birth",
+  "AppliedYes" = "Application to early childcare",
+  "NumberChildren" = "Household size (number of children)",
+  "Taux.de.couv.global" = "Local early childcare availability",
+  "ActiveYes" = "Pre-birth employment status",
+  "WorkPlanToYes" = "Post-birth work intention",
+  "ECAccessHoursFitYes" = "Compatibility of childcare opening hours",
+  "AccessInformalFullTimeYes" = "Access to informal childcare arrangements",
+  "OpportunityCosts" = "Opportunity costs of staying at home",
+  "NegativeImpactSalaryYes" = "Perceived salary consequences of staying at home",
+  "NegativeImpactCareerYes" = "Perceived career consequences of staying at home",
+  "NegativeImpactWellBeingYes" = "Perceived well-being consequences of staying at home",
+  "PrescriptiveNorm" = "Social opposition to maternal childcare use",
+  "NormsUseMostToAllYes" = "Exposure to childcare use in social network",
+
+  "AttitudesTowardsWorkAndFamilyYes" = "Gender role attitudes within the household",
+  "AttitudesLaborAffectsChildrenYes" = "Beliefs about work and child development",
+  "PerceivedAffordabilityOverestimate" = "Perceived affordability of early childcare (overestimation)",
+  "PerceivedAffordabilityUnderestimate" = "Perceived affordability of early childcare (underestimation)",
+ "TrustEarlyChildcareAgreeYes" = "Trust in early childcare institutions",
+  "ECBenefitChildrenAgreeYes" = "Perceived benefits of early childcare for children",
+  "LevelInformationLow knowledge" = "Level of information about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Language proficiency",
+  "PresentOrientedYes" = "Time preferences (present orientation)",
+  "KnowsECIsSubsidizedYes" = "Knowledge of childcare subsidies",
+  "BelieveAccessingChildcareEasyYes" = "Perceived ease of accessing childcare",
+  "HasAccessToAComputerYes" = "Digital access",
+  "CanAccessScoialResourcesYes" = "Access to social support resources",
+  "CanAccessInformationYes" = "Access to information resources",
+  "MotherHealthIndex" = "Maternal health status",
+  "BabyHealthIndex" = "Child health status",
+  "AssignmentT1" = "Information-only intervention",
+  "AssignmentT2" = "Information and support intervention",
+  "EntryAgeBeforeOneBefore One" = "Preferred timing of childcare entry",
+  "MovedOutYes" = "Residential mobility between baseline and endline",
+
+  "ActivityCriteriaYesYes" = "Employment-based prioritization criteria",
+  "SocialCriteriaYesYes" = "Social vulnerability prioritization criteria",
+  "RegistrationOnlineOnlyYes" = "Digitalization of childcare registration", 
+   "ActiveYes" = "Pre-birth employment status"
+
+)
+
+ExplainedAppReg <- plot_top_contributors(oax_decomp_app, 
+                                         var_labels = coef_names_application, 
+                                         top_n = 10,
+                                         outcome = "Application", 
+                                         model = "Random Forest with RFE") 
+ExplainedAppReg
+```
+
+```{r}
+UnExplainedAccessReg <- plot_top_unexplained_contributors(oax_decomp_app, 
+                                                          var_labels = coef_names_application,
+                                                          top_n = 15 ) 
+UnExplainedAccessReg
+```
+
+```{r}
+oaxaca_control_significance_table(oax_decomp_app, component = "explained",
+                                    coef_names = coef_names_application)
+```
+
+```{r}
+oaxaca_pooled_summary_table(
+  oax_decomp_app,
+  pooled     = "pooled.2",
+  coef_names = coef_names_application
+)
+```
+
+## Access
+
+##### Assignment forced models {.unnumbered}
+
+To confirm that the exclusion of treatment assignment by RFE reflects a stable modeling choice rather than an artifact of the variable-selection procedure, we compare the pooled regression coefficients (β) from the RFE-selected specification against the same specification with treatment assignment added, for both application and access.
+
+In both models, adding treatment assignment leaves every other coefficient materially unchanged: the largest shift across all predictors is 0.001 in either model, and the ranking of contributors by magnitude is unaffected. The coefficients on the two treatment-assignment dummies themselves are small relative to the other predictors in both models (application: β = -0.007 for the information-only arm, β = 0.030 for the information + support arm; access: β = 0.008 for both arms), consistent with RFE's decision not to retain either as a selected predictor in either outcome.
+
+**Table S\_. Pooled coefficients with and without treatment assignment, Application**
+
+\[table from previous message\]
+
+**Table S\_. Pooled coefficients with and without treatment assignment, Access**
+
+| Variable | Code | β (RFE-selected) | β (+ Assignment) |
+|------------------|------------------|------------------|------------------|
+| Application to early childcare services | AppliedYes | 0.431 | 0.431 |
+| Pre-birth employment status | ActiveYes | 0.089 | 0.089 |
+| Household income (low) | IncomeLess than 1500 euros | -0.090 | -0.090 |
+| Household income (high) | IncomeMore than 2500 euros | 0.034 | 0.034 |
+| Monthly childcare fees | MonthlyDaycareFees | 0.000 | 0.000 |
+| Timing of application (before birth) | ECSAppTimingBeforeBirthYes | 0.095 | 0.095 |
+| Intention to use early childcare after birth | IntentionYes | 0.085 | 0.084 |
+| Parents called childcare centers | ApplicationCalledYes | 0.048 | 0.048 |
+| Post-birth work intention | WorkPlanToYes | 0.037 | 0.038 |
+| Exposure to childcare use in social network | NormsUseMostToAllYes | 0.040 | 0.040 |
+| Household size (number of children) | NumberChildren | -0.029 | -0.029 |
+| Social opposition to maternal childcare use | PrescriptiveNorm | -0.003 | -0.003 |
+| Local early childcare availability | Taux.de.couv.global | 0.001 | 0.001 |
+| Parents visited childcare centers | ApplicationWentOnSiteYesYes | 0.035 | 0.035 |
+| Level of information about early childcare | LevelInformationLow knowledge | -0.063 | -0.063 |
+| Parents networked | ApplicationNetworkedYes | 0.026 | 0.026 |
+| Beliefs about work and child development | AttitudesLaborAffectsChildrenYes | -0.016 | -0.015 |
+| Access to informal childcare arrangements | AccessInformalFullTimeYes | -0.047 | -0.047 |
+| Knowledge of childcare subsidies | KnowsECIsSubsidizedYes | 0.057 | 0.056 |
+| Gender role attitudes within the household | AttitudesTowardsWorkAndFamilyYes | 0.025 | 0.025 |
+| Trust in early childcare institutions | TrustEarlyChildcareAgreeYes | 0.007 | 0.008 |
+| Perceived affordability (overestimation) | PerceivedAffordabilityOverestimate | 0.041 | 0.041 |
+| Perceived affordability (underestimation) | PerceivedAffordabilityUnderestimate | -0.031 | -0.032 |
+| Digital access | HasAccessToAComputerYes | -0.028 | -0.028 |
+| Employment-based prioritization criteria | ActivityCriteriaYesYes | 0.079 | 0.078 |
+| Time preferences (present orientation) | PresentOrientedYes | 0.006 | 0.006 |
+| Social vulnerability prioritization criteria | SocialCriteriaYesYes | -0.058 | -0.058 |
+| Information-only intervention | AssignmentT1 | — | 0.008 |
+| Information and support intervention | AssignmentT2 | — | 0.008 |
+
+*Note: β (RFE-selected) reproduces the pooled coefficients from Section 2.3; β (+ Assignment) adds treatment assignment (reference: control arm) to the same specification. Coefficient shifts across all non-Assignment predictors are ≤0.001 in absolute value in both models. MonthlyDaycareFees displays as 0.000 due to the scale of the underlying variable (mean difference measured in euros); reported with additional decimal places \[insert exact value\].*
+
+Taken together, these results confirm that treatment assignment's exclusion from the main decomposition models is not an artifact of the RFE procedure: forcing it into either specification leaves all other estimated socioeconomic determinants of application and access essentially unchanged.
+
+```{r}
+cleaned_variables_access <-  c("Applied",
+                               "Active",
+                               "Income",
+                               "MonthlyDaycareFees",
+                               "ECSAppTimingBeforeBirth",
+                               "Intention",
+                               "ApplicationCalled",
+                               "WorkPlanTo",
+                               "NormsUseMostToAll",
+                               "NumberChildren",
+                               "PrescriptiveNorm",
+                               "Taux.de.couv.global",
+                               "ApplicationWentOnSiteYes",
+                               "LevelInformation",
+                               "ApplicationNetworked",
+                               "AttitudesLaborAffectsChildren",
+                               "AccessInformalFullTime",
+                               "KnowsECIsSubsidized",
+                               "AttitudesTowardsWorkAndFamily",
+                               "TrustEarlyChildcareAgree",
+                               "PerceivedAffordability",
+                               "HasAccessToAComputer",
+                               "ActivityCriteriaYes",
+                               "PresentOriented",
+                               "Assignment",
+                               "SocialCriteriaYes")
+#
+
+```
+
+```{r}
+# We use other variables for Access in the main paper
+
+oaxaca_data_access <- Oaxaca_Access %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(cleaned_variables_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_access <- plot_oaxaca_gap(oax_decomp_access, 
+                                       outcome = "Access", 
+                                       model = "Random Forest with RFE")
+gapExplained_access 
+```
+
+```{r}
+
+coef_names_access <- c(
+  "IntentionYes" = "Intention to use early childcare after birth",
+
+  "NumberChildren" = "Household size (number of children)",
+  "Taux.de.couv.global" = "Local early childcare availability",
+  "ActiveYes" = "Pre-birth employment status",
+  "WorkPlanToYes" = "Post-birth work intention",
+  "ECAccessHoursFitYes" = "Compatibility of childcare opening hours",
+  "AccessInformalFullTimeYes" = "Access to informal childcare arrangements",
+
+  "MonthlyDaycareFees" = "Monthly childcare fees",
+
+  "NegativeImpactSalaryYes" = "Perceived salary consequences of staying at home",
+  "NegativeImpactCareerYes" = "Perceived career consequences of staying at home",
+  "NegativeImpactWellBeingYes" = "Perceived well-being consequences of staying at home",
+
+  "PrescriptiveNorm" = "Social opposition to maternal childcare use",
+  "NormsUseMostToAllYes" = "Exposure to childcare use in social network",
+
+  "AttitudesTowardsWorkAndFamilyYes" = "Gender role attitudes within the household",
+  "AttitudesLaborAffectsChildrenYes" = "Beliefs about work and child development",
+
+  "PerceivedAffordabilityOverestimate" = "Perceived affordability of early childcare (overestimation)",
+  "PerceivedAffordabilityUnderestimate" = "Perceived affordability of early childcare (underestimation)",
+
+  "TrustEarlyChildcareAgreeYes" = "Trust in early childcare institutions",
+  "ECBenefitChildrenAgreeYes" = "Perceived benefits of early childcare for children",
+
+  "LevelInformationLow knowledge" = "Level of information about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Language proficiency",
+
+  "PresentOrientedYes" = "Time preferences (present orientation)",
+  "KnowsECIsSubsidizedYes" = "Knowledge of childcare subsidies",
+  "BelieveAccessingChildcareEasyYes" = "Perceived ease of accessing childcare",
+
+  "HasAccessToAComputerYes" = "Digital access",
+  "CanAccessScoialResourcesYes" = "Access to social support resources",
+  "CanAccessInformationYes" = "Access to information resources",
+
+  "MotherHealthIndex" = "Maternal health status",
+  "BabyHealthIndex" = "Child health status",
+
+  "AssignmentT1" = "Information-only intervention",
+  "AssignmentT2" = "Information and support intervention",
+
+  "AppliedYes" = "Application to early childcare services",
+  "MovedOutYes" = "Residential mobility between baseline and endline",
+
+  "ECSAppTimingBeforeBirthYes" = "Timing of application (before birth)",
+
+  "IncomeLess than 1500 euros" = "Household income (low)",
+  "IncomeMore than 2500 euros" = "Household income (high)",
+
+  "ApplicationCalledYes" = "Parents called childcare centers",
+  "ApplicationWentOnSiteYesYes" = "Parents visited childcare centers",
+  "ApplicationNetworkedYes" = "Parents networked",
+  "ActivityCriteriaYesYes" = "Employment-based prioritization criteria",
+  "SocialCriteriaYesYes" = "Social vulnerability prioritization criteria",
+  "RegistrationOnlineOnlyYes" = "Digitalization of childcare registration"
+)
+
+ExplainedAccessReg <- plot_top_contributors(oax_decomp_access, 
+                                         var_labels = coef_names_access, 
+                                         top_n = 10,
+                                         outcome = "Access", 
+                                         model = "Random Forest with RFE") 
+ExplainedAccessReg
+```
+
+```{r}
+UnExplainedAccessReg <- plot_top_unexplained_contributors(oax_decomp_access, 
+                                                          var_labels = coef_names_access,
+                                                          top_n = 15 ) 
+UnExplainedAccessReg
+```
+
+```{r}
+oaxaca_control_significance_table(oax_decomp_access, component = "unexplained",
+                                    coef_names = coef_names_access)
+
+
+oaxaca_pooled_summary_table(
+  oax_decomp_access,
+  pooled     = "pooled.2",
+  coef_names = coef_names_access
+)
+```
+
+#### Classical regression
+
+##### Application
+
+```{r }
+
+db_clean_application <- MLDummified_Controls %>%   
+  filter(!is.na(ECSApp)) %>%
+  mutate(target = as.numeric(ECSApp)) %>% 
+  select(-c(ECSApp, ECSUseYes ))  # Take a look at the data with skimr 
+
+  
+# Preparation 
+## Split the sample 
+
+tidymodels_prefer()
+set.seed(10) 
+split <- initial_split(db_clean_application, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+model_recipe_application <- recipe(target ~ ., data = train) %>%   
+  step_normalize(all_numeric_predictors()) %>% 
+ step_impute_knn(Taux.de.couv.global,
+                NumberChildren,
+                PrescriptiveNorm,
+                neighbors = 5) %>% 
+  step_YeoJohnson(MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+                  PrescriptiveNorm
+                  )
+
+# Clean the names
+coef_names_application <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "EntryAgeBeforeOneBefore One" = "Want to use early childcare before the child is 1 yo",
+ "MovedOutYes" = "Household moved between baseline and endline", 
+   "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only" 
+
+)
+
+# Call the regression function 
+results_application <- regression_all_table(train, 
+                                            test, 
+                                            model_recipe_application,                                                  coef_names_application, 
+                                            model_name = "Application")
+
+# Print the results
+results_application$model_summary
+
+
+```
+
+The performance of this model is:
+
+```{r }
+print(results_application$performance)    # performance 
+```
+
+We can plot these coefficients with a forest plot:
+
+```{r}
+
+# Create the forest plot
+forest_plot_application <- create_forest_plot(
+  results_application$model_fit, 
+  coef_names_application,
+  title = "Determinants of Early Childcare Application",
+  subtitle = "Regression with all predictors"
+)
+print(forest_plot_application)
+
+# save it if needed
+#ggsave("forest_plot.png", forest_plot, width = 10, height = 8)
+```
+
+#### 
+
+```{r }
+
+
+# First, let's identify our variables from the regression model. We keep all the variables
+model_variables_application <- c(
+  "NumberChildren",
+  "Taux.de.couv.global",
+  "Active",
+  "WorkPlanTo",
+  "ECAccessHoursFit",
+  "AccessInformalFullTime",
+  "OpportunityCosts",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PrescriptiveNorm",
+  "NormsUseMostToAll",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources",
+  "CanAccessInformation",
+  "Intention", # New variables
+  "EntryAgeBeforeOne", 
+  "BabyHealthIndex", 
+  "MotherHealthIndex"
+)
+
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_application_controls <- Oaxaca_Control %>%
+  filter(!is.na(ECSApp)) %>%
+  mutate(
+    target = as.numeric(ECSApp),
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(model_variables_application))  
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(model_variables_application, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(356)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_app <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_application_controls,
+                     R = 19)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_app <- plot_oaxaca_gap(oax_decomp_app,
+                                    outcome = "Application") 
+gapExplained_app 
+
+
+```
+
+```{r}
+ExplainedAppReg <- plot_top_contributors(oax_decomp_app, 
+                                         var_labels = coef_names_application, 
+                                         top_n = 10,
+                                         outcome = "Application") 
+ExplainedAppReg
+```
+
+##### Access
+
+```{r}
+
+
+db_clean_access <- MLDummified_Access %>%   
+  filter(!is.na(ECSUseYes) & Assignment == "Control") %>%
+  mutate(target = as.numeric(ECSUseYes), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No"), 
+         Applied = factor(Applied, labels = c("No", "Yes"))
+                          ) %>% 
+  select( -c(ECSUseYes, ECSApp, EntryAgeBeforeOne, Assignment))  # Take a look at the data with skimr 
+
+
+
+# Preparation 
+## Split the sample 
+set.seed(10) 
+split <- initial_split(db_clean_access, prop = 0.8) 
+train <- training(split) 
+test <- testing(split)  # Apply the recipe (simplified) 
+
+  
+
+model_recipe_access <- recipe(target ~ ., data = train) %>%  
+  step_normalize(all_numeric_predictors()) %>% 
+ step_impute_knn(Taux.de.couv.global,
+                NumberChildren,
+                PrescriptiveNorm,
+                neighbors = 5) %>% 
+  step_YeoJohnson(MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  MonthlyDaycareFees,
+                  PrescriptiveNorm
+                  )
+
+# Clean the names
+coef_names_access <- c(
+  "IntentionYes" = "Intention: Household wants to use early childcare after birth",
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  #"OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "MonthlyDaycareFees" = "Monthly daycare fees",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information",
+  "MotherHealthIndex" = "Mother's health index at endline",
+  "BabyHealthIndex" = "Baby's health index at endline",
+  "AppliedYes" = "Applied to early childcare at endline",
+ # "PoliticalOrientationRight" = "Right-wing mayor",
+ # "PoliticalOrientationOther" = "Other political orientation of the mayor",
+ "MovedOutYes" = "Household moved between baseline and endline", 
+ "ECSAppTimingBeforeBirthYes" = "Applied before birth",
+ "IncomeLess than 1500 euros" = "Household income earns less than 1500 euros",
+ "IncomeMore than 2500 euros" = "Household income more than 2500 euros", 
+       "ApplicationCalledYes" = "Household contacted providers by phone", 
+      "ApplicationWentOnSiteYesYes" = "Household visited providers in person",
+      "ApplicationNetworkedYes" = "Household reached out to an elected official",   "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only" 
+
+)
+
+
+# Call the regression function 
+results_access <- regression_all_table(train, 
+                                       test,
+                                       model_recipe_access, 
+                                       coef_names_access, 
+                                       model_name = "Access")
+
+# Print the results
+results_access$model_summary
+
+```
+
+```{r}
+
+# First, let's identify our variables from the regression model. We keep all the variables
+model_variables_access <- c(
+  "NumberChildren",
+  "Taux.de.couv.global",
+  "Active",
+  "WorkPlanTo",
+  "ECAccessHoursFit",
+  "AccessInformalFullTime",
+  #"OpportunityCosts",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PrescriptiveNorm",
+  "NormsUseMostToAll",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources",
+  "CanAccessInformation",
+  "Intention", # New variables
+  #"EntryAgeBeforeOne", 
+  "BabyHealthIndex", 
+  "MotherHealthIndex", 
+  "Applied",
+  "Income",
+  "ECSAppTimingBeforeBirth",
+  "MonthlyDaycareFees",
+  "ApplicationCalled",
+  "ApplicationNetworked",
+"ApplicationWentOnSiteYes", 
+"MovedOut", 
+  "ActivityCriteriaYes" ,
+  "SocialCriteriaYes",
+  "RegistrationOnlineOnly"
+
+)
+
+
+oaxaca_data_access <- Oaxaca_Access %>%
+  filter(!is.na(ECSUseYes) & Assignment == "Control") %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(model_variables_access))    
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(model_variables_access, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_access <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_access,
+                     R = 19)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_access <- plot_oaxaca_gap(oax_decomp_access, outcome = "Access")
+gapExplained_access 
+```
+
+```{r}
+ExplainedAccessReg <- plot_top_contributors(oax_decomp_access, 
+                                            var_labels = coef_names_access,
+                                            top_n = 10, 
+                                            outcome = "Access") 
+ExplainedAccessReg
+```
+
+### Comparison of model performance across all models
+
+![](images/clipboard-400319037.png)
+
+## Exploratory Analyses
+
+### Predictors of having the intention to access early childcare early
+
+#### Full sample
+
+##### Classical regression
+
+```{r }
+
+
+# Create the database
+db_intention_numeric_clean <- MLDummified %>%
+  filter(!is.na(EntryAgeBeforeOne)) %>%
+  mutate(target = as.numeric(EntryAgeBeforeOne) -1) %>% 
+ select(-c(Assignment,  ECSApp, ECSUseYes, 
+           Intention, EntryAgeBeforeOne, 
+           BabyHealthIndex, MotherHealthIndex, MovedOut))
+
+# Preparation
+## Split the sample
+
+tidymodels_prefer()
+set.seed(10)
+split <- initial_split(db_intention_numeric_clean, prop = 0.8)
+train <- training(split)
+test <- testing(split)
+
+# Clean the names
+coef_names <- c(  
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information", 
+    "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only" 
+#, 
+ # "EntryAgeBeforeOneBeforeOne" = "Household want to use early childcare after the child is 1 yo" # Dropped becuse colinear
+)
+
+# Define the recipe
+model_recipe <- recipe(target ~ ., data = train) %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(Taux.de.couv.global, NumberChildren, PrescriptiveNorm, neighbors = 5) %>% 
+  step_YeoJohnson(NumberChildren, OpportunityCosts, PrescriptiveNorm)
+
+# Call the regression function 
+results_intention <- regression_all_table(train, test, model_recipe, coef_names, model_name = "Early care")
+
+# Print the results
+results_intention$model_summary  # Afficher le tableau récapitulatif
+
+```
+
+The performance of this model is:
+
+```{r }
+print(results_intention$performance)    # performance
+
+```
+
+We can plot these coefficients with a forest plot:
+
+```{r}
+
+# Create the forest plot
+forest_plot <- create_forest_plot(
+  results_intention$model_fit, 
+  coef_names,
+  title = "Determinants of Early Childcare Intention",
+  subtitle = "Regression with all predictors"
+)
+print(forest_plot)
+
+# save it if needed
+#ggsave("forest_plot.png", forest_plot, width = 10, height = 8)
+```
+
+```{r }
+
+
+# First, let's identify our variables from the regression model. We keep all the variables
+model_variables <- c(
+  "NumberChildren",
+  "Taux.de.couv.global",
+  "Active",
+  "WorkPlanTo",
+  "ECAccessHoursFit",
+  "AccessInformalFullTime",
+  "OpportunityCosts",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PrescriptiveNorm",
+  "NormsUseMostToAll",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources",
+  "CanAccessInformation", 
+    "ActivityCriteriaYes",
+  "SocialCriteriaYes",
+  "RegistrationOnlineOnly" 
+
+)
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_intention<- Oaxaca %>%
+  filter(!is.na(Intention)) %>%
+  mutate(
+    target = as.numeric(EntryAgeBeforeOne) - 1,
+    Educ_bin = as.numeric(Educ == "Sup")  # Convert to binary: 1 for "Sup", 0 for "Bac"
+  ) %>%
+  select(target, Educ_bin, all_of(model_variables))
+
+
+
+# Create formula using all variables with proper Oaxaca syntax
+formula_vars <- paste(model_variables, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+# Set seed for reproducibility
+set.seed(124)
+
+# Run Oaxaca-Blinder decomposition
+oax_decomp_intention <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_intention,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_decomp_intention)
+gapExplained
+
+```
+
+```{r}
+
+
+ExplainedIntentionReg <- plot_top_contributors(oax_decomp_intention, var_labels = coef_names, top_n = 10 )
+ExplainedIntentionReg
+```
+
+#### Random Forest with RFE
+
+Selected variables:
+
+```{r}
+
+selectedVar <- c(
+  "NegativeImpactWellBeing_Yes",
+  "NegativeImpactWellBeing_No",
+  "PrescriptiveNorm",
+  "TrustEarlyChildcareAgree_No",
+  "WorkPlanTo_Yes",
+  "TrustEarlyChildcareAgree_Yes",
+  "WorkPlanTo_No",
+   "Taux.de.couv.global",
+  "AccessInformalFullTime_Yes",
+   "AccessInformalFullTime_No",
+  "NegativeImpactCareer_Yes",
+     "NegativeImpactCareer_No",
+  "OpportunityCosts",
+  "ECAccessHoursFit_Yes",
+   "AttitudesLaborAffectsChildren_No",
+   "AttitudesTowardsWorkAndFamily_No",
+  "ECAccessHoursFit_No",
+  "KnowsECIsSubsidized_No",          
+"KnowsECIsSubsidized_Yes" ,
+"LevelInformation_High.knowledge" 
+
+)
+  
+  
+cleanedSelectedVar <- clean_variable_names(selectedVar)
+
+  
+
+# First, let's identify our variables from the regression model. We keep all the variables
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_intention<- Oaxaca %>%
+  filter(!is.na(Intention)) %>%
+  mutate(
+    target = as.numeric(EntryAgeBeforeOne) - 1,
+    Educ_bin = as.numeric(Educ == "Sup")  # Convert to binary: 1 for "Sup", 0 for "Bac"
+  ) %>%
+  select(target, Educ_bin, all_of(cleanedSelectedVar))
+
+
+
+# Create formula using all variables with proper Oaxaca syntax
+formula_vars <- paste(cleanedSelectedVar, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+# Set seed for reproducibility
+set.seed(124)
+
+# Run Oaxaca-Blinder decomposition
+oax_decomp_intention <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_intention,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_decomp_intention,
+                                outcome = "Early care"
+)
+gapExplained
+
+
+```
+
+```{r}
+ExplainedIntentionRFE <- plot_top_contributors(oax_decomp_intention,
+                                               model = "Random Forests with RFE", 
+                                               outcome = "Early care",
+                                               var_labels = coef_names, top_n = 10 )
+ExplainedIntentionRFE
+```
+
+#### Only for those having intention
+
+```{r }
+
+
+# Create the database
+db_intention_numeric_clean <- MLDummified %>%
+  filter(!is.na(EntryAgeBeforeOne) & Intention == "Yes") %>%
+  mutate(target = as.numeric(EntryAgeBeforeOne) -1) %>% 
+ select(-c(Assignment,  ECSApp, ECSUseYes, 
+           Intention, EntryAgeBeforeOne, 
+           BabyHealthIndex, MotherHealthIndex, MovedOut))
+
+# Preparation
+## Split the sample
+
+tidymodels_prefer()
+set.seed(10)
+split <- initial_split(db_intention_numeric_clean, prop = 0.8)
+train <- training(split)
+test <- testing(split)
+
+# Clean the names
+coef_names <- c(  
+  "NumberChildren" = "Number of children in the household",
+  "Taux.de.couv.global" = "Early childcare coverage in the area of residence",
+  "ActiveYes" = "Mother is active before birth",
+  "WorkPlanToYes" = "Mother wanted to work after birth",
+  "ECAccessHoursFitYes" = "Early childcare opening hours fit",
+  "AccessInformalFullTimeYes" = "Houshold has access to informal full-time childcare",
+  "OpportunityCosts" = "Opportunity costs of staying at home for the mother",
+  "NegativeImpactSalaryYes" = "Perceived negative impact of staying at home on salary",
+  "NegativeImpactCareerYes" = "Perceived negative impact of staying at home on career",
+  "NegativeImpactWellBeingYes" = "Perceived negative impact of staying at home on well-being",
+  "PrescriptiveNorm" = "Number of people opposed to mother using childcare",
+  "NormsUseMostToAllYes" = "The majority of friends and relatives use early childcare",
+  "AttitudesTowardsWorkAndFamilyYes" = "Traditional attitudes towards household roles",
+  "AttitudesLaborAffectsChildrenYes" = "Believes work negatively affects children",
+  "PerceivedAffordabilityOverestimate" = "Overestimates affordability of early childcare",
+  "PerceivedAffordabilityUnderestimate" = "Underestimates affordability of early childcare",
+  "TrustEarlyChildcareAgreeYes" = "Household trusts early childcare",
+  "ECBenefitChildrenAgreeYes" = "Household believes in early childcare benefits",
+  "LevelInformationLow knowledge" = "Household has low knowledge about early childcare",
+  "LevelComprehensionGoodExcellentYes" = "Mother's comprehension level of French is good/excellent",
+  "PresentOrientedYes" = "The mother is present biased",
+  "KnowsECIsSubsidizedYes" = "Household knows that early childcare is subsidized",
+  "BelieveAccessingChildcareEasyYes" = "Household believes accessing childcare is easy",
+  "HasAccessToAComputerYes" = "Household has access to a computer",
+  "CanAccessScoialResourcesYes" = "Household can access social resources",
+  "CanAccessInformationYes" = "Household can access information", 
+    "ActivityCriteriaYesYes" = "Active mothers are prioritized",
+  "SocialCriteriaYesYes" = "Vulnerable families are prioritized",
+  "RegistrationOnlineOnlyYes" = "Registration is online only" 
+
+ # "EntryAgeBeforeOneBeforeOne" = "Household want to use early childcare after the child is 1 yo" # Dropped becuse colinear
+)
+
+# Define the recipe
+model_recipe <- recipe(target ~ ., data = train) %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(Taux.de.couv.global, NumberChildren, PrescriptiveNorm, neighbors = 5) %>% 
+  step_YeoJohnson(NumberChildren, OpportunityCosts, PrescriptiveNorm)
+
+# Call the regression function 
+results_intention <- regression_all_table(train, test, model_recipe, coef_names, model_name = "Early care")
+
+# Print the results
+results_intention$model_summary  # Afficher le tableau récapitulatif
+
+```
+
+The performance of this model is:
+
+```{r }
+print(results_intention$performance)    # performance
+
+```
+
+We can plot these coefficients with a forest plot:
+
+```{r}
+
+# Create the forest plot
+forest_plot <- create_forest_plot(
+  results_intention$model_fit, 
+  coef_names,
+  title = "Determinants of Early Childcare Intention",
+  subtitle = "Regression with all predictors"
+)
+print(forest_plot)
+
+# save it if needed
+#ggsave("forest_plot.png", forest_plot, width = 10, height = 8)
+```
+
+```{r }
+
+
+# First, let's identify our variables from the regression model. We keep all the variables
+model_variables <- c(
+  "NumberChildren",
+  "Taux.de.couv.global",
+  "Active",
+  "WorkPlanTo",
+  "ECAccessHoursFit",
+  "AccessInformalFullTime",
+  "OpportunityCosts",
+  "NegativeImpactSalary",
+  "NegativeImpactCareer",
+  "NegativeImpactWellBeing",
+  "PrescriptiveNorm",
+  "NormsUseMostToAll",
+  "AttitudesTowardsWorkAndFamily",
+  "AttitudesLaborAffectsChildren",
+  "PerceivedAffordability",
+  "TrustEarlyChildcareAgree",
+  "ECBenefitChildrenAgree",
+  "LevelInformation",
+  "LevelComprehensionGoodExcellent",
+  "PresentOriented",
+  "KnowsECIsSubsidized",
+  "BelieveAccessingChildcareEasy",
+  "HasAccessToAComputer",
+  "CanAccessScoialResources",
+  "CanAccessInformation", 
+    "ActivityCriteriaYes",
+  "SocialCriteriaYes",
+"RegistrationOnlineOnly"
+)
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data_intention<- Oaxaca %>%
+  filter(!is.na(Intention) & Intention == "Yes") %>%
+  mutate(
+    target = as.numeric(EntryAgeBeforeOne) - 1,
+    Educ_bin = as.numeric(Educ == "Sup")  # Convert to binary: 1 for "Sup", 0 for "Bac"
+  ) %>%
+  select(target, Educ_bin, all_of(model_variables))
+
+
+
+# Create formula using all variables with proper Oaxaca syntax
+formula_vars <- paste(model_variables, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+# Set seed for reproducibility
+set.seed(124)
+
+# Run Oaxaca-Blinder decomposition
+oax_decomp_intention <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_intention,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables
+gapExplained <- plot_oaxaca_gap(oax_decomp_intention, outcome = "Early Care")
+gapExplained
+
+```
+
+```{r}
+
+
+ExplainedIntentionReg <- plot_top_contributors(oax_decomp_intention, var_labels = coef_names, top_n = 10, outcome = "Early Care" )
+ExplainedIntentionReg
+```
+
+```{r}
+UnexplainedIntentionReg <- plot_top_unexplained_contributors(oax_decomp_intention, var_labels = coef_names, top_n = 10 )
+UnexplainedIntentionReg
+```
+
+# Childcare types by SES
+
+```{r}
+
+# 1. Build childcare-type variable, conditional on access, restricted to control arm
+QualityDB <- MainDB %>%
+  mutate(
+    ChildcareTypeDetailed = case_when(
+      UseCrecheMuni >= 1 ~ "Municipal daycare",
+      UseCrecheA    >= 1 ~ "Associative daycare",
+      UsePrivée     >= 1 ~ "Private daycare",
+      UseAssMat     >= 1 ~ "Childminder",
+      UseCreche > 0 & UseCrecheMuni + UseCrecheA + UsePrivée == 0 ~ "Other daycare",
+      TRUE ~ NA_character_
+    ),
+    SES_group = case_when(
+  Educ2 == "Bac" ~ "Low-SES",
+  Educ2 == "Sup" ~ "High-SES",
+  TRUE ~ NA_character_
+),
+    ChildcareTypeDetailed = factor(ChildcareTypeDetailed,
+                                   levels = c("Municipal daycare","Associative daycare",
+                                              "Private daycare","Other daycare","Childminder")),
+    SES_group = factor(SES_group, levels = c("Low-SES","High-SES"))  # match your main coding
+  ) %>%
+  filter(!is.na(ChildcareTypeDetailed))
+
+# 2. Check cell sizes before testing
+table(QualityDB$SES_group, QualityDB$ChildcareTypeDetailed)
+
+n_low  <- sum(QualityDB$SES_group == "Low-SES")
+n_high <- sum(QualityDB$SES_group == "High-SES")
+
+# 3. Per-category counts, percentages, and pairwise tests (Low vs High)
+type_levels <- levels(QualityDB$ChildcareTypeDetailed)
+
+results <- map_dfr(type_levels, function(t) {
+  
+  count_low  <- sum(QualityDB$SES_group == "Low-SES"  & QualityDB$ChildcareTypeDetailed == t)
+  count_high <- sum(QualityDB$SES_group == "High-SES" & QualityDB$ChildcareTypeDetailed == t)
+  
+  pct_low  <- 100 * count_low  / n_low
+  pct_high <- 100 * count_high / n_high
+  diff     <- pct_high - pct_low
+  
+  # Use Fisher's exact for small cells, prop.test otherwise
+  tab2x2 <- matrix(c(count_low, n_low - count_low,
+                     count_high, n_high - count_high),
+                   nrow = 2, byrow = TRUE)
+  
+  expected_min <- suppressWarnings(min(chisq.test(tab2x2)$expected))
+  test <- if (is.na(expected_min) || expected_min < 5) {
+    fisher.test(tab2x2)
+  } else {
+    prop.test(c(count_low, count_high), c(n_low, n_high), correct = TRUE)
+  }
+  
+  stars <- case_when(
+    test$p.value < 0.01 ~ "***",
+    test$p.value < 0.05 ~ "**",
+    test$p.value < 0.10 ~ "*",
+    TRUE ~ ""
+  )
+  
+  tibble(
+    `Childcare type` = t,
+    `Low-SES (%)`  = round(pct_low, 1),
+    `High-SES (%)` = round(pct_high, 1),
+    `Difference (pp)` = paste0(sprintf("%+.1f", diff), stars),
+    `p-value` = signif(test$p.value, 3)
+  )
+})
+
+# 4. Build flextable for Word export
+ft <- flextable(results) %>%
+  align(j = "Low-SES (%)",     align = "right", part = "body") %>%
+  align(j = "High-SES (%)",    align = "right", part = "body") %>%
+  align(j = "Difference (pp)", align = "right", part = "body") %>%
+  align(j = "p-value",         align = "right", part = "body") %>%
+  align(part = "header", align = "left") %>%
+  width(j = "Childcare type",     width = 3.5, unit = "cm") %>%
+  width(j = "Low-SES (%)",        width = 2.2, unit = "cm") %>%
+  width(j = "High-SES (%)",       width = 2.2, unit = "cm") %>%
+  width(j = "Difference (pp)",    width = 2.2, unit = "cm") %>%
+  width(j = "p-value",            width = 2.0, unit = "cm") %>%
+  padding(j = "Difference (pp)", padding.left = 15, part = "body") %>%
+  add_footer_lines(paste0(
+    "Note: Percentages of households using each childcare type, conditional on access, ",
+    "by SES group, control arm only (unweighted; N low-SES = ", n_low,
+    ", N high-SES = ", n_high, "). Difference = High-SES % minus Low-SES %. ",
+    "Significance from two-sided Fisher's exact test (or chi-squared test where expected ",
+    "cell counts >= 5) for each type vs. all others: * p<0.10, ** p<0.05, *** p<0.01."
+  )) %>%
+  theme_booktabs() %>%
+  autofit()
+
+print(ft)
+#doc <- read_docx() %>% body_add_flextable(ft)
+#print(doc, target = "SI_ChildcareType_by_SES_controlarm.docx")
+```
+
+
+## Hours accessed
+
+### Descriptives
+I
+```{r}
+# Simple check: is the gap statistically significant?
+work_df_intensity <- Oaxaca_Intensity %>%
+  mutate(HighSES = ifelse(Educ == "Sup", "High", "Low")) %>%
+  filter(!is.na(ECSIntensity), ECSIntensity > 0) %>%
+  mutate(target = as.numeric(ECSIntensity)) %>% 
+           group_by(HighSES) 
+
+work_df_intensity%>%
+  summarise(
+    n = n(),
+    mean_hours = mean(target, na.rm = TRUE),
+    sd_hours = sd(target, na.rm = TRUE)
+  )
+
+# t-test
+t.test(target ~ (Educ == "Sup"), data = work_df_intensity)
+
+# Also check Cohen's d for effect size
+library(effectsize)
+cohens_d(target ~ (Educ == "Sup"), data = work_df_intensity)
+```
+
+### KOB decomposition
+## Hours accessed
+
+```{r}
+cleaned_variables_intensity <- c(
+  "MonthlyDaycareFees", 'Income', "TrustEarlyChildcareAgree", "NumberChildren", "Intention"
+)
+
+
+oaxaca_data_intensity <- Oaxaca_Intensity %>%   
+  filter(!is.na(ECSIntensity), ECSIntensity > 0) %>%
+  mutate(target = as.numeric(ECSIntensity), 
+         Educ_bin = as.numeric(Educ == "Sup")
+                          )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_intensity))  
+
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(cleaned_variables_intensity, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(201)
+# Run Oaxaca-Blinder decomposition
+oax_decomp_intensity <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data_intensity,
+                     R = 100)  # Number of bootstrap repetitions
+
+# Plot the share of the gap explained by the variables 
+gapExplained_access <- plot_oaxaca_gap(oax_decomp_intensity, 
+                                       outcome = "Intensity", 
+                                       model = "Random Forest with RFE")
+gapExplained_access 
+```
+
+
+```{r}
+
+coef_names_intensity <- c(
+  "IntentionYes" = "Intention to use early childcare after birth",
+
+  "NumberChildren" = "Household size (number of children)",
+  
+  "MonthlyDaycareFees" = "Monthly childcare fees",
+
+  
+  "TrustEarlyChildcareAgreeYes" = "Trust in early childcare institutions",
+  
+  "IncomeLess than 1500 euros" = "Household income (low)",
+  "IncomeMore than 2500 euros" = "Household income (high)"
+
+)
+
+ExplainedAccessReg <- plot_top_contributors(oax_decomp_intensity, 
+                                         var_labels = coef_names_intensity, 
+                                         top_n = 10,
+                                         outcome = "Intensity", 
+                                         model = "Random Forest with RFE") 
+ExplainedAccessReg
+
+UnexplainedIntentionReg <- plot_top_unexplained_contributors(oax_decomp_intensity, 
+                                                             var_labels = coef_names_intensity,
+                                                             top_n = 10,
+                                                              outcome = "Intensity", 
+                                         model = "Random Forest with RFE"
+                                                             )
+UnexplainedIntentionReg
+```
+
+```{r}
+# Add WorkMotherFullTime and WorkMotherReduced to the intensity Oaxaca
+# These go ONLY in the Oaxaca step — no need to re-run RFE
+
+model_variables_intensity_extended <- c(
+  cleaned_variables_intensity,   # MonthlyDaycareFees, Income, TrustEarlyChildcareAgree, NumberChildren, Intention
+  "WorkMotherFullTime",
+  "WorkMotherReduced"
+)
+
+oaxaca_data_intensity_extended <- Oaxaca_Intensity %>%
+  filter(!is.na(ECSIntensity), ECSIntensity > 0) %>%
+  mutate(
+    target   = as.numeric(ECSIntensity),
+    Educ_bin = as.numeric(Educ == "Sup")
+  ) %>%
+  select(target, Educ_bin, all_of(model_variables_intensity_extended))
+
+formula_intensity_extended <- as.formula(
+  paste("target ~", 
+        paste(model_variables_intensity_extended, collapse = " + "), 
+        "| Educ_bin")
+)
+
+set.seed(120)
+oax_decomp_intensity_extended <- oaxaca(
+  formula = formula_intensity_extended,
+  data    = oaxaca_data_intensity_extended,
+  R       = 100
+)
+
+
+coef_names_intensity <- c(
+  "IntentionYes" = "Intention to use early childcare after birth",
+
+  "NumberChildren" = "Household size (number of children)",
+  
+  "MonthlyDaycareFees" = "Monthly childcare fees",
+
+  
+  "TrustEarlyChildcareAgreeYes" = "Trust in early childcare institutions",
+  
+  "IncomeLess than 1500 euros" = "Household income (low)",
+  "IncomeMore than 2500 euros" = "Household income (high)",
+  "WorkMotherFullTimeYes" = "The mother works full time",
+  "WorkMotherReducedTRUE" = "The mother reduced her working hours after delivery"
+
+)
+# Compare income contributions with and without work variables
+# Look specifically at whether Income coefficients change
+plot_oaxaca_gap(oax_decomp_intensity_extended, outcome = "Intensity (with work vars)")
+plot_top_contributors(oax_decomp_intensity_extended,
+                      var_labels = coef_names_intensity,
+                      top_n = 10,
+                      outcome = "Intensity (with work vars)")
+```

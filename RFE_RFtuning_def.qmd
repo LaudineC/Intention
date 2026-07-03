@@ -1,0 +1,2151 @@
+---
+title: "Recursive Feature Elimination 7"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+# Build functions
+
+```{r}
+# Feature Selection and Random Forest Optimization Functions
+# ---------------------------------------------------------
+
+# Function 1: Perform Recursive Feature Elimination (RFE)
+# ------------------------------------------------------
+# This function performs recursive feature elimination with cross-validation
+# to identify the optimal set of predictors for a given dataset and target variable.
+
+perform_rfe <- function(train_df, target_var = "target", recipe_obj = NULL, 
+                        min_features = 5, step_size = 5, cv_folds = 10, 
+                        seed_val = 1451) {
+  
+  # Load required packages if not already loaded
+  pacman::p_load(caret, recipes)
+  tidymodels_prefer()
+  
+  # Create a basic preprocessing recipe if none is provided
+  if (is.null(recipe_obj)) {
+    recipe_obj <- recipe(formula(paste(target_var, "~ .")), data = train_df)
+  }
+  
+  # Prepare the recipe and process the training data
+  prep_recipe <- prep(recipe_obj, training = train_df)
+  train_processed <- bake(prep_recipe, new_data = train_df)
+  
+  # Configure RFE control parameters
+  set.seed(seed_val)
+  
+  ctrl <- rfeControl(
+    functions = rfFuncs,    # Random forest as base model for feature selection
+    method = "cv",          # Cross-validation method
+    number = cv_folds,      # Number of CV folds
+    verbose = TRUE          # Display progress
+  )
+  
+  # Define feature subsets to test
+  n_features <- ncol(train_processed) - 1  # Exclude the target variable
+  subsets <- seq(min_features, n_features, by = step_size)
+  
+  # Execute RFE with cross-validation
+  set.seed(seed_val)
+  rfe_results <- rfe(
+    x = train_processed %>% select(-all_of(target_var)),
+    y = train_processed[[target_var]],
+    sizes = subsets,
+    rfeControl = ctrl,
+    metric = "Accuracy"     # Optimization metric (can be changed for regression tasks)
+  )
+  
+  # Extract selected variables
+  optimal_vars <- predictors(rfe_results)
+  
+  # Clean variable names (removing one-hot encoding suffixes)
+  clean_variable_names <- function(vars) {
+    unique_base_names <- character()
+    
+    for(var in vars) {
+      # If variable contains underscore (from one-hot encoding), extract base name
+      if(grepl("_", var)) {
+        base_name <- strsplit(var, "_")[[1]][1]
+      } else {
+        base_name <- var
+      }
+      unique_base_names <- c(unique_base_names, base_name)
+    }
+    return(unique(unique_base_names))
+  }
+  
+  cleaned_variables <- clean_variable_names(optimal_vars)
+  
+  # Create filtered datasets with selected variables
+  train_df_filtered <- train_df %>% 
+    select(all_of(target_var), all_of(cleaned_variables))
+  
+  # Return results as a list
+  return(list(
+    rfe_results = rfe_results,
+    optimal_vars = optimal_vars,
+    cleaned_variables = cleaned_variables,
+    train_filtered = train_df_filtered
+  ))
+}
+
+# Function 2: Create optimized recipe based on RFE results
+# -------------------------------------------------------
+# This function generates an optimized recipe using only the variables 
+# selected by RFE while preserving the transformation steps from the original recipe.
+
+create_optimized_recipe <- function(train_df_filtered, target_var = "target",
+                                   unknown_vars = c("EntryAgeBeforeOne", 
+                                                    "AttitudesTowardsWorkAndFamily", 
+                                                    "AttitudesLaborAffectsChildren"),
+                                   impute_vars = c("AffordCostBaseline", 
+                                                   "Taux.de.couv.global",
+                                                   "NumberChildren", 
+                                                   "PrescriptiveNorm"),
+                                   yeojohnson_vars = c("AffordCostBaseline", 
+                                                      "MotherHealthIndex",
+                                                      "BabyHealthIndex", 
+                                                      "NumberChildren", 
+                                                      "OpportunityCosts", 
+                                                      "MonthlyDaycareFees",
+                                                      "PrescriptiveNorm"),
+                                   knn_neighbors = 5) {
+  
+  # Get the selected variables from the filtered dataframe
+  selected_vars <- setdiff(names(train_df_filtered), target_var)
+  
+  # Compute intersections with transformation variables
+  unknown_vars_filtered <- intersect(unknown_vars, selected_vars)
+  impute_vars_filtered <- intersect(impute_vars, selected_vars)
+  yeojohnson_vars_filtered <- intersect(yeojohnson_vars, selected_vars)
+  
+  # Initialize the recipe with the filtered data
+  optimized_recipe <- recipe(formula(paste(target_var, "~ .")), 
+                             data = train_df_filtered)
+  
+  # Add transformation steps conditionally based on selected variables
+  # Step 1: Handle unknown values for categorical variables
+  if (length(unknown_vars_filtered) > 0) {
+    optimized_recipe <- optimized_recipe %>% 
+      step_unknown(all_of(unknown_vars_filtered))
+  }
+  
+  # Step 2: Create dummy variables for all nominal predictors
+  optimized_recipe <- optimized_recipe %>%
+    step_dummy(all_nominal_predictors(), one_hot = TRUE)
+  
+  # Step 3: Normalize numeric predictors
+  optimized_recipe <- optimized_recipe %>%
+    step_normalize(all_numeric_predictors())
+  
+  # Step 4: KNN imputation for variables with missing values
+  if (length(impute_vars_filtered) > 0) {
+    optimized_recipe <- optimized_recipe %>% 
+      step_impute_knn(all_of(impute_vars_filtered), neighbors = knn_neighbors)
+  }
+  
+  # Step 5: Apply Yeo-Johnson transformation for skewed variables
+  if (length(yeojohnson_vars_filtered) > 0) {
+    optimized_recipe <- optimized_recipe %>% 
+      step_YeoJohnson(all_of(yeojohnson_vars_filtered))
+  }
+  
+  return(optimized_recipe)
+}
+
+# Function 3: Tune random forest model with selected features
+# ----------------------------------------------------------
+# This function tunes a random forest model using the optimized recipe
+# and returns the best model based on cross-validation results.
+
+tune_random_forest <- function(train_df_filtered, test_df = NULL, target_var = "target",
+                              recipe_obj, cv_folds = 10, cv_repeats = 5,
+                              grid_size = 150, var_range =  0.75, n_cores = NULL, seed_val = 30,
+                              engine = "partykit") {
+  
+  # Load required packages
+  pacman::p_load(doParallel)
+  tidymodels_prefer()
+  
+  # Filter test data if provided
+  if (!is.null(test_df)) {
+    selected_vars <- setdiff(names(train_df_filtered), target_var)
+    test_df_filtered <- test_df %>% 
+      select(all_of(target_var), all_of(selected_vars))
+  } else {
+    test_df_filtered <- NULL
+  }
+  
+  # Define the random forest model specification with tunable parameters
+  rf_spec <- rand_forest(
+    mtry = tune(),       # Number of variables randomly sampled at each split
+    trees = tune(),      # Number of trees in the forest
+    min_n = tune()       # Minimum node size
+  ) %>%
+    set_mode("classification") %>%
+    set_engine(engine)
+  
+  # Create a workflow with the recipe and model
+  rf_workflow <- workflow() %>%
+    add_recipe(recipe_obj) %>%
+    add_model(rf_spec)
+  
+  # Extract and finalize parameter set for tuning
+  rf_params <- extract_parameter_set_dials(rf_spec) %>%
+    finalize(train_df_filtered)
+  
+  # Create Latin Hypercube sampling grid for efficient parameter space exploration
+  set.seed(seed_val)
+  rf_grid <- grid_latin_hypercube(
+    rf_params,
+    size = grid_size,
+    variogram_range = var_range,
+    original = TRUE
+  )
+  
+  # Define cross-validation strategy
+  set.seed(seed_val)
+  cv_folds_obj <- vfold_cv(
+    train_df_filtered, 
+    v = cv_folds, 
+    repeats = cv_repeats, 
+    strata = sym(target_var)  # Stratified sampling preserves class distribution
+  )
+  
+  # Define performance metrics
+  rf_metrics <- metric_set(accuracy)
+  
+  # Set up parallel processing if specified
+  if (!is.null(n_cores)) {
+    if (n_cores > 1) {
+      cl <- makeCluster(n_cores)
+      registerDoParallel(cl)
+      on.exit(stopCluster(cl))
+    }
+  } else {
+    registerDoParallel()
+  }
+  
+  # Tune the model with grid search
+  rf_tune_results <- rf_workflow %>%
+    tune_grid(
+      resamples = cv_folds_obj,
+      grid = rf_grid,
+      metrics = rf_metrics
+    )
+  
+  # Select the best hyperparameter configuration
+  rf_best_params <- select_best(rf_tune_results)
+  
+  # Finalize the model with best parameters
+  rf_final_spec <- finalize_model(rf_spec, rf_best_params)
+  
+  # Update workflow with the finalized model
+  rf_final_workflow <- rf_workflow %>%
+    update_model(rf_final_spec)
+  
+  # Fit the final model on the training set
+  rf_final_fit <- rf_final_workflow %>%
+    fit(data = train_df_filtered)
+  
+  # Evaluate on test set if provided
+  if (!is.null(test_df_filtered)) {
+    test_performance <- rf_final_fit %>%
+      predict(test_df_filtered) %>%
+      bind_cols(test_df_filtered) %>%
+      metrics(truth = !!sym(target_var), estimate = .pred_class)
+  } else {
+    test_performance <- NULL
+  }
+  
+  # Return results
+  return(list(
+    tuning_results = rf_tune_results,
+    best_params = rf_best_params,
+    final_workflow = rf_final_workflow,
+    final_fit = rf_final_fit,
+    test_performance = test_performance
+  ))
+}
+
+# Function 4: Generate SHAP values and feature importance
+# ------------------------------------------------------
+# This function calculates SHAP (SHapley Additive exPlanations) values
+# to interpret the random forest model and visualize feature importance.
+
+calculate_shapley_importance <- function(model_fit, test_df, target_var = "target", 
+                                        n_samples = 50, seed_val = 1995) {
+  
+  # Load required packages
+  pacman::p_load(DALEXtra, forcats, ggplot2)
+  
+  # Create explainer object for the model
+  explainer <- explain_tidymodels(
+    model = model_fit,
+    data = test_df %>% select(-all_of(target_var)),
+    y = test_df[[target_var]]
+  )
+  
+  # Calculate SHAP values
+  set.seed(seed_val)
+  shap_values <- predict_parts(
+    explainer = explainer,
+    new_observation = test_df %>% select(-all_of(target_var)),
+    type = "shap",
+    B = n_samples  # Number of samples for approximation
+  )
+  
+  # Calculate average SHAP values per variable
+  average_shapley <- shap_values %>% 
+    group_by(variable) %>% 
+    summarise(contribution = mean(contribution)) %>% 
+    arrange(desc(abs(contribution)))
+  
+  # Prepare data for visualization
+  shap_plot_data <- shap_values %>%
+    group_by(variable) %>%
+    mutate(mean_val = mean(contribution)) %>%
+    ungroup() %>%
+    mutate(variable = fct_reorder(variable, abs(mean_val)))
+  
+  # Create feature importance plot
+  shap_plot <- shap_plot_data %>%
+    ggplot(aes(contribution, variable, fill = mean_val > 0)) +
+    geom_col(data = ~distinct(., variable, mean_val), 
+             aes(mean_val, variable), 
+             alpha = 0.5) +
+    geom_boxplot(width = 0.5) +
+    theme_bw() +
+    theme(legend.position = "none") +
+    labs(
+      y = NULL, 
+      x = "SHAP Value (impact on model output)",
+      title = "Feature Importance Based on SHAP Values",
+      subtitle = "Features are ordered by mean absolute SHAP value"
+    )
+  
+  # Return results
+  return(list(
+    explainer = explainer,
+    shap_values = shap_values,
+    average_shapley = average_shapley,
+    plot_data = shap_plot_data,
+    importance_plot = shap_plot
+  ))
+}
+
+# For numerical predictors 
+
+
+perform_rfe_reg <- function(train_df, target_var = "target", recipe_obj = NULL, 
+                             min_features = 5, step_size = 5, cv_folds = 10, 
+                             seed_val = 1451) {
+  
+  pacman::p_load(caret, recipes)
+  tidymodels_prefer()
+  
+  if (is.null(recipe_obj)) {
+    recipe_obj <- recipe(formula(paste(target_var, "~ .")), data = train_df)
+  }
+  
+  prep_recipe <- prep(recipe_obj, training = train_df)
+  train_processed <- bake(prep_recipe, new_data = train_df)
+  
+  set.seed(seed_val)
+  
+  # rfFuncs in caret auto-detects regression vs classification based on
+  # the class of y, but we need to switch the control's summary function
+  # and the optimization metric to RMSE
+  ctrl <- rfeControl(
+    functions = rfFuncs,
+    method = "cv",
+    number = cv_folds,
+    verbose = TRUE
+  )
+  
+  n_features <- ncol(train_processed) - 1
+  subsets <- seq(min_features, n_features, by = step_size)
+  
+  set.seed(seed_val)
+  rfe_results <- rfe(
+    x = train_processed %>% select(-all_of(target_var)),
+    y = train_processed[[target_var]],   # must be numeric for regression RFE
+    sizes = subsets,
+    rfeControl = ctrl,
+    metric = "RMSE",       # switched from Accuracy
+    maximize = FALSE       # lower RMSE is better
+  )
+  
+  optimal_vars <- predictors(rfe_results)
+  
+  clean_variable_names <- function(vars) {
+    unique_base_names <- character()
+    for (var in vars) {
+      if (grepl("_", var)) {
+        base_name <- strsplit(var, "_")[[1]][1]
+      } else {
+        base_name <- var
+      }
+      unique_base_names <- c(unique_base_names, base_name)
+    }
+    return(unique(unique_base_names))
+  }
+  
+  cleaned_variables <- clean_variable_names(optimal_vars)
+  
+  train_df_filtered <- train_df %>% 
+    select(all_of(target_var), all_of(cleaned_variables))
+  
+  return(list(
+    rfe_results = rfe_results,
+    optimal_vars = optimal_vars,
+    cleaned_variables = cleaned_variables,
+    train_filtered = train_df_filtered
+  ))
+}
+
+tune_random_forest_reg <- function(train_df_filtered, test_df = NULL, target_var = "target",
+                                    recipe_obj, cv_folds = 10, cv_repeats = 5,
+                                    grid_size = 150, var_range = 0.75, n_cores = NULL, seed_val = 30,
+                                    engine = "partykit") {
+  
+  pacman::p_load(doParallel)
+  tidymodels_prefer()
+  
+  if (!is.null(test_df)) {
+    selected_vars <- setdiff(names(train_df_filtered), target_var)
+    test_df_filtered <- test_df %>% 
+      select(all_of(target_var), all_of(selected_vars))
+  } else {
+    test_df_filtered <- NULL
+  }
+  
+  rf_spec <- rand_forest(
+    mtry = tune(),
+    trees = tune(),
+    min_n = tune()
+  ) %>%
+    set_mode("regression") %>%       # switched from classification
+    set_engine(engine)
+  
+  rf_workflow <- workflow() %>%
+    add_recipe(recipe_obj) %>%
+    add_model(rf_spec)
+  
+  rf_params <- extract_parameter_set_dials(rf_spec) %>%
+    finalize(train_df_filtered)
+  
+  set.seed(seed_val)
+  rf_grid <- grid_latin_hypercube(
+    rf_params,
+    size = grid_size,
+    variogram_range = var_range,
+    original = TRUE
+  )
+  
+  set.seed(seed_val)
+  # strata on a continuous target works fine in vfold_cv: it bins internally
+  cv_folds_obj <- vfold_cv(
+    train_df_filtered, 
+    v = cv_folds, 
+    repeats = cv_repeats, 
+    strata = sym(target_var)
+  )
+  
+  rf_metrics <- metric_set(rmse, rsq, mae)   # switched from accuracy
+  
+  if (!is.null(n_cores)) {
+    if (n_cores > 1) {
+      cl <- makeCluster(n_cores)
+      registerDoParallel(cl)
+      on.exit(stopCluster(cl))
+    }
+  } else {
+    registerDoParallel()
+  }
+  
+  rf_tune_results <- rf_workflow %>%
+    tune_grid(
+      resamples = cv_folds_obj,
+      grid = rf_grid,
+      metrics = rf_metrics
+    )
+  
+  # select_best needs a metric for regression; default to rmse, minimized
+  rf_best_params <- select_best(rf_tune_results, metric = "rmse")
+  
+  rf_final_spec <- finalize_model(rf_spec, rf_best_params)
+  
+  rf_final_workflow <- rf_workflow %>%
+    update_model(rf_final_spec)
+  
+  rf_final_fit <- rf_final_workflow %>%
+    fit(data = train_df_filtered)
+  
+  if (!is.null(test_df_filtered)) {
+    test_performance <- rf_final_fit %>%
+      predict(test_df_filtered) %>%        # yields .pred, not .pred_class
+      bind_cols(test_df_filtered) %>%
+      metrics(truth = !!sym(target_var), estimate = .pred)
+  } else {
+    test_performance <- NULL
+  }
+  
+  return(list(
+    tuning_results = rf_tune_results,
+    best_params = rf_best_params,
+    final_workflow = rf_final_workflow,
+    final_fit = rf_final_fit,
+    test_performance = test_performance
+  ))
+}
+
+```
+
+# Intention
+
+For the sake of the demonstration, we use the code without the functions previously defined.
+
+```{r}
+# Charger les packages nécessaires
+p_load(caret)
+
+data <- MLDummified %>% filter(!is.na(Intention)) %>% 
+  mutate(target = factor(Intention, labels = c("No", "Yes"))) %>%   # the idea db we would be working with in the end
+ select(-c(Assignment, MovedOut, ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne, BabyHealthIndex, MotherHealthIndex, SocialCriteriaYes,RegistrationOnlineOnly ))
+# Create a subset with the sociodemo and the predictors
+# Cleaning the data
+
+tidymodels_prefer()
+
+# Take a look at the data with skimr
+s <- skim(data)
+print(s, include_summary = FALSE)
+# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN,  NumberChildren we may want to impute them
+
+
+# Keep 20% of the observations for the test set.
+set.seed(1451)
+credit_split <- initial_split(data, prop = 0.8)
+train_df <- training(credit_split)
+test_df <- testing(credit_split)
+
+
+# 1. Appliquer d'abord votre recette pour imputer les valeurs manquantes
+# Créer et préparer la recette
+preprocess_recipe  <- recipe(target ~ ., data = train_df)  %>%
+  step_unknown(AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm
+                  #BreastFeedLength,
+                  #NumberChildren
+                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+
+# Préparer les données (training et test)
+prep_recipe <- prep(preprocess_recipe, training = train_df)
+train_processed <- bake(prep_recipe, new_data = train_df)
+
+
+# 2. Maintenant utiliser ces données prétraitées pour RFE
+# Configuration du contrôle pour RFE-CV
+ctrl <- rfeControl(
+  functions = rfFuncs,
+  method = "cv",
+  number = 10,
+  verbose = TRUE
+)
+
+# Définir les sous-ensembles de caractéristiques à tester
+n_features <- ncol(train_processed) - 1  # Exclure la cible
+subsets <- seq(5, n_features, by = 5)
+
+# Exécuter RFE-CV avec les données prétraitées
+set.seed(1451)
+rfe_results <- rfe(
+  x = train_processed %>% select(-target),
+  y = train_processed$target,
+  sizes = subsets,
+  rfeControl = ctrl,
+  metric = "Accuracy"
+)
+
+# Afficher les résultats
+print(rfe_results)
+
+# Visualiser les résultats
+plot(rfe_results, type = c("g", "o"))  # Graphique des performances par taille de sous-ensemble
+
+# Obtenir les variables sélectionnées
+optimal_vars <- predictors(rfe_results)
+print(optimal_vars)
+
+# Visualiser l'importance des variables sélectionnées
+varimp_data <- varImp(rfe_results)
+plot(varimp_data)
+
+# Remove the suffixes due to step dummy 
+
+# clean the variables names to get a vector of variables
+# Create a function to do that
+clean_variable_names <- function(vars) {
+  # vector to store the names
+  unique_base_names <- character()
+  
+  for(var in vars) {
+    # Use the underscore as an indication of the variables to clean
+    if(grepl("_", var)) {
+      base_name <- strsplit(var, "_")[[1]][1]
+    } else {
+      base_name <- var
+    }
+    unique_base_names <- c(unique_base_names, base_name)
+  }
+  return(unique(unique_base_names))
+  
+}
+
+cleaned_variables_intention <- clean_variable_names(optimal_vars)
+
+# Filter train_df to keep only the selected variables
+train_df_filtered <- train_df %>% 
+  select(target, all_of(cleaned_variables_intention))
+# Filter train_df to keep only the selected variables
+test_df_filtered <- test_df %>% 
+  select(target, all_of(cleaned_variables_intention))
+
+# Then we want to do the relevant transformation, but step_.. is a bit tricky, we do this by hand
+
+# 1. D'abord, calculer toutes vos intersections en amont
+unknown_vars <- intersect(c("EntryAgeBeforeOne", "AttitudesTowardsWorkAndFamily", 
+                         "AttitudesLaborAffectsChildren"), cleaned_variables_intention)
+
+impute_vars <- intersect(c("AffordCostBaseline", "Taux.de.couv.global",
+                         "NumberChildren", "PrescriptiveNorm"), cleaned_variables_intention)
+
+yeojohnson_vars <- intersect(c("AffordCostBaseline", "MotherHealthIndex",
+                             "BabyHealthIndex", "NumberChildren", 
+                             "OpportunityCosts", "MonthlyDaycareFees",
+                             "PrescriptiveNorm"), cleaned_variables_intention)
+
+# 2. Utiliser train_df_filtered (celui qui contient déjà uniquement les variables sélectionnées)
+rf_recipe_rfe <- recipe(target ~ ., data = train_df_filtered)
+
+# 3. Ajouter les étapes conditionnellement
+if (length(unknown_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_unknown(all_of(unknown_vars))
+}
+
+# Continuer avec les autres étapes
+rf_recipe_rfe <- rf_recipe_rfe %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_normalize(all_numeric_predictors())
+
+if (length(impute_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_impute_knn(all_of(impute_vars), neighbors = 5)
+}
+
+if (length(yeojohnson_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_YeoJohnson(all_of(yeojohnson_vars))
+}
+
+# Continuer avec votre code de réglage de modèle, mais en utilisant la recette optimisée par RFE-CV
+rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+                       trees = tune(), # if I tune it, it takes forever to run
+                       min_n = tune()) %>%
+  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
+  set_engine("partykit")
+
+# Flux de travail avec les caractéristiques sélectionnées
+initial_flow_rfe <- workflow() %>%
+  add_recipe(rf_recipe_rfe) %>%
+  add_model(rf_spec)
+
+
+# In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
+
+# tuned with 50 latin hypercube: mtry 4 1636 trees min_n 39
+
+
+
+
+# The argument finalize is key because tidymodels needs to look
+# at the data to figure out how many features there are.
+
+# We need to tell tidymodels which parameters need to be tuned. It can conveniently be done with this chunk of code
+
+# In this version we are not tuning the number of trees, but we could.
+# We tune mtry and min_n the number of obs in each terminal leaves (you don't want one leaf == 1 obs that's overfitting)
+# mtry is the number of features that are randomly selected at each split. It is a good idea to tune it because it can have a big impact on the performance of the model
+# Doing this is an argument if I have a lot of predictors/features. At each round, it is only a subsample of predictors that is used. 
+rf_para <- extract_parameter_set_dials(rf_spec) %>% # extract the tuning parameters
+  finalize(train_df) # here we have only 2 because we set trees to 100 not tune()
+# finalize(train): we need to know the maximum number of features we could fit because it has not looked at the data yet
+# it tells tidymodel that he can look at the data quickly to see how many features there are in the data
+
+set.seed(20) # for reproducibility
+
+# Set the tuning grid
+# The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
+rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
+                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                variogram_range = 0.75, # explore the space of the hyperparameters
+                                original = TRUE)
+set.seed(30)
+cv_folds <- vfold_cv(train_df, v = 10, repeats = 5, strata = target) # stratified CV
+
+rf_metrics <- metric_set(accuracy) # classification task
+
+doParallel::registerDoParallel() # used parallel cores to run the computation
+
+# tune the model, with the cross validation method defined, the grid and the metrics you set
+rf_tune <- initial_flow_rfe %>%
+  tune_grid(cv_folds, grid = rf_grid, metrics = rf_metrics)
+
+
+# select the best parameters for the model the tuning found
+rf_best <- select_best(rf_tune)
+rf_best# Trees again with X features at each time and X obs at terminal leaves
+# 34 features, and 19 obs in terminal leaves
+
+# Update the model with the best parameters found
+rf_updated <- finalize_model(rf_spec,
+                             rf_best) 
+
+# add this to the initial workflow
+workflow_new <- initial_flow_rfe %>%
+  update_model(rf_updated)
+
+# Fit the model on the training set
+rf_fit_final <- workflow_new %>%
+  fit(data = train_df_filtered) # fit on the training set
+
+# Fit the model on the test set to evaluate performance
+# Performance on the test set
+rf_fit_final %>%
+  predict(test_df_filtered) %>%
+  bind_cols(test_df_filtered) %>%
+  metrics(truth = target, estimate = .pred_class)
+# the accuracy is great but the kappa not that much (average)
+# see if tuning the trees improve this in the future
+
+
+
+
+```
+
+## Shapley
+
+```{r}
+#| echo: false
+
+
+library(DALEXtra) # if not called already
+# DALEX want to know a couple of things in the explainer
+explainer <- explain_tidymodels( # create the  explainer
+  model = rf_fit_final, # what is the model
+  data = test_df_filtered, # what do you want to explain? The test data? The train data? Something else?
+  y = test_df_filtered$target # what is the target variable?
+)
+
+
+# SHAPLY VALUES
+library(forcats)
+
+set.seed(1995)
+shap <- predict_parts(explainer = explainer,
+                      new_observation = test_df_filtered[, !(names(test_df_filtered) %in% "target")], # remove the target
+                      type = "shap", 
+                      B = 50)
+
+average_shapley <- shap %>% 
+  group_by(variable) %>% 
+  summarise(contribution = mean(contribution)) %>% 
+  arrange(desc(abs(contribution)))
+
+
+shap %>%
+  group_by(variable) %>%
+  mutate(mean_val = mean(contribution)) %>%
+  ungroup() %>%
+  mutate(variable = fct_reorder(variable, abs(mean_val))) %>% # reorder the variables according to their contribution in term of their absolute value
+  ggplot(aes(contribution, variable, fill = mean_val > 0)) +
+  geom_col(data = ~distinct(., variable, mean_val), 
+           aes(mean_val, variable), 
+           alpha = 0.5, fill = "skyblue") +
+  geom_boxplot(width = 0.5, fill = "skyblue") +
+  theme(legend.position = "none") +
+  labs(y = NULL) +
+  theme_bw()
+
+
+shap <- shap %>%
+  group_by(variable) %>%
+  mutate(mean_val = mean(contribution)) %>%
+  ungroup() %>%
+  mutate(variable = fct_reorder(variable, abs(mean_val)))
+```
+
+## Oaxaca
+
+```{r run_oaxaca_intention}
+
+# Prepare the data for Oaxaca-Blinder
+oaxaca_data <- Oaxaca %>%
+  filter(!is.na(Intention)) %>%
+  mutate(
+    target = as.numeric(Intention) - 1,
+    Educ_bin = as.numeric(Educ == "Sup")) %>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(cleaned_variables_intention)) 
+
+# Verify the conversion
+print("Distribution of education groups:")
+table(oaxaca_data$Educ_bin)
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(cleaned_variables_intention, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+p_load(oaxaca)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_decomp <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data,
+                     R = 100)  # Number of bootstrap repetitions
+
+# résultats décomp agrégée
+round(oax_decomp$twofold$overall[, c(1,2,4)], 3)# 3 and 5 are SD
+
+# Diff -0.14 : coeff A (low) : 0.73; B : 0.88
+# 0: low SES 
+# -0.17
+
+
+
+plot(oax_decomp, decomposition = "twofold", group.weight = 1) # reference is high SES 
+plot(oax_decomp, decomposition = "twofold", group.weight = -2) # weighted 
+
+plot(oax_decomp, components = c("endowments","coefficients"))
+
+
+```
+
+We need to rely on the weighted averages because there is not the same number of low- and high-SES.
+
+Using the classical OB estimator, we explain `r round(oax_decomp$twofold$overall[6,2]*100 / oax_decomp$y$y.diff , 4)`% of the observed differences, and there is a `r 100-round(oax_decomp$twofold$overall[6,2]*100 / oax_decomp$y$y.diff , 2)`% of the difference in unexplained (`r round(oax_decomp$twofold$overall[3,3], 3)` percentage point unexplained part.
+
+# Application
+
+```{r}
+
+# Load all necessary packages with p_load
+pacman::p_load(tidymodels, caret, recipes, DALEXtra, ggplot2, forcats, doParallel)
+
+# Load your dataset (replace with your actual data loading code)
+# data <- read_csv("your_data.csv")
+
+# 1. Prepare your data
+# Assuming data is already loaded and contains your variables
+
+
+# Cleaning the data
+work_df <- MLDummified %>% 
+  filter(!is.na(ECSApp)) %>% mutate(Application = ifelse(ECSApp == 1,"Yes", "No")) %>% 
+  mutate(target = factor(Application, labels = c("No", "Yes"))
+  ) %>% 
+ select(-c( ECSApp, ECSUseYes, Application))
+
+# Take a look at the data with skimr
+s <- skim(work_df)
+print(s, include_summary = FALSE)
+
+# Keep 20% of the observations for the test set.
+set.seed(9998)
+data_split <- initial_split(work_df, prop = 0.8, strata = target)
+train_df <- training(data_split)
+test_df <- testing(data_split)
+
+# 2. Define your base recipe with all relevant data transformations
+base_recipe <- recipe(target ~ ., data = train_df) %>%
+  step_unknown(EntryAgeBeforeOne,
+               AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm)
+
+# 3. Perform Recursive Feature Elimination (RFE)
+rfe_results <- perform_rfe(
+  train_df = train_df,
+  target_var = "target",
+  recipe_obj = base_recipe,
+  min_features = 5,
+  step_size = 5,
+  cv_folds = 10,
+  seed_val = 1451
+)
+
+# Print RFE results
+print(rfe_results$rfe_results)
+cat("Selected features:", paste(rfe_results$cleaned_variables, collapse = ", "), "\n")
+plot(rfe_results$rfe_results, type = c("g", "o") )
+
+# 4. Create an optimized recipe using only the selected features
+# Define variables that require special transformations
+unknown_vars <- c("EntryAgeBeforeOne", "AttitudesTowardsWorkAndFamily", "AttitudesLaborAffectsChildren")
+impute_vars <- c("AffordCostBaseline", "Taux.de.couv.global", "NumberChildren", "PrescriptiveNorm")
+yeojohnson_vars <- c("AffordCostBaseline", "MotherHealthIndex", "BabyHealthIndex", 
+                     "NumberChildren", "OpportunityCosts", "MonthlyDaycareFees", "PrescriptiveNorm")
+
+# Create the optimized recipe
+optimized_recipe <- create_optimized_recipe(
+  train_df_filtered = rfe_results$train_filtered,
+  target_var = "target",
+  unknown_vars = unknown_vars,
+  impute_vars = impute_vars,
+  yeojohnson_vars = yeojohnson_vars,
+  knn_neighbors = 5
+)
+
+# 5. Tune a random forest model with the optimized recipe
+rf_tuned <- tune_random_forest(
+  train_df_filtered = rfe_results$train_filtered,
+  test_df = test_df,
+  target_var = "target",
+  recipe_obj = optimized_recipe,
+  cv_folds = 10,
+  cv_repeats = 5,
+  var_range = 0.75,
+  grid_size = 150,  # Number of hyperparameter combinations to test
+  n_cores = NULL,   # Use all available cores
+  seed_val = 30,
+  engine = "partykit"
+)
+
+# Print tuning results
+print(rf_tuned$best_params)
+print(rf_tuned$test_performance)
+
+# 6. Calculate and visualize SHAP values for model interpretation
+shap_results <- calculate_shapley_importance(
+  model_fit = rf_tuned$final_fit,
+  test_df = test_df %>% select(target, all_of(rfe_results$cleaned_variables)),
+  target_var = "target",
+  n_samples = 50,
+  seed_val = 1995
+)
+
+# Display the average SHAP values (feature importance)
+print(shap_results$average_shapley)
+
+# Plot feature importance
+print(shap_results$importance_plot)
+```
+
+## Oaxaca
+
+```{r}
+
+```
+
+# Access
+
+```{r}
+
+
+# Load all necessary packages with p_load
+pacman::p_load(tidymodels, caret, recipes, DALEXtra, ggplot2, forcats, doParallel)
+
+# Load your dataset (replace with your actual data loading code)
+# data <- read_csv("your_data.csv")
+
+# 1. Prepare your data
+# Assuming data is already loaded and contains your variables
+
+
+
+work_df <- MLDummified %>% filter(!is.na(ECSUseYes)) %>%
+  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No"),
+         target = factor(Use, labels = c("No", "Yes")), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No"), 
+         Applied = factor(Applied, labels = c("No", "Yes"))
+         ) %>% 
+ select(-c( ECSApp, ECSUseYes, Use))
+
+# Take a look at the data with skimr
+s <- skim(work_df)
+print(s, include_summary = FALSE)
+
+set.seed(4567)
+
+
+# Keep 20% of the observations for the test set.
+access_split <- initial_split(work_df, prop = 0.8, strata = target)
+train_df <- training(access_split)
+test_df <- testing(access_split)
+
+# 2. Define your base recipe with all relevant data transformations
+base_recipe <- recipe(target ~ ., data = train_df) %>%
+  step_unknown(EntryAgeBeforeOne,
+               AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm)
+
+# 3. Perform Recursive Feature Elimination (RFE)
+rfe_results <- perform_rfe(
+  train_df = train_df,
+  target_var = "target",
+  recipe_obj = base_recipe,
+  min_features = 5,
+  step_size = 5,
+  cv_folds = 10,
+  seed_val = 1451
+)
+
+# Print RFE results
+print(rfe_results$rfe_results)
+cat("Selected features:", paste(rfe_results$cleaned_variables, collapse = ", "), "\n")
+plot(rfe_results$rfe_results, type = c("g", "o") )
+
+# 4. Create an optimized recipe using only the selected features
+# Define variables that require special transformations
+unknown_vars <- c("EntryAgeBeforeOne", "AttitudesTowardsWorkAndFamily", "AttitudesLaborAffectsChildren")
+impute_vars <- c("AffordCostBaseline", "Taux.de.couv.global", "NumberChildren", "PrescriptiveNorm")
+yeojohnson_vars <- c("AffordCostBaseline", "MotherHealthIndex", "BabyHealthIndex", 
+                     "NumberChildren", "OpportunityCosts", "MonthlyDaycareFees", "PrescriptiveNorm")
+
+# Create the optimized recipe
+optimized_recipe <- create_optimized_recipe(
+  train_df_filtered = rfe_results$train_filtered,
+  target_var = "target",
+  unknown_vars = unknown_vars,
+  impute_vars = impute_vars,
+  yeojohnson_vars = yeojohnson_vars,
+  knn_neighbors = 5
+)
+
+# 5. Tune a random forest model with the optimized recipe
+rf_tuned <- tune_random_forest(
+  train_df_filtered = rfe_results$train_filtered,
+  test_df = test_df,
+  target_var = "target",
+  recipe_obj = optimized_recipe,
+  cv_folds = 10,
+  cv_repeats = 5,
+  var_range = 0.75,
+  grid_size = 150,  # Number of hyperparameter combinations to test
+  n_cores = NULL,   # Use all available cores
+  seed_val = 30,
+  engine = "partykit"
+)
+
+# Print tuning results
+print(rf_tuned$best_params)
+print(rf_tuned$test_performance)
+
+# 6. Calculate and visualize SHAP values for model interpretation
+shap_results <- calculate_shapley_importance(
+  model_fit = rf_tuned$final_fit,
+  test_df = test_df %>% select(target, all_of(rfe_results$cleaned_variables)),
+  target_var = "target",
+  n_samples = 50,
+  seed_val = 1995
+)
+
+# Display the average SHAP values (feature importance)
+print(shap_results$average_shapley)
+
+# Plot feature importance
+print(shap_results$importance_plot)
+```
+
+## Oaxaca
+
+```{r}
+
+
+oaxaca_data <- Oaxaca %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(rfe_results$cleaned_variables))    
+
+
+# Verify the conversion
+print("Distribution of education groups:")
+table(oaxaca_data$Educ_bin)
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(rfe_results$cleaned_variables, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+p_load(oaxaca)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_decomp <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data,
+                     R = 100)  # Number of bootstrap repetitions
+
+# résultats décomp agrégée
+round(oax_decomp$twofold$overall[, c(1,2,4)], 3)# 3 and 5 are SD
+
+
+
+plot(oax_decomp, decomposition = "twofold", group.weight = -2) # weighted 
+
+```
+
+There is a problem with NAs in access and I don't quite understand so I am going to run it manually step by step
+
+```{r}
+
+# Charger les packages nécessaires
+p_load(caret)
+
+
+data <- MLDummified %>% filter(!is.na(ECSUseYes)) %>%
+  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No"),
+         target = factor(Use, labels = c("No", "Yes")), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No"), 
+         Applied = factor(Applied, labels = c("No", "Yes"))
+         ) %>% 
+ select(-c( ECSApp, ECSUseYes, Use))
+
+# Take a look at the data with skimr
+s <- skim(data)
+print(s, include_summary = FALSE)
+# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN,  NumberChildren we may want to impute them
+
+
+# Keep 20% of the observations for the test set.
+set.seed(1451)
+credit_split <- initial_split(data, prop = 0.8)
+train_df <- training(credit_split)
+test_df <- testing(credit_split)
+
+
+# 1. Appliquer d'abord votre recette pour imputer les valeurs manquantes
+# Créer et préparer la recette
+preprocess_recipe <- recipe(target ~ ., data = data) %>%
+  step_unknown(AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren, 
+               EntryAgeBeforeOne) %>% 
+  # Imputer d'abord les valeurs manquantes sur les variables numériques
+  step_impute_knn(
+                 Taux.de.couv.global,
+                 NumberChildren,
+                 PrescriptiveNorm,
+                 neighbors = 5) %>%
+  # Puis encoder les variables catégorielles
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  # Supprimer les variables à variance nulle
+  step_zv(all_predictors())
+#%>% 
+#  step_normalize(all_numeric_predictors()) %>% 
+#  step_impute_knn(
+#                  Taux.de.couv.global,
+#                  NumberChildren,
+#                  PrescriptiveNorm,
+#                  neighbors = 5) %>% 
+#  step_YeoJohnson(
+#                  NumberChildren, 
+#                  OpportunityCosts,
+#
+#                  PrescriptiveNorm
+#                  #BreastFeedLength,
+#                
+#                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+
+# Préparer les données (training et test)
+prep_recipe <- prep(preprocess_recipe, training = train_df)
+train_processed <- bake(prep_recipe, new_data = train_df)
+
+
+# 2. Maintenant utiliser ces données prétraitées pour RFE
+# Configuration du contrôle pour RFE-CV
+ctrl <- rfeControl(
+  functions = rfFuncs,
+  method = "cv",
+  number = 10,
+  verbose = TRUE
+)
+
+# Définir les sous-ensembles de caractéristiques à tester
+n_features <- ncol(train_processed) - 1  # Exclure la cible
+subsets <- seq(5, n_features, by = 5)
+
+# Exécuter RFE-CV avec les données prétraitées
+set.seed(1451)
+rfe_results <- rfe(
+  x = train_processed %>% select(-target),
+  y = train_processed$target,
+  sizes = subsets,
+  rfeControl = ctrl,
+  metric = "Accuracy"
+)
+
+# Afficher les résultats
+print(rfe_results)
+
+# Visualiser les résultats
+plot(rfe_results, type = c("g", "o"))  # Graphique des performances par taille de sous-ensemble
+
+# Obtenir les variables sélectionnées
+optimal_vars <- predictors(rfe_results)
+print(optimal_vars)
+
+# Visualiser l'importance des variables sélectionnées
+varimp_data <- varImp(rfe_results)
+plot(varimp_data)
+
+# Remove the suffixes due to step dummy 
+
+# clean the variables names to get a vector of variables
+# Create a function to do that
+clean_variable_names <- function(vars) {
+  # vector to store the names
+  unique_base_names <- character()
+  
+  for(var in vars) {
+    # Use the underscore as an indication of the variables to clean
+    if(grepl("_", var)) {
+      base_name <- strsplit(var, "_")[[1]][1]
+    } else {
+      base_name <- var
+    }
+    unique_base_names <- c(unique_base_names, base_name)
+  }
+  return(unique(unique_base_names))
+  
+}
+
+cleaned_variables_intention <- clean_variable_names(optimal_vars)
+
+# Filter train_df to keep only the selected variables
+train_df_filtered <- train_df %>% 
+  select(target, all_of(cleaned_variables_intention))
+# Filter train_df to keep only the selected variables
+test_df_filtered <- test_df %>% 
+  select(target, all_of(cleaned_variables_intention))
+
+# Then we want to do the relevant transformation, but step_.. is a bit tricky, we do this by hand
+
+# 1. D'abord, calculer toutes vos intersections en amont
+unknown_vars <- intersect(c("EntryAgeBeforeOne", "AttitudesTowardsWorkAndFamily", 
+                         "AttitudesLaborAffectsChildren"), cleaned_variables_intention)
+
+impute_vars <- intersect(c("AffordCostBaseline", "Taux.de.couv.global",
+                         "NumberChildren", "PrescriptiveNorm"), cleaned_variables_intention)
+
+yeojohnson_vars <- intersect(c("AffordCostBaseline", "MotherHealthIndex",
+                             "BabyHealthIndex", "NumberChildren", 
+                             "OpportunityCosts", "MonthlyDaycareFees",
+                             "PrescriptiveNorm"), cleaned_variables_intention)
+
+# 2. Utiliser train_df_filtered (celui qui contient déjà uniquement les variables sélectionnées)
+rf_recipe_rfe <- recipe(target ~ ., data = train_df_filtered)
+
+# 3. Ajouter les étapes conditionnellement
+if (length(unknown_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_unknown(all_of(unknown_vars))
+}
+
+# Continuer avec les autres étapes
+rf_recipe_rfe <- rf_recipe_rfe %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_normalize(all_numeric_predictors())
+
+if (length(impute_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_impute_knn(all_of(impute_vars), neighbors = 5)
+}
+
+if (length(yeojohnson_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_YeoJohnson(all_of(yeojohnson_vars))
+}
+
+# Continuer avec votre code de réglage de modèle, mais en utilisant la recette optimisée par RFE-CV
+
+# Flux de travail avec les caractéristiques sélectionnées
+initial_flow_rfe <- workflow() %>%
+  add_recipe(rf_recipe_rfe) %>%
+  add_model(rf_spec)
+
+
+# In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
+rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+                       trees = tune(), # if I tune it, it takes forever to run
+                       min_n = tune()) %>%
+  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
+  set_engine("partykit")
+
+# tuned with 50 latin hypercube: mtry 4 1636 trees min_n 39
+
+
+
+
+# The argument finalize is key because tidymodels needs to look
+# at the data to figure out how many features there are.
+
+# We need to tell tidymodels which parameters need to be tuned. It can conveniently be done with this chunk of code
+
+# In this version we are not tuning the number of trees, but we could.
+# We tune mtry and min_n the number of obs in each terminal leaves (you don't want one leaf == 1 obs that's overfitting)
+# mtry is the number of features that are randomly selected at each split. It is a good idea to tune it because it can have a big impact on the performance of the model
+# Doing this is an argument if I have a lot of predictors/features. At each round, it is only a subsample of predictors that is used. 
+rf_para <- extract_parameter_set_dials(rf_spec) %>% # extract the tuning parameters
+  finalize(train_df) # here we have only 2 because we set trees to 100 not tune()
+# finalize(train): we need to know the maximum number of features we could fit because it has not looked at the data yet
+# it tells tidymodel that he can look at the data quickly to see how many features there are in the data
+
+set.seed(20) # for reproducibility
+
+# Set the tuning grid
+# The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
+rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
+                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                variogram_range = 0.75, # explore the space of the hyperparameters
+                                original = TRUE)
+set.seed(30)
+cv_folds <- vfold_cv(train_df, v = 10, repeats = 5, strata = target) # stratified CV
+
+rf_metrics <- metric_set(accuracy) # classification task
+
+doParallel::registerDoParallel() # used parallel cores to run the computation
+
+# tune the model, with the cross validation method defined, the grid and the metrics you set
+rf_tune <- initial_flow_rfe %>%
+  tune_grid(cv_folds, grid = rf_grid, metrics = rf_metrics)
+
+
+# select the best parameters for the model the tuning found
+rf_best <- select_best(rf_tune)
+rf_best# Trees again with X features at each time and X obs at terminal leaves
+# 34 features, and 19 obs in terminal leaves
+
+# Update the model with the best parameters found
+rf_updated <- finalize_model(rf_spec,
+                             rf_best) 
+
+# add this to the initial workflow
+workflow_new <- initial_flow_rfe %>%
+  update_model(rf_updated)
+
+# Fit the model on the training set
+rf_fit_final <- workflow_new %>%
+  fit(data = train_df_filtered) # fit on the training set
+
+# Fit the model on the test set to evaluate performance
+# Performance on the test set
+rf_fit_final %>%
+  predict(test_df_filtered) %>%
+  bind_cols(test_df_filtered) %>%
+  metrics(truth = target, estimate = .pred_class)
+# the accuracy is great but the kappa not that much (average)
+# see if tuning the trees improve this in the future
+
+```
+
+# Access with other predictors
+
+```{r}
+
+# Load all necessary packages with p_load
+pacman::p_load(tidymodels, caret, recipes, DALEXtra, ggplot2, forcats, doParallel)
+
+# Load your dataset (replace with your actual data loading code)
+# data <- read_csv("your_data.csv")
+
+# 1. Prepare your data
+# Assuming data is already loaded and contains your variables
+
+
+
+work_df <- MLDummified_Access %>% filter(!is.na(ECSUseYes)) %>%
+  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No"),
+         target = factor(Use, labels = c("No", "Yes")), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No"), 
+         Applied = factor(Applied, labels = c("No", "Yes"))
+         ) %>% 
+ select(-c( ECSApp, ECSUseYes, Use, EntryAgeBeforeOne))
+
+# Take a look at the data with skimr
+s <- skim(work_df)
+print(s, include_summary = FALSE)
+
+set.seed(4567)
+
+
+# Keep 20% of the observations for the test set.
+access_split <- initial_split(work_df, prop = 0.8, strata = target)
+train_df <- training(access_split)
+test_df <- testing(access_split)
+
+# 2. Define your base recipe with all relevant data transformations
+base_recipe <- recipe(target ~ ., data = train_df) %>%
+  step_unknown(#EntryAgeBeforeOne,
+               AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  MonthlyDaycareFees,
+                  PrescriptiveNorm)
+
+# 3. Perform Recursive Feature Elimination (RFE)
+rfe_results <- perform_rfe(
+  train_df = train_df,
+  target_var = "target",
+  recipe_obj = base_recipe,
+  min_features = 5,
+  step_size = 5,
+  cv_folds = 10,
+  seed_val = 1451
+)
+
+# Print RFE results
+print(rfe_results$rfe_results)
+cat("Selected features:", paste(rfe_results$cleaned_variables, collapse = ", "), "\n")
+plot(rfe_results$rfe_results, type = c("g", "o") )
+
+# 4. Create an optimized recipe using only the selected features
+# Define variables that require special transformations
+unknown_vars <- c("EntryAgeBeforeOne", "AttitudesTowardsWorkAndFamily", "AttitudesLaborAffectsChildren")
+impute_vars <- c("AffordCostBaseline", "Taux.de.couv.global", "NumberChildren", "PrescriptiveNorm")
+yeojohnson_vars <- c("AffordCostBaseline", "MotherHealthIndex", "BabyHealthIndex", 
+                     "NumberChildren", "OpportunityCosts", "MonthlyDaycareFees", "PrescriptiveNorm")
+
+# Create the optimized recipe
+optimized_recipe <- create_optimized_recipe(
+  train_df_filtered = rfe_results$train_filtered,
+  target_var = "target",
+  unknown_vars = unknown_vars,
+  impute_vars = impute_vars,
+  yeojohnson_vars = yeojohnson_vars,
+  knn_neighbors = 5
+)
+
+# 5. Tune a random forest model with the optimized recipe
+rf_tuned <- tune_random_forest(
+  train_df_filtered = rfe_results$train_filtered,
+  test_df = test_df,
+  target_var = "target",
+  recipe_obj = optimized_recipe,
+  cv_folds = 10,
+  cv_repeats = 5,
+  var_range = 0.75,
+  grid_size = 150,  # Number of hyperparameter combinations to test
+  n_cores = NULL,   # Use all available cores
+  seed_val = 30,
+  engine = "partykit"
+)
+
+# Print tuning results
+print(rf_tuned$best_params)
+print(rf_tuned$test_performance)
+
+# 6. Calculate and visualize SHAP values for model interpretation
+shap_results <- calculate_shapley_importance(
+  model_fit = rf_tuned$final_fit,
+  test_df = test_df %>% select(target, all_of(rfe_results$cleaned_variables)),
+  target_var = "target",
+  n_samples = 50,
+  seed_val = 1995
+)
+
+# Display the average SHAP values (feature importance)
+print(shap_results$average_shapley)
+
+# Plot feature importance
+print(shap_results$importance_plot)
+```
+
+# Exploratory: Early care
+
+```{r}
+# Charger les packages nécessaires
+p_load(caret)
+
+data <- MLDummified %>% filter(!is.na(EntryAgeBeforeOne)) %>% 
+  mutate(target = factor(EntryAgeBeforeOne, labels = c("After One", "Before One"))) %>%   # the idea db we would be working with in the end
+ select(-c(Assignment,  ECSApp, ECSUseYes, Intention, EntryAgeBeforeOne, BabyHealthIndex, MotherHealthIndex ))
+# Create a subset with the sociodemo and the predictors
+# Cleaning the data
+
+tidymodels_prefer()
+
+# Take a look at the data with skimr
+s <- skim(data)
+print(s, include_summary = FALSE)
+# We have NA for ECSIdealAgeEntryBaseline, TrustCreche, BreastFeedLength, NormsOpposedN,  NumberChildren we may want to impute them
+
+
+# Keep 20% of the observations for the test set.
+set.seed(1451)
+credit_split <- initial_split(data, prop = 0.8)
+train_df <- training(credit_split)
+test_df <- testing(credit_split)
+
+
+# 1. Appliquer d'abord votre recette pour imputer les valeurs manquantes
+# Créer et préparer la recette
+preprocess_recipe  <- recipe(target ~ ., data = train_df)  %>%
+  step_unknown(AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm
+                  #BreastFeedLength,
+                  #NumberChildren
+                  ) # some variables are skewed. We transform them using YeoJohson that can also deal with missing values
+
+
+# Préparer les données (training et test)
+prep_recipe <- prep(preprocess_recipe, training = train_df)
+train_processed <- bake(prep_recipe, new_data = train_df)
+
+
+# 2. Maintenant utiliser ces données prétraitées pour RFE
+# Configuration du contrôle pour RFE-CV
+ctrl <- rfeControl(
+  functions = rfFuncs,
+  method = "cv",
+  number = 10,
+  verbose = TRUE
+)
+
+# Définir les sous-ensembles de caractéristiques à tester
+n_features <- ncol(train_processed) - 1  # Exclure la cible
+subsets <- seq(5, n_features, by = 5)
+
+# Exécuter RFE-CV avec les données prétraitées
+set.seed(1451)
+rfe_results <- rfe(
+  x = train_processed %>% select(-target),
+  y = train_processed$target,
+  sizes = subsets,
+  rfeControl = ctrl,
+  metric = "Accuracy"
+)
+
+# Afficher les résultats
+print(rfe_results)
+
+# Visualiser les résultats
+plot(rfe_results, type = c("g", "o"))  # Graphique des performances par taille de sous-ensemble
+
+# Obtenir les variables sélectionnées
+optimal_vars <- predictors(rfe_results)
+print(optimal_vars)
+
+# Visualiser l'importance des variables sélectionnées
+varimp_data <- varImp(rfe_results)
+plot(varimp_data)
+
+# Remove the suffixes due to step dummy 
+
+# clean the variables names to get a vector of variables
+# Create a function to do that
+clean_variable_names <- function(vars) {
+  # vector to store the names
+  unique_base_names <- character()
+  
+  for(var in vars) {
+    # Use the underscore as an indication of the variables to clean
+    if(grepl("_", var)) {
+      base_name <- strsplit(var, "_")[[1]][1]
+    } else {
+      base_name <- var
+    }
+    unique_base_names <- c(unique_base_names, base_name)
+  }
+  return(unique(unique_base_names))
+  
+}
+
+cleaned_variables_intention <- clean_variable_names(optimal_vars)
+
+# Filter train_df to keep only the selected variables
+train_df_filtered <- train_df %>% 
+  select(target, all_of(cleaned_variables_intention))
+# Filter train_df to keep only the selected variables
+test_df_filtered <- test_df %>% 
+  select(target, all_of(cleaned_variables_intention))
+
+# Then we want to do the relevant transformation, but step_.. is a bit tricky, we do this by hand
+
+# 1. D'abord, calculer toutes vos intersections en amont
+unknown_vars <- intersect(c("EntryAgeBeforeOne", "AttitudesTowardsWorkAndFamily", 
+                         "AttitudesLaborAffectsChildren"), cleaned_variables_intention)
+
+impute_vars <- intersect(c("AffordCostBaseline", "Taux.de.couv.global",
+                         "NumberChildren", "PrescriptiveNorm"), cleaned_variables_intention)
+
+yeojohnson_vars <- intersect(c("AffordCostBaseline", "MotherHealthIndex",
+                             "BabyHealthIndex", "NumberChildren", 
+                             "OpportunityCosts", "MonthlyDaycareFees",
+                             "PrescriptiveNorm"), cleaned_variables_intention)
+
+# 2. Utiliser train_df_filtered (celui qui contient déjà uniquement les variables sélectionnées)
+rf_recipe_rfe <- recipe(target ~ ., data = train_df_filtered)
+
+# 3. Ajouter les étapes conditionnellement
+if (length(unknown_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_unknown(all_of(unknown_vars))
+}
+
+# Continuer avec les autres étapes
+rf_recipe_rfe <- rf_recipe_rfe %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_normalize(all_numeric_predictors())
+
+if (length(impute_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_impute_knn(all_of(impute_vars), neighbors = 5)
+}
+
+if (length(yeojohnson_vars) > 0) {
+  rf_recipe_rfe <- rf_recipe_rfe %>% 
+    step_YeoJohnson(all_of(yeojohnson_vars))
+}
+
+# Continuer avec votre code de réglage de modèle, mais en utilisant la recette optimisée par RFE-CV
+rf_spec <- rand_forest(mtry = tune(), # 100 is a low side. Do at least 150 
+                       trees = tune(), # if I tune it, it takes forever to run
+                       min_n = tune()) %>%
+  set_mode("classification") %>% # IMPORTANT! It can also deal with classes and influence the loss function
+  set_engine("partykit")
+
+# Flux de travail avec les caractéristiques sélectionnées
+initial_flow_rfe <- workflow() %>%
+  add_recipe(rf_recipe_rfe) %>%
+  add_model(rf_spec)
+
+
+# In the REAL DEFINITIVE VERSION you should also tune the number of trees, or at least generate 150 of them.
+
+# tuned with 50 latin hypercube: mtry 4 1636 trees min_n 39
+
+
+
+
+# The argument finalize is key because tidymodels needs to look
+# at the data to figure out how many features there are.
+
+# We need to tell tidymodels which parameters need to be tuned. It can conveniently be done with this chunk of code
+
+# In this version we are not tuning the number of trees, but we could.
+# We tune mtry and min_n the number of obs in each terminal leaves (you don't want one leaf == 1 obs that's overfitting)
+# mtry is the number of features that are randomly selected at each split. It is a good idea to tune it because it can have a big impact on the performance of the model
+# Doing this is an argument if I have a lot of predictors/features. At each round, it is only a subsample of predictors that is used. 
+rf_para <- extract_parameter_set_dials(rf_spec) %>% # extract the tuning parameters
+  finalize(train_df) # here we have only 2 because we set trees to 100 not tune()
+# finalize(train): we need to know the maximum number of features we could fit because it has not looked at the data yet
+# it tells tidymodel that he can look at the data quickly to see how many features there are in the data
+
+set.seed(20) # for reproducibility
+
+# Set the tuning grid
+# The tuning grid is the set of values of the tuning parameters we seek to evaluate. The larger the better
+rf_grid <- grid_latin_hypercube(rf_para,  # we use a latin hypercube here. 
+                                size = 150, # 25 random combinations of mtry and min_n LOW! Increase in real life. There are good chances that the "true" combination is not in there
+                                variogram_range = 0.75, # explore the space of the hyperparameters
+                                original = TRUE)
+set.seed(30)
+cv_folds <- vfold_cv(train_df, v = 10, repeats = 5, strata = target) # stratified CV
+
+rf_metrics <- metric_set(accuracy) # classification task
+
+doParallel::registerDoParallel() # used parallel cores to run the computation
+
+# tune the model, with the cross validation method defined, the grid and the metrics you set
+rf_tune <- initial_flow_rfe %>%
+  tune_grid(cv_folds, grid = rf_grid, metrics = rf_metrics)
+
+
+# select the best parameters for the model the tuning found
+rf_best <- select_best(rf_tune)
+rf_best# Trees again with X features at each time and X obs at terminal leaves
+# 34 features, and 19 obs in terminal leaves
+
+# Update the model with the best parameters found
+rf_updated <- finalize_model(rf_spec,
+                             rf_best) 
+
+# add this to the initial workflow
+workflow_new <- initial_flow_rfe %>%
+  update_model(rf_updated)
+
+# Fit the model on the training set
+rf_fit_final <- workflow_new %>%
+  fit(data = train_df_filtered) # fit on the training set
+
+# Fit the model on the test set to evaluate performance
+# Performance on the test set
+rf_fit_final %>%
+  predict(test_df_filtered) %>%
+  bind_cols(test_df_filtered) %>%
+  metrics(truth = target, estimate = .pred_class)
+# the accuracy is great but the kappa not that much (average)
+# see if tuning the trees improve this in the future
+
+
+
+
+
+```
+
+# Hours Accessed
+
+```{r}
+pacman::p_load(tidymodels, caret, recipes, DALEXtra, ggplot2, forcats, doParallel)
+
+# 1. Prepare data — target is numeric now, not factor
+work_df_intensity <- MLDummified_I %>% 
+  filter(!is.na(ECSIntensity), ECSIntensity > 0) %>%
+  mutate(
+    target = as.numeric(ECSIntensity),   # regression target
+  ) %>% 
+  select(-c(ECSApp, ECSIntensity, EntryAgeBeforeOne, ECSApp))
+
+s <- skim(work_df_intensity)
+print(s, include_summary = FALSE)
+
+set.seed(4567)
+# strata on a numeric target is fine — initial_split bins it
+intensity_split <- initial_split(work_df_intensity, prop = 0.8, strata = target)
+train_df <- training(intensity_split)
+test_df  <- testing(intensity_split)
+
+# 2. Base recipe — identical preprocessing logic
+base_recipe <- recipe(target ~ ., data = train_df) %>%
+  step_unknown(AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_YeoJohnson(target) %>%                      # transform outcome explicitly
+ step_impute_knn(all_numeric_predictors(), neighbors = 5) %>% 
+  step_impute_knn(
+    Taux.de.couv.global,
+    NumberChildren,
+    PrescriptiveNorm,
+    neighbors = 5
+  ) %>% 
+  step_YeoJohnson(
+    MotherHealthIndex,
+    BabyHealthIndex,
+    NumberChildren, 
+    MonthlyDaycareFees,
+    PrescriptiveNorm
+  )
+
+# 3. RFE (regression version)
+rfe_results <- perform_rfe_reg(
+  train_df = train_df,
+  target_var = "target",
+  recipe_obj = base_recipe,
+  min_features = 5,
+  step_size = 5,
+  cv_folds = 10,
+  seed_val = 1451
+)
+
+print(rfe_results$rfe_results)
+cat("Selected features:", paste(rfe_results$cleaned_variables, collapse = ", "), "\n")
+plot(rfe_results$rfe_results, type = c("g", "o"))
+
+# 4. Optimized recipe (unchanged — preprocessing is mode-agnostic)
+unknown_vars   <- c("AttitudesTowardsWorkAndFamily", "AttitudesLaborAffectsChildren")
+impute_vars    <- c("Taux.de.couv.global", "NumberChildren", "PrescriptiveNorm")
+yeojohnson_vars <- c("MotherHealthIndex", "BabyHealthIndex", 
+                      "NumberChildren", "MonthlyDaycareFees", "PrescriptiveNorm")
+
+optimized_recipe <- create_optimized_recipe(
+  train_df_filtered = rfe_results$train_filtered,
+  target_var = "target",
+  unknown_vars = unknown_vars,
+  impute_vars = impute_vars,
+  yeojohnson_vars = yeojohnson_vars,
+  knn_neighbors = 5
+)
+
+# 5. Tune random forest (regression version)
+rf_tuned <- tune_random_forest_reg(
+  train_df_filtered = rfe_results$train_filtered,
+  test_df = test_df,
+  target_var = "target",
+  recipe_obj = optimized_recipe,
+  cv_folds = 10,
+  cv_repeats = 5,
+  var_range = 0.75,
+  grid_size = 150,
+  n_cores = NULL,
+  seed_val = 30,
+  engine = "partykit"
+)
+
+print(rf_tuned$best_params)
+print(rf_tuned$test_performance)
+
+# 6. SHAP values (function reused as-is)
+shap_results <- calculate_shapley_importance(
+  model_fit = rf_tuned$final_fit,
+  test_df = test_df %>% select(target, all_of(rfe_results$cleaned_variables)),
+  target_var = "target",
+  n_samples = 50,
+  seed_val = 1995
+)
+
+print(shap_results$average_shapley)
+print(shap_results$importance_plo
+
+
+
+```
+
+# Controls only (robustness)
+
+## Application
+
+```{r}
+
+# Load all necessary packages with p_load
+pacman::p_load(tidymodels, caret, recipes, DALEXtra, ggplot2, forcats, doParallel)
+
+# Load your dataset (replace with your actual data loading code)
+# data <- read_csv("your_data.csv")
+
+# 1. Prepare your data
+# Assuming data is already loaded and contains your variables
+
+
+# Cleaning the data
+work_df <- MLDummified_Controls %>% 
+  filter(!is.na(ECSApp)) %>% mutate(Application = ifelse(ECSApp == 1,"Yes", "No")) %>% 
+  mutate(target = factor(Application, labels = c("No", "Yes"))
+  ) %>% 
+ select(-c( ECSApp, ECSUseYes, Application))
+
+# Take a look at the data with skimr
+s <- skim(work_df)
+print(s, include_summary = FALSE)
+
+# Keep 20% of the observations for the test set.
+set.seed(9998)
+data_split <- initial_split(work_df, prop = 0.8, strata = target)
+train_df <- training(data_split)
+test_df <- testing(data_split)
+
+# 2. Define your base recipe with all relevant data transformations
+base_recipe <- recipe(target ~ ., data = train_df) %>%
+  step_unknown(EntryAgeBeforeOne,
+               AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm)
+
+# 3. Perform Recursive Feature Elimination (RFE)
+rfe_results <- perform_rfe(
+  train_df = train_df,
+  target_var = "target",
+  recipe_obj = base_recipe,
+  min_features = 5,
+  step_size = 5,
+  cv_folds = 10,
+  seed_val = 1451
+)
+
+# Print RFE results
+print(rfe_results$rfe_results)
+cat("Selected features:", paste(rfe_results$cleaned_variables, collapse = ", "), "\n")
+plot(rfe_results$rfe_results, type = c("g", "o") )
+
+# 4. Create an optimized recipe using only the selected features
+# Define variables that require special transformations
+unknown_vars <- c("EntryAgeBeforeOne", "AttitudesTowardsWorkAndFamily", "AttitudesLaborAffectsChildren")
+impute_vars <- c("AffordCostBaseline", "Taux.de.couv.global", "NumberChildren", "PrescriptiveNorm")
+yeojohnson_vars <- c("AffordCostBaseline", "MotherHealthIndex", "BabyHealthIndex", 
+                     "NumberChildren", "OpportunityCosts", "MonthlyDaycareFees", "PrescriptiveNorm")
+
+# Create the optimized recipe
+optimized_recipe <- create_optimized_recipe(
+  train_df_filtered = rfe_results$train_filtered,
+  target_var = "target",
+  unknown_vars = unknown_vars,
+  impute_vars = impute_vars,
+  yeojohnson_vars = yeojohnson_vars,
+  knn_neighbors = 5
+)
+
+# 5. Tune a random forest model with the optimized recipe
+rf_tuned <- tune_random_forest(
+  train_df_filtered = rfe_results$train_filtered,
+  test_df = test_df,
+  target_var = "target",
+  recipe_obj = optimized_recipe,
+  cv_folds = 10,
+  cv_repeats = 5,
+  var_range = 0.75,
+  grid_size = 150,  # Number of hyperparameter combinations to test
+  n_cores = NULL,   # Use all available cores
+  seed_val = 30,
+  engine = "partykit"
+)
+
+# Print tuning results
+print(rf_tuned$best_params)
+print(rf_tuned$test_performance)
+
+# 6. Calculate and visualize SHAP values for model interpretation
+shap_results <- calculate_shapley_importance(
+  model_fit = rf_tuned$final_fit,
+  test_df = test_df %>% select(target, all_of(rfe_results$cleaned_variables)),
+  target_var = "target",
+  n_samples = 50,
+  seed_val = 1995
+)
+
+# Display the average SHAP values (feature importance)
+print(shap_results$average_shapley)
+
+# Plot feature importance
+print(shap_results$importance_plot)
+```
+
+## Access
+
+```{r}
+
+
+# Load all necessary packages with p_load
+pacman::p_load(tidymodels, caret, recipes, DALEXtra, ggplot2, forcats, doParallel)
+
+# Load your dataset (replace with your actual data loading code)
+# data <- read_csv("your_data.csv")
+
+# 1. Prepare your data
+# Assuming data is already loaded and contains your variables
+
+
+work_df <- MLDummified_Controls %>% filter(!is.na(ECSUseYes)) %>%
+  mutate(Use = ifelse(ECSUseYes == 1,"Yes", "No"),
+         target = factor(Use, labels = c("No", "Yes")), 
+         Applied = ifelse(ECSApp == 1, "Yes", "No"), 
+         Applied = factor(Applied, labels = c("No", "Yes"))
+         ) %>% 
+ select(-c( ECSApp, ECSUseYes, Use))
+
+# Take a look at the data with skimr
+s <- skim(work_df)
+print(s, include_summary = FALSE)
+
+set.seed(4567)
+
+
+# Keep 20% of the observations for the test set.
+access_split <- initial_split(work_df, prop = 0.8, strata = target)
+train_df <- training(access_split)
+test_df <- testing(access_split)
+
+# 2. Define your base recipe with all relevant data transformations
+base_recipe <- recipe(target ~ ., data = train_df) %>%
+  step_unknown(EntryAgeBeforeOne,
+               AttitudesTowardsWorkAndFamily, 
+               AttitudesLaborAffectsChildren) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_impute_knn(
+                  Taux.de.couv.global,
+                  NumberChildren,
+                  PrescriptiveNorm,
+                  neighbors = 5) %>% 
+  step_YeoJohnson(
+                  MotherHealthIndex,
+                  BabyHealthIndex,
+                  NumberChildren, 
+                  OpportunityCosts,
+
+                  PrescriptiveNorm)
+
+# 3. Perform Recursive Feature Elimination (RFE)
+rfe_results <- perform_rfe(
+  train_df = train_df,
+  target_var = "target",
+  recipe_obj = base_recipe,
+  min_features = 5,
+  step_size = 5,
+  cv_folds = 10,
+  seed_val = 1451
+)
+
+# Print RFE results
+print(rfe_results$rfe_results)
+cat("Selected features:", paste(rfe_results$cleaned_variables, collapse = ", "), "\n")
+plot(rfe_results$rfe_results, type = c("g", "o") )
+
+# 4. Create an optimized recipe using only the selected features
+# Define variables that require special transformations
+unknown_vars <- c("EntryAgeBeforeOne", "AttitudesTowardsWorkAndFamily", "AttitudesLaborAffectsChildren")
+impute_vars <- c("AffordCostBaseline", "Taux.de.couv.global", "NumberChildren", "PrescriptiveNorm")
+yeojohnson_vars <- c("AffordCostBaseline", "MotherHealthIndex", "BabyHealthIndex", 
+                     "NumberChildren", "OpportunityCosts", "MonthlyDaycareFees", "PrescriptiveNorm")
+
+# Create the optimized recipe
+optimized_recipe <- create_optimized_recipe(
+  train_df_filtered = rfe_results$train_filtered,
+  target_var = "target",
+  unknown_vars = unknown_vars,
+  impute_vars = impute_vars,
+  yeojohnson_vars = yeojohnson_vars,
+  knn_neighbors = 5
+)
+
+# 5. Tune a random forest model with the optimized recipe
+rf_tuned <- tune_random_forest(
+  train_df_filtered = rfe_results$train_filtered,
+  test_df = test_df,
+  target_var = "target",
+  recipe_obj = optimized_recipe,
+  cv_folds = 10,
+  cv_repeats = 5,
+  var_range = 0.75,
+  grid_size = 150,  # Number of hyperparameter combinations to test
+  n_cores = NULL,   # Use all available cores
+  seed_val = 30,
+  engine = "partykit"
+)
+
+# Print tuning results
+print(rf_tuned$best_params)
+print(rf_tuned$test_performance)
+
+# 6. Calculate and visualize SHAP values for model interpretation
+shap_results <- calculate_shapley_importance(
+  model_fit = rf_tuned$final_fit,
+  test_df = test_df %>% select(target, all_of(rfe_results$cleaned_variables)),
+  target_var = "target",
+  n_samples = 50,
+  seed_val = 1995
+)
+
+# Display the average SHAP values (feature importance)
+print(shap_results$average_shapley)
+
+# Plot feature importance
+print(shap_results$importance_plot)
+```
+
+```{r}
+
+oaxaca_data <- Oaxaca %>%
+  filter(!is.na(ECSUseYes)) %>%
+  mutate(
+    target = as.numeric(ECSUseYes),
+    Educ_bin = as.numeric(Educ == "Sup"),
+    Applied = factor(ifelse(ECSApp == 1, "Yes", "No" )) )%>%   # Convert to binary: 1 for "Sup", 0 for "Bac"=) %>%
+  select(target, Educ_bin, all_of(rfe_results$cleaned_variables))    
+
+
+# Verify the conversion
+print("Distribution of education groups:")
+table(oaxaca_data$Educ_bin)
+
+# Create formula using clean_vars with proper oaxaca syntax
+formula_vars <- paste(rfe_results$cleaned_variables, collapse = " + ")
+formula_str <- paste("target ~ ", formula_vars, " | Educ_bin")
+oax_formula <- as.formula(formula_str)
+
+set.seed(124)
+p_load(oaxaca)
+ # Level of comprehension creates pb
+# Run Oaxaca-Blinder decomposition
+oax_decomp <- oaxaca(formula = oax_formula,
+                     data = oaxaca_data,
+                     R = 100)  # Number of bootstrap repetitions
+
+# résultats décomp agrégée
+round(oax_decomp$twofold$overall[, c(1,2,4)], 3)# 3 and 5 are SD
+
+
+
+plot(oax_decomp, decomposition = "twofold", group.weight = -2) # weighted 
+```

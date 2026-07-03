@@ -1,0 +1,159 @@
+---
+title: "Guide Functions"
+format: pdf
+editor: visual
+---
+
+# Implementation Guide for Feature Selection and Model Optimization Workflow
+
+I've created a set of modular functions that implement the three-step workflow:
+
+1.  **Feature selection using Recursive Feature Elimination (RFE)**
+
+2.  **Random forest model tuning with the selected features**
+
+3.  **Model interpretation using SHAP values**
+
+## Overview of the Functions
+
+### 1. `perform_rfe()`
+
+This function handles the Recursive Feature Elimination process:
+
+-   Takes a training data and preprocessing recipe
+
+-   Performs RFE with cross-validation to identify optimal features
+
+-   Cleans feature names from one-hot encoding suffixes (names are improper due to `step_dummy)`
+
+-   Returns filtered datasets with only the selected features, and an accuracy graph
+
+### 2. `create_optimized_recipe()`
+
+This function creates a recipe using only the selected features:
+
+-   Takes the filtered dataset from RFE
+
+-   Applies transformation steps conditionally based on which features were selected
+
+-   Maintains your original transformation methods (step_unknown, step_impute_knn, step_YeoJohnson, etc.)
+
+### 3. `tune_random_forest()`
+
+This function handles the hyperparameter tuning process:
+
+-   Takes the filtered dataset and optimized recipe created by 1. and 2.
+
+-   Creates a random forest specification with tunable parameters (mtry, trees, min_n)
+
+-   Performs hyperparameter tuning using Latin Hypercube sampling
+
+-   Returns the best model along with performance metrics
+
+### 4. `calculate_shapley_importance()`
+
+This function handles model interpretation:
+
+-   Calculates SHAP values for feature importance
+
+-   Creates a visualization of feature importance
+
+-   Returns the raw values and prepared visualization
+
+## How to Use the Functions
+
+1.  **Start by loading your data and creating the data split**:
+
+    ```         
+    data_split <- initial_split(data, prop = 0.8) 
+    train_df <- training(data_split) 
+    test_df <- testing(data_split) 
+    ```
+
+2.  **Define your base recipe** with all potential transformations:
+
+````         
+```         
+base_recipe <- recipe(target ~ ., data = train_df) %>%  
+  step_unknown(...) %>%   
+  step_dummy(...) %>% 
+  ... 
+```
+````
+
+3.  **Perform feature selection**:
+
+````         
+```         
+rfe_results <- perform_rfe( 
+train_df = train_df,   
+target_var = "target",  
+recipe_obj = base_recipe,   
+min_features = 5, 
+step_size = 5 ) 
+```
+````
+
+4.  **Create an optimized recipe** with the selected features:
+
+````         
+```         
+optimized_recipe <- create_optimized_recipe(   
+train_df_filtered = rfe_results$train_filtered, 
+target_var = "target",   
+unknown_vars = c(...),  
+impute_vars = c(...),  
+yeojohnson_vars = c(...)
+) 
+```
+````
+
+5.  **Tune your random forest model**:
+
+````         
+```         
+rf_tuned <- tune_random_forest(   
+train_df_filtered = rfe_results$train_filtered,  
+test_df = test_df,   
+target_var = "target",   
+recipe_obj = optimized_recipe 
+) 
+```
+````
+
+6.  **Calculate and visualize feature importance**:
+
+````         
+```         
+shap_results <- calculate_shapley_importance(   
+model_fit = rf_tuned$final_fit,   
+test_df = test_df %>%
+  select(
+    target, 
+    all_of(rfe_results$cleaned_variables)
+  ) 
+)  # View the plot print(shap_results$importance_plot) 
+```
+````
+
+## Customization Options
+
+-   **Feature Selection**: Adjust the `min_features` and `step_size` parameters to control how RFE explores the feature space.
+
+-   **Model Tuning**:
+
+    -   Change `grid_size` to explore more or fewer hyperparameter combinations
+
+    -   Adjust `cv_folds` and `cv_repeats` to control cross-validation intensity
+
+    -   Set `n_cores` to limit parallel processing resources
+
+-   **SHAP Analysis**:
+
+```         
+-   Modify `n_samples` to balance between accuracy and computation time
+
+-   Customize the visualization with additional ggplot2 elements
+
+-   
+```
