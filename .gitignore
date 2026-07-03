@@ -7,6 +7,5 @@ Data/*
 !Data/MainDB_analysis.csv
 Plots/
 Tables/
-images/
 *.docx
 *.html
